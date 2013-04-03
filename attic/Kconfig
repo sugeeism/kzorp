@@ -1,0 +1,64 @@
+menu "KZorp Configuration"
+# transparent proxy support
+
+config NETFILTER_TPROXY
+	tristate "Transparent proxying support"
+	depends on IP_NF_MANGLE
+	depends on NETFILTER_ADVANCED
+	help
+     Transparent filtering
+
+
+config NETFILTER_KZORP
+	depends on NETFILTER_ADVANCED
+	depends on NETFILTER_TPROXY
+	depends on NETFILTER_XTABLES
+	depends on NF_CONNTRACK_IPV4
+	depends on NF_CONNTRACK_IPV6
+	depends on NF_NAT
+  tristate "Netfilter KZorp support"
+  help
+         Netfilter KZorp core
+
+
+config NETFILTER_XT_TARGET_KZORP
+	tristate '"KZORP" target support'
+	depends on NETFILTER_KZORP
+	default m if NETFILTER_KZORP=m
+	help
+	  KZORP target makes the necessary decision by your policy 
+	  settings performs redirection, DAC decisions, and forwards services.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
+config NETFILTER_XT_MATCH_SERVICE
+	tristate "service match support"
+	depends on NETFILTER_KZORP
+	help
+	  This option adds a new iptables `service' match. The `service'
+	  match can be used to match packets based on KZorp services.
+
+	  If unsure, say `N'.
+
+config NETFILTER_XT_MATCH_ZONE
+	tristate "zone match support"
+	depends on NETFILTER_KZORP
+	help
+	  This option adds a new iptables `zone' match. The `zone' match
+	  can be used to match packets based on the KZorp zone structure.
+
+	  If unsure, say N.
+
+config NETFILTER_XT_MATCH_OSF
+	tristate '"osf" Passive OS fingerprint match'
+	depends on NETFILTER_ADVANCED && NETFILTER_NETLINK
+	help
+	  This option selects the Passive OS Fingerprinting match module
+	  that allows to passively match the remote operating system by
+	  analyzing incoming TCP SYN packets.
+
+	  Rules and loading software can be downloaded from
+	  http://www.ioremap.net/projects/osf
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+endmenu
