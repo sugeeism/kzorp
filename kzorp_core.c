@@ -387,7 +387,12 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 		u8 tproto = iph->nexthdr;
 
 		/* find transport header */
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) )
+		__be16 frag_offp;
+		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto, &frag_offp);
+#else
 		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
+#endif
 		if (unlikely(thoff < 0))
 			goto done;
 
@@ -1419,17 +1424,20 @@ static ctl_table kzorp_table[] = {
 	{ }
 };
 
+#if ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 5, 0) )
 static struct ctl_path kzorp_sysctl_path[] = {
 	{ .procname = "net", },
 	{ .procname = "netfilter", },
 	{ .procname = "kzorp", },
 	{ }
 };
+#endif
 
 static struct ctl_table_header * kzorp_sysctl_header;
 #endif /* CONFIG_SYSCTL */
 
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_KZORP_PROC_FS
+
 static unsigned int
 seq_print_counters(struct seq_file *s,
 		   const struct nf_conn *ct,
@@ -1441,9 +1449,10 @@ seq_print_counters(struct seq_file *s,
 	if (!acct)
 		return 0;
 
+#define counter2long(x) ((unsigned long long)x.counter)
 	return seq_printf(s, "packets=%llu bytes=%llu ",
-			  (unsigned long long)acct[dir].packets,
-			  (unsigned long long)acct[dir].bytes);
+			  counter2long(acct[dir].packets),
+			  counter2long(acct[dir].bytes));
 }
 
 struct kz_iter_state {
@@ -1579,7 +1588,6 @@ static int kz_seq_show(struct seq_file *s, void *v)
 
 	if (l4proto->print_conntrack && l4proto->print_conntrack(s, conntrack))
 		goto release;
-
 	if (print_tuple(s, &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
 			l3proto, l4proto))
 		goto release;
@@ -1641,7 +1649,7 @@ static const struct file_operations kz_file_ops = {
 	.llseek  = seq_lseek,
 	.release = seq_release_net,
 };
-#endif /* CONFIG_PROC_FS */
+#endif /* CONFIG_KZORP_PROC_FS */
 
 
 /***********************************************************
@@ -1732,7 +1740,7 @@ int __init kzorp_core_init(void)
 {
 	int res = -ENOMEM;
 	struct kz_instance *global;
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_KZORP_PROC_FS
 	struct proc_dir_entry *proc;
 #endif
 
@@ -1771,7 +1779,16 @@ int __init kzorp_core_init(void)
   }
 
 #ifdef CONFIG_SYSCTL
+//-       nf_ct_frag6_sysctl_header = register_sysctl_paths(nf_net_netfilter_sysctl_path,
+//-                                                         nf_ct_frag6_sysctl_table);
+//+       nf_ct_frag6_sysctl_header = register_net_sysctl(&init_net, "net/netfilter",
+//+                                                       nf_ct_frag6_sysctl_table);
+
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0) )
+	kzorp_sysctl_header = register_net_sysctl(&init_net,"net/netfilter/kzorp",kzorp_table);
+#else
 	kzorp_sysctl_header = register_sysctl_paths(kzorp_sysctl_path, kzorp_table);
+#endif
 	if (!kzorp_sysctl_header) {
 		printk(KERN_ERR "nf_kzorp: can't register to sysctl.\n");
 		res = -EINVAL;
@@ -1779,7 +1796,7 @@ int __init kzorp_core_init(void)
 	}
 #endif
 
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_KZORP_PROC_FS
 	proc = proc_net_fops_create(&init_net, "nf_kzorp", 0440, &kz_file_ops);
 	if (!proc) {
 		res = -EINVAL;
@@ -1801,11 +1818,14 @@ cleanup_sockopt:
 	kz_sockopt_cleanup();
 
 cleanup_proc:
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_KZORP_PROC_FS
 	proc_net_remove(&init_net, "nf_kzorp");
 #endif
 
+#ifdef CONFIG_KZORP_PROC_FS
 cleanup_sysctl:
+#endif
+
 #if CONFIG_SYSCTL
 	unregister_sysctl_table(kzorp_sysctl_header);
 #endif
@@ -1833,7 +1853,7 @@ static void __exit kzorp_core_fini(void)
 
 	kz_sockopt_cleanup();
 
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_KZORP_PROC_FS
 	proc_net_remove(&init_net, "nf_kzorp");
 #endif
 #ifdef CONFIG_SYSCTL

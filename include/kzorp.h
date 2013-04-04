@@ -17,6 +17,7 @@
 #include <linux/mutex.h>
 #include <linux/rcupdate.h>
 #include <linux/netfilter_ipv4.h>
+#include <linux/in.h>
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_conntrack_extend.h>
 #include "kzorp_netlink.h"
@@ -25,9 +26,56 @@
 #include <linux/netdevice.h>
 
 #include "kzorp_internal.h"
+#include <linux/version.h>
 
 #define KZ_MAJOR_VERSION  4
 #define KZ_COMPAT_VERSION 1
+
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) )
+	#ifdef CONFIG_NF_CONNTRACK_PROCFS
+		#define CONFIG_KZORP_PROC_FS CONFIG_NF_CONNTRACK_PROCFS
+	#endif
+	#define nf_nat_range nf_nat_ipv4_range
+	#define counter2long(x) ((unsigned long long)x.counter)
+	#define ipv6_addr_copy(x,y) ((*x) = (*y))
+	#define IP_NAT_RANGE_MAP_IPS NF_NAT_RANGE_MAP_IPS
+	#define IP_NAT_RANGE_PROTO_SPECIFIED NF_NAT_RANGE_PROTO_SPECIFIED
+	#define IP_NAT_MANIP_SRC NF_NAT_MANIP_SRC
+#else
+	#define counter2long(x) ((unsigned long long)x)
+	#ifdef CONFIG_KZORP_PROC_FS
+		#define CONFIG_KZORP_PROC_FS CONFIG_KZORP_PROC_FS
+	#endif
+#endif
+
+#ifndef NLA_PUT
+#define NLA_PUT(skb, attrtype, attrlen, data) \
+	do { \
+		if (unlikely(nla_put(skb, attrtype, attrlen, data) < 0)) \
+			goto nla_put_failure; \
+	} while(0)
+#define NLA_PUT_TYPE(skb, type, attrtype, value) \
+	do { \
+		type __tmp = value; \
+		NLA_PUT(skb, attrtype, sizeof(type), &__tmp); \
+	} while(0)
+
+#define NLA_PUT_U8(skb, attrtype, value) \
+	NLA_PUT_TYPE(skb, u8, attrtype, value)
+
+#define NLA_PUT_U16(skb, attrtype, value) \
+	NLA_PUT_TYPE(skb, u16, attrtype, value)
+
+#define NLA_PUT_LE16(skb, attrtype, value) \
+	NLA_PUT_TYPE(skb, __le16, attrtype, value)
+
+#define NLA_PUT_BE16(skb, attrtype, value) \
+	NLA_PUT_TYPE(skb, __be16, attrtype, value)
+
+#define NLA_PUT_BE32(skb, attrtype, value) \
+	NLA_PUT_TYPE(skb, __be32, attrtype, value)
+
+#endif // NLA_PUT
 
 enum KZ_ALLOC_TYPE
 {
@@ -95,13 +143,13 @@ struct kz_bind_lookup {
 	/*
 	 * The binds and binds_by_type look something like this:
 	 *
-	 *	 +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
-	 *	 |  Bind 1     |  Bind 2     |	...	   |  Bind X	 |  Bind X + 1 | ...	     |	Bind Y	   | ...	 |
-	 *	 |  (IPv4/TCP) |  (IPv4/TCP) |		   |  (IPv4/UDP) |  (IPv6/TCP) |	     |	(IPv6/UDP) |		 |
-	 *	 +-------------+-------------+-------------+------/------+-----/-------+-------------+------/------+-------------+
-	 *	       |                                  /-------     /-------		        /-----------
-	 *	       |                          /-------      /------		    /-----------
-	 *	       |                  /-------	/-------        /-----------
+	 *         +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+	 *         |  Bind 1     |  Bind 2     |        ...  |  Bind X     |  Bind X + 1 | ...         |  Bind Y     | ...         |
+	 *         |  (IPv4/TCP) |  (IPv4/TCP) |             |  (IPv4/UDP) |  (IPv6/TCP) |             |  (IPv6/UDP) |             |
+	 *         +-------------+-------------+-------------+------/------+-----/-------+-------------+------/------+-------------+
+	 *               |                                  /-------     /-------                  /-----------
+	 *               |                          /-------      /------               /-----------
+	 *               |                  /-------        /-------        /-----------
 	 *       +-----+-------+-------------+-------------+-------------+
 	 *       | IPv4/TCP    | IPv4/UDP    | IPv6/TCP    | IPv6/UDP    |
 	 *       +-------------+-------------+-------------+-------------+
@@ -209,7 +257,7 @@ struct kz_query {
 	u_int16_t src_port;
 	u_int16_t dst_port;
 	char ifname[IFNAMSIZ];
-        struct kz_reqids reqids;
+	struct kz_reqids reqids;
 	u_int8_t proto;
 };
 
