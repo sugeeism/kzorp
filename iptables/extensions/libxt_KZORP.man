@@ -1,0 +1,10 @@
+This target is only valid in the \fBmangle\fR table, in the \fBPREROUTING\fR,
+\fBFORWARD\fR, and \fBPOSTROUTING\fR chain and user-defined chains which are
+only called from this chain. It makes the necessary decision by your policy
+settings performs redirection, DAC decisions, and forwards services.
+It takes one option:
+.TP
+\fB\-\-tproxy\-mark\fP \fIvalue\fP[\fB/\fP\fImask\fP]
+Marks packets with the given value/mask. The fwmark value set here can be used
+by advanced routing. (Required for transparent proxying to work: otherwise
+these packets will get forwarded, which is probably not what you want.)

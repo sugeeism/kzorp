@@ -1,0 +1,16 @@
+This module matches a set of source or destination zones defined within
+kzorp.  Up to 31 zones can be specified.
+.TP
+.BR "\-\-source-zones " "\fIzone\fP[,\fIzone\fP[,\fIzone\fP...]]"
+Match if the source zone is one of the given zones.  The flag
+.B \-\-src-zones
+and
+.B \-\-szone
+are convenient aliases for this option.
+.TP
+.BR "\-\-destination-zones " "\fIzone\fP[,\fIzone\fP[,\fIzone\fP...]]"
+Match if the destination zone is one of the given zones.  The flag
+.B \-\-dst-zones
+and
+.B \-\-dzones
+are convenient aliases for this option.

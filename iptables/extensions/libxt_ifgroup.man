@@ -1,0 +1,35 @@
+Matches packets on an interface if it is in the same interface group
+as specified by the
+.B "--ifgroup-in"
+or
+.B "--ifgroup-in"
+parameter. If a mask is also specified, the masked value of
+the inteface's group must be equal to the given value of the
+.B "--ifgroup-in"
+or
+.B "--ifgroup-out"
+parameter to match. This match is available in all tables.
+.TP
+.BR "[!] --ifgroup-in \fIgroup[/mask]\fR"
+This specifies the interface group of input interface and the optional mask.
+Valid only in the in the
+.B PREROUTING
+and
+.B INPUT
+and
+.B FORWARD
+chains, and user-defined chains which are only called from those
+chains.
+.TP
+.BR "[!] --ifgroup-out \fIgroup[/mask]\fR"
+This specifies the interface group of out interface and the optional mask.
+Valid only in the in the
+.B FORWARD
+and
+.B OUTPUT
+and
+.B POSTROUTING
+chains, and user-defined chains which are only called from those
+chains.
+.RS
+.PP

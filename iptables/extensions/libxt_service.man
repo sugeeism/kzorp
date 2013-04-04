@@ -1,0 +1,13 @@
+This module matches services specified within kzorp. Services can be identified
+by name or by type.
+.TP
+.BR "\-\-service-name " "\fIservice_name\fP"
+Match if the service's name equals to \fIservice_name\fP or if the \fIservice_name\fP
+is "*" (wildcard name).
+.TP
+.BR "\-\-service-type " "\fImode\fP"
+Matches services with mode \fImode\fP. It can be either
+.B forward
+which is a forwarded session (or PFService), or
+.B proxy
+which belongs to a listening proxy on this machine.
