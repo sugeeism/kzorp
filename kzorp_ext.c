@@ -48,15 +48,19 @@ hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 			tuple->dst.protonum));
 }
 
+static spinlock_t kz_extension_lock ;
+
 static void
 kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 {
   int i;
 
+	spin_lock_bh(&kz_extension_lock);
   //printf("freeing %p\n",kz);
 	for(i=0;i<IP_CT_DIR_MAX;i++) {
   	hlist_nulls_del_rcu(&(kz->tuplehash[i].hnnode));
 	}
+	spin_unlock_bh(&kz_extension_lock);
 	kzfree(kz);
 }
 
@@ -102,9 +106,13 @@ kz_extension_create(struct nf_conn *ct)
   int i;
 	struct nf_conntrack_kzorp *kzorp;
 	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
+	if (unlikely(!kzorp)) {
+		return NULL;
+	}
 	//printf("kzorp=%p\n",kzorp);
 	memcpy(&(kzorp->tuplehash),&(ct->tuplehash),
 		IP_CT_DIR_MAX*sizeof(struct nf_conntrack_tuple_hash));
+	spin_lock_bh(&kz_extension_lock);
 	for(i=0;i<IP_CT_DIR_MAX;i++) {
     struct nf_conntrack_tuple_hash *th = &(kzorp->tuplehash[i]);
 		//printf("zone=%u\n",nf_ct_zone(ct));
@@ -112,6 +120,7 @@ kz_extension_create(struct nf_conn *ct)
 		//printf("bucket=%u, th = %p, hnnode = %p \n",bucket,th, &(th->hnnode));
   	hlist_nulls_add_head(&(th->hnnode),&kz_hash[bucket]);
 	}
+	spin_unlock_bh(&kz_extension_lock);
 	kzorp->timerfunc_save=ct->timeout.function;
 	ct->timeout.function = kz_extension_timer;
 	kzorp->ct_zone = nf_ct_zone(ct);
@@ -160,12 +169,14 @@ clean_hash(void)
 	int i;
   struct hlist_nulls_node *p;
 
+	spin_lock_bh(&kz_extension_lock);
 	for (i = 0; i < kz_hash_size; i++) {
 		while(!hlist_nulls_empty(&kz_hash[i])) {
 			p=kz_hash[i].first;
       kz_extension_dealloc_by_tuplehash(p);
 		}
 	}
+	spin_unlock_bh(&kz_extension_lock);
 	kzfree(kz_hash);
 }
 
