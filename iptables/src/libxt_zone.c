@@ -6,6 +6,7 @@
  * Author: KOVACS Krisztian <hidden@balabit.hu>,
  *         TOTH Laszlo Attila <panther@balabit.hu>
  */
+#include <ctype.h>
 #include <stdio.h>
 #include <netdb.h>
 #include <string.h>
