@@ -50,8 +50,6 @@ ifgroup_parse(int c, char **argv, int invert, unsigned int *flags,
 			xtables_error(PARAMETER_PROBLEM,
 			    "ifgroup match: Can't specify --ifgroup-in twice");
 
-		xtables_check_inverse(optarg, &invert, &optind, 0);
-
 		info->in_group = strtoul(optarg, &end, 0);
 		info->in_mask = IFGROUP_DEFAULT_MASK;
 
@@ -73,8 +71,6 @@ ifgroup_parse(int c, char **argv, int invert, unsigned int *flags,
 		if (*flags & F_MATCH_OUT)
 			xtables_error(PARAMETER_PROBLEM,
 			    "ifgroup match: Can't specify --ifgroup-out twice");
-
-		xtables_check_inverse(optarg, &invert, &optind, 0);
 
 		info->out_group = strtoul(optarg, &end, 0);
 		info->out_mask = IFGROUP_DEFAULT_MASK;
