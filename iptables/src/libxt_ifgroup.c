@@ -152,12 +152,12 @@ ifgroup_save(const void *ip, const struct xt_entry_match *match)
 		(struct xt_ifgroup_info *) match->data;
 
 	if (info->flags & XT_IFGROUP_MATCH_IN) {
-		printf("%s--ifgroup-in ",
+		printf(" %s--ifgroup-in ",
 		       info->flags & XT_IFGROUP_INVERT_IN ? "! " : "");
 		ifgroup_print_value_in(info);
 	}
 	if (info->flags & XT_IFGROUP_MATCH_OUT) {
-		printf("%s--ifgroup-out ",
+		printf(" %s--ifgroup-out ",
 		       info->flags & XT_IFGROUP_INVERT_OUT ? "! " : "");
 		ifgroup_print_value_out(info);
 	}
