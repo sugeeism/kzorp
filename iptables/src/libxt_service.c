@@ -121,9 +121,9 @@ service_save(const void *ip, const struct xt_entry_match *match)
 	struct ipt_service_info *info = (struct ipt_service_info *)match->data;
 
 	if (info->name_match != IPT_SERVICE_NAME_ANY)
-		printf("--service-name %s ", info->name);
+		printf(" --service-name %s ", info->name);
 	if (info->type != IPT_SERVICE_TYPE_ANY)
-		printf("--service-type %s ",
+		printf(" --service-type %s ",
 		       (info->type == IPT_SERVICE_TYPE_PROXY) ? "proxy "
 							      : "forward ");
 }
