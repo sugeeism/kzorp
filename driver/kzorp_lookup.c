@@ -969,7 +969,11 @@ enum KZORP_DIMENSIONS {
 #undef KZORP_DIM_ENUM
 };
 
-#define GENERATE_DIM(map, name) \
+#define GENERATE_DIM_COPY_IFNAME(dst, src) memcpy(dst, src, IFNAMSIZ)
+#define GENERATE_DIM_COPY_ZONE(dst, src) dst.index = src->index; dst.depth = src->depth;
+#define GENERATE_DIM_ASSIGN_VALUE(dst, src) dst = src
+
+#define GENERATE_DIM_WITH_COPY_FUNCTOR(map, name, copy_functor) \
 	do { \
 		if (!!rule->num_##name) { \
 			int i; \
@@ -977,10 +981,13 @@ enum KZORP_DIMENSIONS {
 			pos += LOOKUP_DATA_SIZE(name, rule->num_##name); \
 			map = map | (1 << KZORP_DIM_##name); \
 			d->num = rule->num_##name; \
-			for (i = 0; i < d->num; ++i) \
-				d->data[i] = rule->name[i]; \
+			for (i = 0; i < d->num; ++i) { \
+				copy_functor(d->data[i], rule->name[i]); \
+			} \
 		} \
 	} while (0);
+
+#define GENERATE_DIM(map, name) GENERATE_DIM_WITH_COPY_FUNCTOR(map, name, GENERATE_DIM_ASSIGN_VALUE)
 
 KZ_PROTECTED size_t
 kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * const rule)
@@ -1009,17 +1016,8 @@ kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const
 
 	GENERATE_DIM(map, reqid);
 
-	if (!!rule->num_ifname) {
-		int i;
-		ifname_dim_lookup_data *d = pos;
+	GENERATE_DIM_WITH_COPY_FUNCTOR(map, ifname, GENERATE_DIM_COPY_IFNAME);
 
-		map = map | (1 << KZORP_DIM_ifname);
-
-		pos += LOOKUP_DATA_SIZE(ifname, rule->num_ifname);
-		d->num = rule->num_ifname;
-		for (i = 0; i < d->num; ++i)
-			memcpy(d->data[i], rule->ifname[i], IFNAMSIZ);
-	}
 	GENERATE_DIM(map, ifgroup);
 	GENERATE_DIM(map, proto);
 
@@ -1028,44 +1026,14 @@ kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const
 	GENERATE_DIM(map, src_in_subnet);
 	GENERATE_DIM(map, src_in6_subnet);
 
-	if (!!rule->num_src_zone) {
-		int i;
-		src_zone_dim_lookup_data *d = pos;
-		pos += LOOKUP_DATA_SIZE(src_zone, rule->num_src_zone);
-		map = map | (1 << KZORP_DIM_src_zone);
-		d->num = rule->num_src_zone;
-		for (i = 0; i < d->num; ++i)
-		{
-			d->data[i].index = rule->src_zone[i]->index;
-			d->data[i].depth = rule->src_zone[i]->depth;
-		}
-	}
+	GENERATE_DIM_WITH_COPY_FUNCTOR(map, src_zone, GENERATE_DIM_COPY_ZONE);
 
 	GENERATE_DIM(map, dst_in_subnet);
 	GENERATE_DIM(map, dst_in6_subnet);
 
-	if (!!rule->num_dst_zone) {
-		int i;
-		dst_zone_dim_lookup_data *d = pos;
-		pos += LOOKUP_DATA_SIZE(dst_zone, rule->num_dst_zone);
-		map = map | (1 << KZORP_DIM_dst_zone);
-		d->num = rule->num_dst_zone;
-		for (i = 0; i < d->num; ++i)
-		{
-			d->data[i].index = rule->dst_zone[i]->index;
-			d->data[i].depth = rule->dst_zone[i]->depth;
-		}
-	}
+	GENERATE_DIM_WITH_COPY_FUNCTOR(map, dst_zone, GENERATE_DIM_COPY_ZONE);
 
-	if (!!rule->num_dst_ifname) {
-		int i;
-		ifname_dim_lookup_data *d = pos;
-		pos += LOOKUP_DATA_SIZE(ifname, rule->num_dst_ifname);
-		map = map | (1 << KZORP_DIM_dst_ifname);
-		d->num = rule->num_dst_ifname;
-		for (i = 0; i < d->num; ++i)
-			memcpy(d->data[i], rule->dst_ifname[i], IFNAMSIZ);
-	}
+	GENERATE_DIM_WITH_COPY_FUNCTOR(map, dst_ifname, GENERATE_DIM_COPY_IFNAME);
 
 	GENERATE_DIM(map, dst_ifgroup);
 
