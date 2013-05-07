@@ -987,7 +987,12 @@ enum KZORP_DIMENSIONS {
 		} \
 	} while (0);
 
-#define GENERATE_DIM(map, name) GENERATE_DIM_WITH_COPY_FUNCTOR(map, name, GENERATE_DIM_ASSIGN_VALUE)
+#define generate_dim_value(map, name) GENERATE_DIM_WITH_COPY_FUNCTOR(map, name, GENERATE_DIM_ASSIGN_VALUE)
+#define generate_dim_ifname(map, name) GENERATE_DIM_WITH_COPY_FUNCTOR(map, name, GENERATE_DIM_COPY_IFNAME)
+#define generate_dim_string(map, name) GENERATE_DIM_WITH_COPY_FUNCTOR(map, name, GENERATE_DIM_COPY_ZONE)
+#define generate_dim_in_subnet generate_dim_value
+#define generate_dim_in6_subnet generate_dim_value
+#define generate_dim_portrange generate_dim_value
 
 KZ_PROTECTED size_t
 kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * const rule)
@@ -1014,28 +1019,12 @@ kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const
 	pos += sizeof(struct kz_rule_lookup_data);
 	current_rule->orig = rule;
 
-	GENERATE_DIM(map, reqid);
+#define CALL_kz_generate_lookup_rule_dim(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+	generate_dim_##NL_TYPE(map, DIM_NAME)
 
-	GENERATE_DIM_WITH_COPY_FUNCTOR(map, ifname, GENERATE_DIM_COPY_IFNAME);
+	KZORP_DIM_LIST(CALL_kz_generate_lookup_rule_dim, ;);
 
-	GENERATE_DIM(map, ifgroup);
-	GENERATE_DIM(map, proto);
-
-	GENERATE_DIM(map, src_port);
-	GENERATE_DIM(map, dst_port);
-	GENERATE_DIM(map, src_in_subnet);
-	GENERATE_DIM(map, src_in6_subnet);
-
-	GENERATE_DIM_WITH_COPY_FUNCTOR(map, src_zone, GENERATE_DIM_COPY_ZONE);
-
-	GENERATE_DIM(map, dst_in_subnet);
-	GENERATE_DIM(map, dst_in6_subnet);
-
-	GENERATE_DIM_WITH_COPY_FUNCTOR(map, dst_zone, GENERATE_DIM_COPY_ZONE);
-
-	GENERATE_DIM_WITH_COPY_FUNCTOR(map, dst_ifname, GENERATE_DIM_COPY_IFNAME);
-
-	GENERATE_DIM(map, dst_ifgroup);
+#undef CALL_kz_generate_lookup_rule_dim
 
 	pos = (void*)PAD((int64_t)pos, 8);
 	current_rule->dimension_map = map;
