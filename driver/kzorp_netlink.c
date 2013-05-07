@@ -2327,48 +2327,14 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 			continue;
 
 		switch (attr_type) {
-		case KZNL_ATTR_N_DIMENSION_IFACE:
-			rule.alloc_ifname = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
+#define GENERATE_case_n_dimension_rule_alloc_value_set(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+		case KZNL_ATTR_N_DIMENSION_##NL_ATTR_NAME: \
+			rule.alloc_##DIM_NAME = ntohl(*(__be32 *) nla_data(info->attrs[attr_type])); \
 			break;
-		case KZNL_ATTR_N_DIMENSION_IFGROUP:
-			rule.alloc_ifgroup = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_PROTO:
-			rule.alloc_proto = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_SRC_PORT:
-			rule.alloc_src_port = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_DST_PORT:
-			rule.alloc_dst_port = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_SRC_IP:
-			rule.alloc_src_in_subnet = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_SRC_ZONE:
-			rule.alloc_src_zone = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_DST_IP:
-			rule.alloc_dst_in_subnet = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_DST_ZONE:
-			rule.alloc_dst_zone = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_SRC_IP6:
-			rule.alloc_src_in6_subnet = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_DST_IP6:
-			rule.alloc_dst_in6_subnet = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_DST_IFACE:
-			rule.alloc_dst_ifname = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_DST_IFGROUP:
-			rule.alloc_dst_ifgroup = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
-		case KZNL_ATTR_N_DIMENSION_REQID:
-			rule.alloc_reqid = ntohl(*(__be32 *) nla_data(info->attrs[attr_type]));
-			break;
+
+		KZORP_DIM_LIST(GENERATE_case_n_dimension_rule_alloc_value_set, ;);
+
+#undef GENERATE_case_n_dimension_rule_alloc_value_set
 
 		case KZNL_ATTR_DISPATCHER_NAME:
 		case KZNL_ATTR_N_DIMENSION_RULE_ID:
