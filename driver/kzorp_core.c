@@ -1045,20 +1045,12 @@ kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
 	rule->service = kz_service_get(service);
 	rule->dispatcher = d;
 
-	kz_alloc_rule_dimension(src_in_subnet, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(dst_in_subnet, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(src_in6_subnet, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(dst_in6_subnet, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(ifname, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(ifgroup, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(src_port, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(dst_port, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(src_zone, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(dst_zone, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(proto, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(dst_ifname, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(dst_ifgroup, rule, rule_params, error_free_dimensions);
-	kz_alloc_rule_dimension(reqid, rule, rule_params, error_free_dimensions);
+#define CALL_kz_alloc_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+	kz_alloc_rule_dimension(DIM_NAME, rule, rule_params, error_free_dimensions)
+
+	KZORP_DIM_LIST(CALL_kz_alloc_rule_dimension, ;);
+
+#undef CALL_kz_alloc_rule_dimension
 
 	d->num_rule++;
 
@@ -1071,7 +1063,7 @@ error:
 	return res;
 }
 
-#define kz_dispatcher_append_rule_entry(entry_name)			\
+#define kz_dispatcher_append_rule_entry_value(entry_name)		\
 	if (rule_entry_params->has_##entry_name) {			\
 		if (rule->num_##entry_name + 1 > rule->alloc_##entry_name) { \
 			kz_err("each " #entry_name " has already been added to the rule; alloc_" #entry_name "='%d'", \
@@ -1106,6 +1098,11 @@ error:
 		rule->entry_name[rule->num_##entry_name].mask = rule_entry_params->entry_name.mask; \
 	}
 
+#define kz_dispatcher_append_rule_entry_in_subnet(entry_name)		\
+	kz_dispatcher_append_rule_entry_subnet(entry_name)
+#define kz_dispatcher_append_rule_entry_in6_subnet(entry_name)		\
+	kz_dispatcher_append_rule_entry_subnet(entry_name)
+
 #define kz_dispatcher_append_rule_entry_ifname(entry_name) \
 	if (rule_entry_params->has_##entry_name) { \
 		if (rule->num_##entry_name + 1 > rule->alloc_##entry_name) { \
@@ -1117,6 +1114,8 @@ error:
 		memcpy(rule->entry_name[rule->num_##entry_name], rule_entry_params->entry_name, IFNAMSIZ); \
 	}
 
+#define kz_dispatcher_append_rule_entry_string(entry_name)		\
+	kz_dispatcher_append_rule_entry_value(entry_name)
 
 #define kz_dispatcher_inc_rule_entry_num(entry_name) \
 	if (rule_entry_params->has_##entry_name) { \
@@ -1130,20 +1129,12 @@ kz_dispatcher_add_rule_entry(struct kz_dispatcher_n_dimension_rule *rule,
 	int res = 0;
 	struct kz_zone *zone;
 
-	kz_dispatcher_append_rule_entry_ifname(ifname);
-	kz_dispatcher_append_rule_entry(ifgroup);
-	kz_dispatcher_append_rule_entry_subnet(src_in_subnet);
-	kz_dispatcher_append_rule_entry_subnet(dst_in_subnet);
-	kz_dispatcher_append_rule_entry_subnet(src_in6_subnet);
-	kz_dispatcher_append_rule_entry_subnet(dst_in6_subnet);
-	kz_dispatcher_append_rule_entry_portrange(src_port);
-	kz_dispatcher_append_rule_entry_portrange(dst_port);
-	kz_dispatcher_append_rule_entry(src_zone);
-	kz_dispatcher_append_rule_entry(dst_zone);
-	kz_dispatcher_append_rule_entry(proto);
-	kz_dispatcher_append_rule_entry_ifname(dst_ifname);
-	kz_dispatcher_append_rule_entry(dst_ifgroup);
-	kz_dispatcher_append_rule_entry(reqid);
+#define CALL_kz_dispatcher_append_rule_entry(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+	kz_dispatcher_append_rule_entry_##NL_TYPE(DIM_NAME)
+
+	KZORP_DIM_LIST(CALL_kz_dispatcher_append_rule_entry, ;);
+
+#undef CALL_kz_dispatcher_append_rule_entry
 
 	// no error has occured
 	if (rule_entry_params->has_src_zone) {
@@ -1158,20 +1149,13 @@ kz_dispatcher_add_rule_entry(struct kz_dispatcher_n_dimension_rule *rule,
 			kz_zone_get(zone);
 	}
 
-	kz_dispatcher_inc_rule_entry_num(ifname);
-	kz_dispatcher_inc_rule_entry_num(ifgroup);
-	kz_dispatcher_inc_rule_entry_num(src_in_subnet);
-	kz_dispatcher_inc_rule_entry_num(dst_in_subnet);
-	kz_dispatcher_inc_rule_entry_num(src_in6_subnet);
-	kz_dispatcher_inc_rule_entry_num(dst_in6_subnet);
-	kz_dispatcher_inc_rule_entry_num(src_port);
-	kz_dispatcher_inc_rule_entry_num(dst_port);
-	kz_dispatcher_inc_rule_entry_num(src_zone);
-	kz_dispatcher_inc_rule_entry_num(dst_zone);
-	kz_dispatcher_inc_rule_entry_num(proto);
-	kz_dispatcher_inc_rule_entry_num(dst_ifname);
-	kz_dispatcher_inc_rule_entry_num(dst_ifgroup);
-	kz_dispatcher_inc_rule_entry_num(reqid);
+#define CALL_kz_dispatcher_inc_rule_entry_num(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+	kz_dispatcher_inc_rule_entry_num(DIM_NAME)
+
+	KZORP_DIM_LIST(CALL_kz_dispatcher_inc_rule_entry_num, ;);
+
+#undef CALL_kz_dispatcher_inc_rule_entry_num
+
 error:
 	return res;
 }
@@ -1226,35 +1210,19 @@ kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
 	dst->service = kz_service_get(src->service);
 	dst->dispatcher = NULL;
 
-	kz_alloc_rule_dimension(src_in_subnet, dst, src, error);
-	kz_alloc_rule_dimension(dst_in_subnet, dst, src, error);
-	kz_alloc_rule_dimension(src_in6_subnet, dst, src, error);
-	kz_alloc_rule_dimension(dst_in6_subnet, dst, src, error);
-	kz_alloc_rule_dimension(ifname, dst, src, error);
-	kz_alloc_rule_dimension(ifgroup, dst, src, error);
-	kz_alloc_rule_dimension(src_port, dst, src, error);
-	kz_alloc_rule_dimension(dst_port, dst, src, error);
-	kz_alloc_rule_dimension(src_zone, dst, src, error);
-	kz_alloc_rule_dimension(dst_zone, dst, src, error);
-	kz_alloc_rule_dimension(proto, dst, src, error);
-	kz_alloc_rule_dimension(dst_ifname, dst, src, error);
-	kz_alloc_rule_dimension(dst_ifgroup, dst, src, error);
-	kz_alloc_rule_dimension(reqid, dst, src, error);
+#define CALL_kz_alloc_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+	kz_alloc_rule_dimension(DIM_NAME, dst, src, error)
 
-	kz_clone_rule_dimension(src_in_subnet, dst, src);
-	kz_clone_rule_dimension(dst_in_subnet, dst, src);
-	kz_clone_rule_dimension(src_in6_subnet, dst, src);
-	kz_clone_rule_dimension(dst_in6_subnet, dst, src);
-	kz_clone_rule_dimension(ifname, dst, src);
-	kz_clone_rule_dimension(ifgroup, dst, src);
-	kz_clone_rule_dimension(src_port, dst, src);
-	kz_clone_rule_dimension(dst_port, dst, src);
-	kz_clone_rule_dimension(src_zone, dst, src);
-	kz_clone_rule_dimension(dst_zone, dst, src);
-	kz_clone_rule_dimension(proto, dst, src);
-	kz_clone_rule_dimension(dst_ifname, dst, src);
-	kz_clone_rule_dimension(dst_ifgroup, dst, src);
-	kz_clone_rule_dimension(reqid, dst, src);
+	KZORP_DIM_LIST(CALL_kz_alloc_rule_dimension, ;);
+
+#undef CALL_kz_alloc_rule_dimension
+
+#define CALL_kz_clone_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+	kz_clone_rule_dimension(DIM_NAME, dst, src)
+
+	KZORP_DIM_LIST(CALL_kz_clone_rule_dimension, ;);
+
+#undef CALL_kz_clone_rule_dimension
 
 	for (i = 0; i < dst->num_src_zone; i++)
 		dst->src_zone[i] = kz_zone_get(dst->src_zone[i]);
