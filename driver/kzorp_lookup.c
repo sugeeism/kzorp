@@ -1210,9 +1210,9 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 		u_int32_t *data_dst_ifgroup;
 		RULE_FETCH_DIM(dst_in_subnet);
 		RULE_FETCH_DIM(dst_in6_subnet);
-		RULE_FETCH_DIM(dst_zone);
 		RULE_FETCH_DIM(dst_ifname);
 		RULE_FETCH_DIM(dst_ifgroup);
+		RULE_FETCH_DIM(dst_zone);
 
 		dim_res = kz_ndim_eval_rule_dst(num_dst_in_subnet, data_dst_in_subnet,
 						 num_dst_in6_subnet, data_dst_in6_subnet,
