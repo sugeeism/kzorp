@@ -4,6 +4,8 @@ all: iptables-module-make
 
 install: kernel-module-install python-module-install iptables-module-install
 
+clean: iptables-module-clean
+
 iptables-module-make:
 	(cd iptables && libtoolize -f --copy)
 	(cd iptables && aclocal)
@@ -24,3 +26,6 @@ python-module-install:
 
 iptables-module-install:
 	(cd iptables && make install DESTDIR=$(DESTDIR))
+
+iptables-module-clean:
+	(cd iptables && [ ! -f Makefile ] || $(MAKE) distclean)
