@@ -1,6 +1,17 @@
 # This is a teporaly Makefile untill autoconfigured this module
 
-all: kernel-module-install python-module-install iptables-module-install
+all: iptables-module-make
+
+install: kernel-module-install python-module-install iptables-module-install
+
+iptables-module-make:
+	(cd iptables && libtoolize -f --copy)
+	(cd iptables && aclocal)
+	(cd iptables && autoheader)
+	(cd iptables && automake --add-missing --force-missing --copy --foreign)
+	(cd iptables && autoconf)
+	(cd iptables && ./configure)
+	(cd iptables && make)
 
 kernel-module-install:
 	install -m 0755 -d $(DESTDIR)/usr/src/kzorp-3.2
@@ -12,11 +23,4 @@ python-module-install:
 	done;
 
 iptables-module-install:
-	(cd iptables && libtoolize -f --copy)
-	(cd iptables && aclocal)
-	(cd iptables && autoheader)
-	(cd iptables && automake --add-missing --force-missing --copy --foreign)
-	(cd iptables && autoconf)
-	(cd iptables && ./configure)
-	(cd iptables && make)
 	(cd iptables && make install DESTDIR=$(DESTDIR))
