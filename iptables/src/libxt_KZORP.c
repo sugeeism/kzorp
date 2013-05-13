@@ -77,7 +77,7 @@ static void kzorp_tg_save(const void *ip, const struct xt_entry_target *target)
 {
 	const struct xt_kzorp_target_info *info = (const void *)target->data;
 
-	printf("--tproxy-mark 0x%x/0x%x ",
+	printf(" --tproxy-mark 0x%x/0x%x ",
 	       (unsigned int)info->mark_value, (unsigned int)info->mark_mask);
 }
 
