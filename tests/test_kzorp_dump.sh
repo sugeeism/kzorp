@@ -1,14 +1,15 @@
 #!/bin/sh
 
-set -e
+set -xe
 
 KZORP=/usr/sbin/kzorp
-ZORP=/usr/lib/zorp/zorp
+ZORP=/lib/zorp/zorp
 
-if [ $USER != "root" ]; then
-  echo "ERROR: You need to be root to run this script"
-  exit 1
-fi
+#does not work in intrd
+#if [ $USER != "root" ]; then
+#  echo "ERROR: You need to be root to run this script"
+#  exit 1
+#fi
 
 if [ ! -f kzorp.expected ]; then
   echo "ERROR: No file kzorp.expected"

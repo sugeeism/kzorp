@@ -7,17 +7,9 @@ from  Zorp.Proxy import  *
 from  Zorp.Plug import  *
 
 """Fallback zone"""
-InetZone('internet', ['0.0.0.0/0'],
-    inbound_services=['*',
-        "service", "pfservice"],
-    outbound_services=['*',
-        "service", "pfservice"])
+InetZone('internet', ['0.0.0.0/0'])
 
-InetZone('enternet', ['1.2.3.4/16'],
-    inbound_services=[
-        "service", "pfservice"],
-    outbound_services=[
-        "service", "pfservice"])
+InetZone('enternet', ['1.2.3.4/16'])
 
 
 def plug() :

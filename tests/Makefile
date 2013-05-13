@@ -54,7 +54,7 @@ test_kzorp_lookup: rand-lfsr258.o perf_measure.o
 	bash -c 'PD=$${PWD%/*/*}/kernel ; cp $${PD/\/work\//\/build\/}/$@ ./'
 
 test_clean:
-	rm -rf *.o test_ipv6_radix test_ndim_eval test_kzorp_lookup include/config/ source test_ext testimgs
+	rm -rf *.o test_ipv6_radix test_ndim_eval test_kzorp_lookup include/config/ source test_ext testimgs pytests/KZorpBaseTestCaseBind.pyc pytests/KZorpBaseTestCaseDispatchers.pyc pytests/KZorpBaseTestCaseQuery.pyc pytests/KZorpBaseTestCaseZones.pyc pytests/KZorpComm.pyc pytests/KZorpTestCaseDispatchers.pyc pytests/KZorpTestCaseQueryNDim.pyc pytests/KZorpTestCaseServices.pyc pytests/KZorpTestCaseTransaction.pyc pytests/KZorpTestCaseZones.pyc pytests/testutil.pyc
 
 test_ndim_eval: test_ndim_eval.c test.h test_mocks.c kzorp_lookup.o sort.o
 	$(CC) -Wall $(filter %.c %.o, $^) -o $@ $(CFLAGS) $(shell pkg-config glib-2.0 --libs --cflags)

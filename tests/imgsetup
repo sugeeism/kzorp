@@ -18,6 +18,8 @@ mkdir -p $DKMSDIR
 cp $SRCDIR/../*.ko $DKMSDIR
 depmod -a -b $tmpdir/initrd -F /boot/System.map-$KVERS $KVERS
 cp $SRCDIR/initrd/* conf
+mkdir tests
+cp $SRCDIR/* tests
 cd $DESTDIR ;dpkg -L libc6 iptables |egrep -v "^$" |cpio --unconditional --quiet -p .
 copy_exec /usr/sbin/mz
 copy_exec /sbin/ip

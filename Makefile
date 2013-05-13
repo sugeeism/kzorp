@@ -13,7 +13,9 @@ xt_KZORP.ko:
 	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
 
 clean:
-	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) clean && $(MAKE) -C tests theclean
+	rm -f pylib/kzorp/kzorp/__init__.pyc pylib/kzorp/kzorp/kzorp_netlink.pyc pylib/kzorp/kzorp/netlink.pyc &&\
+  $(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) clean &&\
+  $(MAKE) -C tests theclean
 
 testing: tests/kzorp_ext.o
 
