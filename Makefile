@@ -1,27 +1,31 @@
-kzorp-objs := kzorp_core.o kzorp_lookup.o kzorp_sockopt.o kzorp_netlink.o kzorp_ext.o
-obj-m := kzorp.o
-obj-m += xt_KZORP.o
-obj-m += xt_service.o
-obj-m += xt_zone.o
+# This is a teporaly Makefile untill autoconfigured this module
 
-all: tests/kzorp_ext.o xt_KZORP.ko
-	echo "done"
+all: iptables-module-make
 
-notest: xt_KZORP.ko
+install: kernel-module-install python-module-install iptables-module-install
 
-xt_KZORP.ko:
-	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
+clean: iptables-module-clean
 
-clean:
-	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) clean && $(MAKE) -C tests theclean
+iptables-module-make:
+	(cd iptables && libtoolize -f --copy)
+	(cd iptables && aclocal)
+	(cd iptables && autoheader)
+	(cd iptables && automake --add-missing --force-missing --copy --foreign)
+	(cd iptables && autoconf)
+	(cd iptables && ./configure)
+	(cd iptables && make)
 
-testing: tests/kzorp_ext.o
+kernel-module-install:
+	install -m 0755 -d $(DESTDIR)/usr/src/kzorp-3.2
+	cp -a kernel-module/* $(DESTDIR)/usr/src/kzorp-3.2
 
-tests/kzorp_ext.o:
-	$(MAKE) -C tests KVERSION=$(KVERSION) 
+python-module-install:
+	for pversion in `pyversions -vi`; do \
+		(cd pylib/kzorp && python$$pversion setup.py install --prefix $(DESTDIR)/usr --install-layout=deb); \
+	done;
 
-imgtest: tests/kzorp_ext.o xt_KZORP.ko
-	$(MAKE) -C tests KVERSION=$(KVERSION) img_test
+iptables-module-install:
+	(cd iptables && make install DESTDIR=$(DESTDIR))
 
-imgrun: tests/kzorp_ext.o xt_KZORP.ko
-	$(MAKE) -C tests KVERSION=$(KVERSION) img_run
+iptables-module-clean:
+	(cd iptables && [ ! -f Makefile ] || $(MAKE) distclean)
