@@ -1,9 +1,4 @@
-It is the kzorp kernel module.
-It is dkms compliant.
-Beyond the normal dependencies, you will need libglib2.0-dev for the test cases.
-
-compiling by hand: 
-
-make KERNELRELEASE=<kernel version> all KVERSION=<kernel version>
-
-
+This repository contains all you need to have a functioning kzorp:
+ - the kernel module
+ - the iptables userspace - to manipulate iptables rules
+ - the python userspace - to manipulate zones, services, etc
