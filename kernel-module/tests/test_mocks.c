@@ -16,8 +16,19 @@ int nr_cpu_ids = 0;
 
 // linux/slub_def.h:
 void *__kmalloc(size_t size, gfp_t flags) { MUST_NOT_CALL; return 0; }
+#ifndef SLUB_PAGE_SHIFT
+ #define SLUB_PAGE_SHIFT 128
+
+struct cache_sizes malloc_sizes[1];
+#endif
 struct kmem_cache *kmalloc_caches[SLUB_PAGE_SHIFT] = {};
-void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size) { MUST_NOT_CALL; return 0; }
+#ifdef _LINUX_SLUB_DEF_H
+void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size) { MUST_NOT_CALL; return 0; };
+#endif
+#ifdef _LINUX_SLAB_DEF_H
+void *kmem_cache_alloc_trace(size_t size, struct kmem_cache *cachep, gfp_t flags) { MUST_NOT_CALL; return 0; };
+#endif
+
 
 // arch/x86/include/asm/percpu.h:
 unsigned long this_cpu_off = 0;

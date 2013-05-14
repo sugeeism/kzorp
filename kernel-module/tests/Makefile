@@ -1,5 +1,9 @@
+
+KVERSION ?= $(shell uname -r)
+KERNELRELEASE ?= $(KVERSION)
+
 srctree = /lib/modules/$(KVERSION)/build
-KBUILD_SRC = $(srctree)
+commontree = /lib/modules/$(KVERSION)/source
 
 kzorp_tests: test_check perf
 	echo done
@@ -15,15 +19,35 @@ perf: test_kzorp_lookup
 theclean: test_clean realclean
 	echo cleaned
 
-include $(srctree)/Makefile
+ifeq ($(wildcard $(commontree)),) 
+  KBUILD_SRC = $(srctree)
+  include $(srctree)/Makefile
+else
+  KBUILD_SRC = $(commontree)
+  include $(commontree)/Makefile
+  srctree = /lib/modules/$(KVERSION)/build
+  DEPENDENT_FLAGS = -I $(commontree)/include -I $(commontree)/arch/$(hdr-arch)/include
+endif
+#$(foreach v, $(.VARIABLES), $(info $(v) = $($(v))))
+
 
 realclean:
 	rm -rf arch scripts include arch kernel
 
+ifeq ($(hdr-arch),)
+  $(foreach v, $(.VARIABLES), $(info $(v) = $($(v))))
+endif
 # Test kzorp module:
 FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement
 CFLAGS = $(FLAGS) -D__KERNEL__ -DKBUILD_MODNAME=\"\" -O2 -fno-strict-aliasing -pipe -g -Wno-pointer-sign
-CFLAGS += -I ../include -I$(srctree)/include -I$(srctree)/arch/$(hdr-arch)/include -I$(srctree)/arch/$(hdr-arch)/include/generated -include $(srctree)/include/linux/kconfig.h -I include
+CFLAGS += $(DEPENDENT_FLAGS)
+ifeq ($(wildcard $(srctree)/include/linux/kconfig.h),) 
+  CFLAGS += -include $(commontree)/include/linux/kconfig.h
+else 
+  CFLAGS += -include $(srctree)/include/linux/kconfig.h
+endif
+CFLAGS += -I ../include -I$(srctree)/include -I$(srctree)/arch/$(hdr-arch)/include -I$(srctree)/arch/$(hdr-arch)/include/generated
+CFLAGS += -I include
 KBUILD_CFLAGS += $(FLAGS)
 
 perf_measure.o: CFLAGS = -O2 -pipe -g
