@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+set -e
 KVERS=$1
 #ZORPROOT=~/zwa/install/zorp-3.5
 #KVERS=3.5.0-26-generic
@@ -23,7 +23,8 @@ sudo chmod a+r /boot/System.map-$KVERS
 depmod -a -b $tmpdir/initrd -F /boot/System.map-$KVERS $KVERS
 cp $SRCDIR/initrd/* conf
 cd $DESTDIR ;dpkg -L libc6 iptables |egrep -v "^$" |cpio --unconditional --quiet -p .
-set +x
+rm lib/xtables/libxt_ifgroup.so lib/xtables/libxt_KZORP.so lib/xtables/libxt_service.so lib/xtables/libxt_zone.so
+cp $packagedir/iptables/src/.libs/*.so lib/xtables/
 copy_exec /usr/sbin/mz
 copy_exec /sbin/ip
 copy_exec /bin/nc
@@ -32,7 +33,6 @@ copy_exec /usr/bin/python2.7
 copy_exec /usr/bin/lsof
 copy_exec /usr/bin/env
 copy_exec /bin/chown
-set -x
 dpkg -L python-openssl coreutils python-minimal iptables python-support python python2.7 python2.7-minimal |egrep -v "^$|^/etc/zorp" |cpio --unconditional --quiet -p .
 #copy_exec $ZORPROOT/lib/zorp/zorp 
 #cd $ZORPROOT ; find | cpio --unconditional --make-directories --quiet -p $DESTDIR
