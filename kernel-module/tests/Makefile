@@ -15,25 +15,7 @@ perf: test_kzorp_lookup
 theclean: test_clean realclean
 	echo cleaned
 
-img_test: testimgs/$(KVERSION)/initrd.img
-	./imgtest $(KVERSION)
-
-img_run: testimgs/$(KVERSION)/initrd.img
-	./imgrun $(KVERSION)
-
-testimgs/$(KVERSION)/initrd.img: 
-	./imgsetup $(KVERSION)
-
-#kvm -m 2G -nographic -initrd /tmp/TESTROOT/initrd.img -kernel /boot/vmlinuz-3.2.35 -append console=ttyS0,115200 \
-#	-net nic,vlan=0 -net user,vlan=0,net=11.22.33.0/24,guestfwd=tcp:11.22.33.1:1234-tcp:127.0.0.1:9999,hostfwd=tcp:127.0.0.1:10000-11.22.33.10:8888\
-#	-net nic,vlan=1 -net user,vlan=1,net=44.55.66.0/24,guestfwd=tcp:44.55.66.253:8888-tcp:127.0.0.1:10001
-
-
-
 include $(srctree)/Makefile
-
-
-
 
 realclean:
 	rm -rf arch scripts include arch kernel

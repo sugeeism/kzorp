@@ -1,3 +1,6 @@
+KVERSION ?= $(shell uname -r)
+KERNELRELEASE ?= $(KVERSION)
+
 kzorp-objs := kzorp_core.o kzorp_lookup.o kzorp_sockopt.o kzorp_netlink.o kzorp_ext.o
 obj-m := kzorp.o
 obj-m += xt_KZORP.o
@@ -13,7 +16,7 @@ xt_KZORP.ko:
 	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
 
 clean:
-	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) clean && $(MAKE) -C tests theclean
+	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) clean && $(MAKE) KVERSION=$(KVERSION) -C tests theclean
 
 testing: tests/kzorp_ext.o
 

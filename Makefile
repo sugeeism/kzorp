@@ -4,8 +4,7 @@ all: iptables-module-make
 
 install: kernel-module-install python-module-install iptables-module-install
 
-clean: iptables-module-clean
-	rm -f pylib/kzorp/kzorp/__init__.pyc pylib/kzorp/kzorp/kzorp_netlink.pyc pylib/kzorp/kzorp/netlink.pyc &&\
+clean: iptables-module-clean eet-clean python-module-clean
 
 iptables-module-make:
 	(cd iptables && libtoolize -f --copy)
@@ -30,3 +29,10 @@ iptables-module-install:
 
 iptables-module-clean:
 	(cd iptables && [ ! -f Makefile ] || $(MAKE) distclean)
+
+python-module-clean:
+	rm -f pylib/kzorp/kzorp/__init__.pyc pylib/kzorp/kzorp/kzorp_netlink.pyc pylib/kzorp/kzorp/netlink.pyc 
+
+eet-clean:
+	(cd end-to-end-test  && [ ! -f Makefile ] || $(MAKE) clean)
+
