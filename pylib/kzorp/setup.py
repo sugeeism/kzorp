@@ -1,4 +1,5 @@
 #!/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2006-2012, BalaBit IT Ltd.
 # This program/include file is free software; you can redistribute it and/or
@@ -14,8 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# -*- coding: utf-8 -*-
 
 from distutils.core import setup
 import sys, os
