@@ -1,6 +1,6 @@
 # This is a teporaly Makefile untill autoconfigured this module
 
-all: iptables-module-make
+all: iptables-module-make kernel-module-make
 
 install: kernel-module-install python-module-install iptables-module-install
 
@@ -17,6 +17,12 @@ iptables-module-make:
 	(cd iptables && autoconf)
 	(cd iptables && ./configure)
 	(cd iptables && make)
+
+kernel-module-make: kernel-module/dkms.conf
+	echo "kernel module make done"
+
+kernel-module/dkms.conf: kernel-module/dkms.conf.in
+	sh -c 'VERSION=`cat VERSION`; sed "s/@VERSION@/$$VERSION/" < kernel-module/dkms.conf.in > kernel-module/dkms.conf'
 
 kernel-module-install:
 	install -m 0755 -d $(DESTDIR)/usr/src/kzorp-3.2
@@ -35,6 +41,7 @@ iptables-module-clean:
 
 kernel-module-clean:
 	(cd kernel-module && [ ! -f Makefile ] || $(MAKE) clean)
+	rm -f kernel-module/dkms.conf
 
 python-module-clean:
 	rm -f pylib/kzorp/kzorp/__init__.pyc pylib/kzorp/kzorp/kzorp_netlink.pyc pylib/kzorp/kzorp/netlink.pyc 
