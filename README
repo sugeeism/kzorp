@@ -4,7 +4,7 @@ Kzorp is used by Zorp, and anyone is welcome to use it with other gateways.
 You can install it by the automake;./configure;make;make install combo.
 There will be Debian packages soon, promise.
 
-See the file COPYRIGHT for copyright (which is GPL), and HACKING on internals and stuff.
+See the file COPYRIGHT for copyright (which is GPL), and HACKING.md on internals and stuff.
 
 This repository contains all you need to have a functioning kzorp:
  - the kernel module
