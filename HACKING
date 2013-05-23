@@ -1,6 +1,6 @@
 These are the agreements (technical and otherwise) on the development of Kzorp:
 
-The coordination of development is done on http://huboard.com/ using kanban.
+The coordination of development is done on http://huboard.com/balabit/kzorp/board using kanban.
 Everyone is welcome on board!
 
 Every now code or bugfix should have the appropriate unit classes, and unit
@@ -17,6 +17,8 @@ kzorp is meant to be packaged as the following (sets of) binary packages:
  - dkms module
  - set of iptables modules
  - python package, containing the python API and the kzorp binary 
+
+In git, the 'stable' branch is meant to contain the stable code.
 
 Kzorp's interfaces:
 
