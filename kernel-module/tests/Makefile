@@ -20,23 +20,22 @@ theclean: test_clean realclean
 	echo cleaned
 
 ifeq ($(wildcard $(commontree)),) 
-  KBUILD_SRC = $(srctree)
-  include $(srctree)/Makefile
+ifeq ($(wildcard $(srctree)),) 
+    $(warning "no kernel source, only 'make clean' makes sense")
+else
+    KBUILD_SRC = $(srctree)
+    include $(srctree)/Makefile
+endif
 else
   KBUILD_SRC = $(commontree)
   include $(commontree)/Makefile
   srctree = /lib/modules/$(KVERSION)/build
   DEPENDENT_FLAGS = -I $(commontree)/include -I $(commontree)/arch/$(hdr-arch)/include
 endif
-#$(foreach v, $(.VARIABLES), $(info $(v) = $($(v))))
-
 
 realclean:
 	rm -rf arch scripts include arch kernel
 
-ifeq ($(hdr-arch),)
-  $(foreach v, $(.VARIABLES), $(info $(v) = $($(v))))
-endif
 # Test kzorp module:
 FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement
 CFLAGS = $(FLAGS) -D__KERNEL__ -DKBUILD_MODNAME=\"\" -O2 -fno-strict-aliasing -pipe -g -Wno-pointer-sign

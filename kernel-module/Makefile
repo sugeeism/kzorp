@@ -16,7 +16,11 @@ xt_KZORP.ko:
 	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
 
 clean:
+ifeq ($(wildcard /lib/modules/$(KVERSION)/build),) 
+	rm -f .kzorp* Module.symvers *.ko *.mod.* modules.order *.o && $(MAKE) KVERSION=$(KVERSION) -C tests theclean
+else
 	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) clean && $(MAKE) KVERSION=$(KVERSION) -C tests theclean
+endif
 
 testing: tests/kzorp_ext.o
 
