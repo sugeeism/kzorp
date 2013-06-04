@@ -1,6 +1,6 @@
 # -*- Makefile -*-
 
-AM_CPPFLAGS	= ${regular_CPPFLAGS} -I$(top_srcdir)/src/include
+AM_CPPFLAGS	= ${regular_CPPFLAGS} -I$(top_srcdir)/iptables/src/include
 AM_CFLAGS	= ${regular_CFLAGS} ${libxtables_CFLAGS}
 AM_LDFLAGS	= -module -avoid-version
 

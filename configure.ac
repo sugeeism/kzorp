@@ -38,6 +38,9 @@ AC_SUBST([regular_CFLAGS])
 AC_SUBST([xtlibdir])
 AC_SUBST([VERSION])
 AC_CONFIG_FILES([Makefile
-                 iptables/makefile
+                 iptables/Makefile
+                 pylib/Makefile
+                 pylib/kzorp/Makefile
+                 pylib/kzorp/kzorp/Makefile
                  kernel-module/dkms.conf])
 AC_OUTPUT
