@@ -1,4 +1,4 @@
-AC_INIT([kzorp-iptables], [0])
+AC_INIT([kzorp-iptables], m4_esyscmd([tr -d '\n' <VERSION]))
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -6,7 +6,6 @@ AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 AM_SILENT_RULES([yes])
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 
-VERSION=`cat $srcdir/VERSION`
 
 AC_PROG_INSTALL
 AC_PROG_CC
@@ -36,7 +35,7 @@ regular_CFLAGS="$CFLAGS -Wall -Waggregate-return -Wmissing-declarations \
 AC_SUBST([regular_CPPFLAGS])
 AC_SUBST([regular_CFLAGS])
 AC_SUBST([xtlibdir])
-AC_SUBST([VERSION])
+AC_SUBST([PACKAGE_VERSION])
 AC_CONFIG_FILES([Makefile
                  iptables/Makefile
                  pylib/Makefile
