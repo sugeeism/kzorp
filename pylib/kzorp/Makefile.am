@@ -1,11 +1,9 @@
 EXTRA_DIST = setup.py
 SUBDIRS = kzorp
 
-clean:
+clean-local:
 	python $(top_srcdir)/pylib/kzorp/setup.py clean --all
 #	$(PYTHON) $(top_srcdir)/pylib/kzorp/setup.py clean --all
-
-distclean: clean
 
 install-exec-local:
 	python $(top_srcdir)/pylib/kzorp/setup.py install --prefix $(DESTDIR)/$(prefix) --install-layout=deb
