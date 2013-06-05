@@ -1,4 +1,5 @@
 AC_INIT([kzorp-iptables], m4_esyscmd([tr -d '\n' <VERSION]))
+AC_CONFIG_SRCDIR([kernel-module/kzorp_core.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
