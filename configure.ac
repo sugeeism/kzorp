@@ -11,6 +11,7 @@ m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_PROG_INSTALL
 AC_PROG_CC
 AM_PROG_CC_C_O
+AM_PATH_PYTHON
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
@@ -37,6 +38,7 @@ AC_SUBST([regular_CPPFLAGS])
 AC_SUBST([regular_CFLAGS])
 AC_SUBST([xtlibdir])
 AC_SUBST([PACKAGE_VERSION])
+AC_SUBST([PYTHON])
 AC_CONFIG_FILES([Makefile
                  iptables/Makefile
                  pylib/Makefile
