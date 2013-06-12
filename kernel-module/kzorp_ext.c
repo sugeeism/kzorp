@@ -53,7 +53,6 @@ static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 {
 	int i;
 
-	//printf("freeing %p\n",kz);
 	for (i = 0; i < IP_CT_DIR_MAX; i++) {
 		hlist_nulls_del_rcu(&(kz->tuplehash[i].hnnode));
 	}
@@ -107,18 +106,15 @@ struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
 	int i;
 	struct nf_conntrack_kzorp *kzorp;
 	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
-	//printf("kzorp=%p\n",kzorp);
 	memcpy(&(kzorp->tuplehash), &(ct->tuplehash),
 	       IP_CT_DIR_MAX * sizeof(struct nf_conntrack_tuple_hash));
 	for (i = 0; i < IP_CT_DIR_MAX; i++) {
 		struct nf_conntrack_tuple_hash *th =
 		    &(kzorp->tuplehash[i]);
-		//printf("zone=%u\n",nf_ct_zone(ct));
 		unsigned int bucket =
 		    hash_conntrack_raw(&(th->tuple),
 				       nf_ct_zone(ct)) >> (32 -
 							   kz_hash_shift);
-		//printf("bucket=%u, th = %p, hnnode = %p \n",bucket,th, &(th->hnnode));
 		hlist_nulls_add_head(&(th->hnnode), &kz_hash[bucket]);
 	}
 	kzorp->timerfunc_save = ct->timeout.function;

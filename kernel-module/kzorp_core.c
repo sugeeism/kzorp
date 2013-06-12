@@ -1842,11 +1842,6 @@ int __init kzorp_core_init(void)
 		goto cleanup_global_instance;
 	}
 #ifdef CONFIG_SYSCTL
-//-       nf_ct_frag6_sysctl_header = register_sysctl_paths(nf_net_netfilter_sysctl_path,
-//-                                                         nf_ct_frag6_sysctl_table);
-//+       nf_ct_frag6_sysctl_header = register_net_sysctl(&init_net, "net/netfilter",
-//+                                                       nf_ct_frag6_sysctl_table);
-
 #if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0) )
 	kzorp_sysctl_header =
 	    register_net_sysctl(&init_net, "net/netfilter/kzorp",

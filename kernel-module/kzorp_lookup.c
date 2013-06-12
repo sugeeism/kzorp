@@ -907,7 +907,6 @@ kz_ndim_eval_rule_zone(const u_int32_t n_zones,
 		return -1;
 
 	for (i = 0; i < n_zones; i++) {
-		//kz_debug("comparing zone; zone='%s', r_zone='%s'\n", zone->unique_name, r_zones[i]->unique_name);
 
 		zscore = zone_score(&r_zones[i], mask);
 
@@ -1286,8 +1285,6 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
 	u_int8_t proto = l4proto;
 
 	u_int32_t cursor_pos = cursor->pos;
-
-	/*kz_debug("evaluating rule; id='%u'\n", rule->id); */
 
 	best.all = best_all;
 	res.all = 0;
