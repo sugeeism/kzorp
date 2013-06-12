@@ -1,12 +1,12 @@
 SUBDIRS = iptables pylib
 
-ksrcdir = $(prefix)/src
+ksrcdir = $(prefix)/src/kzorp-$(PACKAGE_VERSION)
 
-ksrctestdir = $(prefix)/src/tests
+ksrctestdir = $(ksrcdir)/tests
 
-ksrcpytestdir = $(prefix)/src/tests/pytests
+ksrcpytestdir = $(ksrcdir)/tests/pytests
 
-ksrcincdir = $(prefix)/src/include
+ksrcincdir = $(ksrcdir)/include
 
 ksrc_DATA = kernel-module/dkms.conf\
             kernel-module/kzorp_core.c\
