@@ -33,8 +33,8 @@
 #define MAX_SUBNET_COUNT (1 + num_subnets / 100)
 #define MAX_SUBNET6_COUNT (1 + num_subnets6 / 100)
 
-#include "rand-lfsr258.h"
 #include <linux/sort.h>
+
 long long get_user_time();
 
 int opt_dump = 0;
@@ -42,12 +42,10 @@ int opt_dump = 0;
 
 #define RAND_INT(MAX) \
 ({ \
-  int rnd = kz_random_int(&seed, MAX); \
+  int rnd = g_test_rand_int_range(0, MAX); \
   DUMP("%d", rnd); \
   rnd; \
 })
-
-kz_random_seed_t seed;
 
 int cmp_int_dec(const void *a, const void *b)
 {
@@ -56,7 +54,7 @@ int cmp_int_dec(const void *a, const void *b)
 
 int generate_port()
 {
-  return 1 + kz_random_int(&seed, 0xffff - 1);
+  return 1 + g_test_rand_int_range(0, 0xffff - 1);
 }
 
 void generate_port_ranges(struct kz_port_range *dst, int count)
@@ -83,7 +81,7 @@ void generate_interfaces(struct net_device *dst, int num_interfaces)
   for(i = 1; i < num_interfaces; i++)
     {
       snprintf(dst[i].name, sizeof(dst->name), "eth%d", i);
-      dst[i].group = kz_random_int(&seed, 10);
+      dst[i].group = g_test_rand_int_range(0, 10);
       DUMP("interface[%d]: \"%s\", %d\n", i, dst[i].name, dst[i].group);
     }
 }
@@ -95,9 +93,9 @@ void generate_zones(struct kz_zone *dst, int num_zones)
     {
       dst[i].index = kz_zone_index++;
 
-      if(i > 5 && kz_random_int(&seed, 99) < 90)
+      if(i > 5 && g_test_rand_int_range(0, 99) < 90)
         {
-          dst[i].depth = (dst[i].admin_parent = &dst[1 + kz_random_int(&seed, i - 2)])->depth + 1;
+          dst[i].depth = (dst[i].admin_parent = &dst[1 + g_test_rand_int_range(0, i - 2)])->depth + 1;
         }
       else
         {
@@ -122,8 +120,9 @@ void generate_from_zones(struct kz_zone **dst, int count)
 {
   int points[count];
   int i = count;
-  while(i--)
-    points[i] = kz_random_int(&seed, num_zones - 1);
+  while(i--) {
+    points[i] = g_test_rand_int_range(0, num_zones - 1);
+  }
   sort(points, count, sizeof(int), cmp_zone_dec, 0);
   i = count;
   while(i--)
@@ -140,10 +139,10 @@ char generate_protocols(u_int8_t **dst, u_int32_t *dst_count)
       { IPPROTO_TCP, 45 }, { IPPROTO_UDP, 45 }, { IPPROTO_ICMP, 10 }, {}
     },
     *ptr;
-  int count = dst ? kz_random_int(&seed, 3) : 1;
+  int count = dst ? g_test_rand_int_range(0, 3) : 1;
   while(count--)
     {
-      int rnd = kz_random_int(&seed, 99);
+      int rnd = g_test_rand_int_range(0, 99);
       int rate = 0;
       for(ptr = protocol_distribution; ptr->rate; ++ptr)
         {
@@ -187,8 +186,8 @@ void generate_subnets##VERSION(struct subnet##VERSION *dst, int num_subnets)\
   int have_zero_mask = 0;\
   while(num_subnets--)\
     {\
-      int mask_size = kz_random_int(&seed, address_length * 32);\
-      while(!(mask_size = kz_random_int(&seed, address_length * 32)) && (have_zero_mask || !(have_zero_mask = 1)));\
+      int mask_size = g_test_rand_int_range(0, address_length * 32);\
+      while(!(mask_size = g_test_rand_int_range(0, address_length * 32)) && (have_zero_mask || !(have_zero_mask = 1)));\
       __be32 address[4] = {};\
       __be32 mask[4] = {};\
       int i;\
@@ -197,7 +196,7 @@ void generate_subnets##VERSION(struct subnet##VERSION *dst, int num_subnets)\
       for(bits = mask_size, i = 0; bits > 0; bits-= 32, i++)\
         {\
           mask[i] = (bits >= 32) ? MAX_32_BIT_VALUE : MAX_32_BIT_VALUE ^ ((1 << (32 - bits))-1);\
-          address[i] = kz_random_int(&seed, MAX_32_BIT_VALUE) & mask[i];\
+          address[i] = g_test_rand_int() & mask[i];\
           DUMP("%.8x ", address[i]);\
         }\
       DUMP("%s/ %d\n", mask_size ? "" : "0 ", mask_size);\
@@ -218,7 +217,7 @@ void generate_from_subnets##VERSION(struct kz_in##VERSION##_subnet *dst, int cou
   int points[count];\
   int i = count;\
   while(i--)\
-    points[i] = kz_random_int(&seed, num_subnets##VERSION - 1);\
+    points[i] = g_test_rand_int_range(0, num_subnets##VERSION - 1);\
   sort(points, count, sizeof(int), cmp_subnet##VERSION##_dec, 0);\
   i = count;\
   while(i--)\
@@ -247,7 +246,7 @@ void generate_rule(
 {
 #define GENERATE_RULE_ENTRY(NAME, MAX, GENERATOR, PARAMS...) \
 ({ \
-  int count = kz_random_int(&seed, MAX); \
+  int count = g_test_rand_int_range(0, MAX); \
   DUMP("  "#NAME ": "); \
   dst->NAME = malloc(count * sizeof(*dst->NAME)); \
   dst->num_##NAME = count; \
@@ -307,7 +306,7 @@ void generate_input(struct input *dst)
   dst->dst_addr.in##VERSION = subnet##VERSION[RAND_INT(num_subnets##VERSION - 1)].addr.addr \
 )
 
-  if(kz_random_int(&seed, 99) < 90)
+  if(g_test_rand_int_range(0, 99) < 90)
     GENERATE_AF_DEP_FIELDS();
   else
     GENERATE_AF_DEP_FIELDS(6);
@@ -330,6 +329,8 @@ void generate_input(struct input *dst)
 int main(int argc, char *argv[])
 {
 
+  g_test_init (&argc,&argv,NULL);
+
 #define PARSE_OPTION(OPTION) \
   if(!strncmp(argv[argc], "--"#OPTION, sizeof("--"#OPTION) - 1)) \
     { \
@@ -343,8 +344,6 @@ int main(int argc, char *argv[])
       PARSE_OPTION(dump);
     }
 #undef PARSE_OPTION
-
-  kz_random_init(13, &seed);
 
   struct net_device _interface[NUM_INTERFACES] = {};
   interface = _interface;

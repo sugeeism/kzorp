@@ -53,7 +53,7 @@ perf_measure.o: CFLAGS = -O2 -pipe -g
 perf_measure.o: perf_measure.c
 	$(CC) -Wall $< -c $(CFLAGS)
 
-test_kzorp_lookup: rand-lfsr258.o perf_measure.o
+test_kzorp_lookup: perf_measure.o
 
 .config: oldconfig
 	bash -c 'PD=$${PWD%/*/*}/kernel ; cp $${PD/\/work\//\/build\/}/$@ ./'
@@ -80,9 +80,6 @@ kzorp_ext.o: ../kzorp_ext.c
 	$(CC) -Wall -c $(filter %.c %.o, $^) -o $@ $(CFLAGS) $(shell pkg-config glib-2.0 --libs --cflags)
 
 sort.o: sort.c
-	$(CC) -Wall -c $(filter %.c %.o, $^) -o $@ $(CFLAGS) $(shell pkg-config glib-2.0 --libs --cflags)
-
-rand-lfsr258.o: rand-lfsr258.c
 	$(CC) -Wall -c $(filter %.c %.o, $^) -o $@ $(CFLAGS) $(shell pkg-config glib-2.0 --libs --cflags)
 
 perf_measure.o: perf_measure.c
