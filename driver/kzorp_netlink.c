@@ -3491,8 +3491,8 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 			goto error;
 		}
 
-		kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_SRC_PORT, dst_port);
-		res = kznl_parse_port(info->attrs[KZNL_ATTR_QUERY_PARAMS_SRC_PORT], &traffic_props.dst_port);
+		kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_DST_PORT, dst_port);
+		res = kznl_parse_port(info->attrs[KZNL_ATTR_QUERY_PARAMS_DST_PORT], &traffic_props.dst_port);
 		if (res < 0) {
 			kz_err("failed to parse query attribute; attr='dst_port'\n");
 			goto error;
