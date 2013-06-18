@@ -1985,7 +1985,7 @@ kz_instance_remove_bind(struct kz_instance *instance, const netlink_port_t pid_t
 
 	if (tr)
 		list_for_each_entry_safe(io, po, &tr->op, list) {
-			if (io->type == KZNL_OP_BIND) {
+			if (io->type == KZNL_OP_ADD_BIND) {
 				new_bind = (struct kz_bind *) (io->data);
 				list_del(&io->list);
 				list_add(&new_bind->list, &bind_lookup->list_bind);

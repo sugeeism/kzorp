@@ -179,7 +179,7 @@ transaction_zone_lookup(const struct kz_transaction * const tr,
 	const struct kz_operation *i;
 
 	list_for_each_entry(i, &tr->op, list) {
-		if (i->type == KZNL_OP_ZONE) {
+		if (i->type == KZNL_OP_ADD_ZONE) {
 			struct kz_zone *z = (struct kz_zone *)i->data;
 
 			if (strcmp(z->unique_name, name) == 0)
@@ -198,7 +198,7 @@ transaction_service_lookup(const struct kz_transaction * const tr,
 	const struct kz_operation *i;
 
 	list_for_each_entry(i, &tr->op, list) {
-		if (i->type == KZNL_OP_SERVICE) {
+		if (i->type == KZNL_OP_ADD_SERVICE) {
 			struct kz_service *s = (struct kz_service *)i->data;
 
 			if (strcmp(s->name, name) == 0)
@@ -217,7 +217,7 @@ transaction_dispatcher_lookup(const struct kz_transaction * const tr,
 	const struct kz_operation *i;
 
 	list_for_each_entry(i, &tr->op, list) {
-		if (i->type == KZNL_OP_DISPATCHER) {
+		if (i->type == KZNL_OP_ADD_DISPATCHER) {
 			struct kz_dispatcher *d = (struct kz_dispatcher *)i->data;
 
 			if (strcmp(d->name, name) == 0)
@@ -247,7 +247,7 @@ transaction_bind_lookup(const struct kz_transaction * const tr,
 	kz_bind_debug(bind, "lookup item");
 
 	list_for_each_entry(i, &tr->op, list) {
-		if (i->type == KZNL_OP_BIND) {
+		if (i->type == KZNL_OP_ADD_BIND) {
 			struct kz_bind *b = (struct kz_bind *) i->data;
 
 			kz_bind_debug(b, "check item");
@@ -283,7 +283,7 @@ transaction_rule_lookup(const struct kz_transaction * const tr,
 	kz_debug("dispatcher_name='%s', id='%u'\n", dispatcher_name, id);
 
 	list_for_each_entry(i, &tr->op, list) {
-		if (i->type == KZNL_OP_DISPATCHER) {
+		if (i->type == KZNL_OP_ADD_DISPATCHER) {
 			struct kz_dispatcher *d;
 			struct kz_dispatcher_n_dimension_rule *rule = NULL;
 
@@ -1125,7 +1125,7 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 	{
 		/* append dispatcherss created in the transaction */
 		list_for_each_entry(io, &tr->op, list) {
-			if (io->type == KZNL_OP_DISPATCHER) {
+			if (io->type == KZNL_OP_ADD_DISPATCHER) {
 				const struct kz_dispatcher *dispatcher = (struct kz_dispatcher *) io->data;
 
 				if (dispatcher->num_rule != dispatcher->alloc_rule) {
@@ -1165,7 +1165,7 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 
 		/* add services in the transaction */
 		list_for_each_entry_safe(io, po, &tr->op, list) {
-			if (io->type == KZNL_OP_SERVICE) {
+			if (io->type == KZNL_OP_ADD_SERVICE) {
 				svc = (struct kz_service *)(io->data);
 				list_del(&io->list);
 				list_add_tail(&svc->list, &new->services.head);
@@ -1198,7 +1198,7 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 
 		/* append zones created in the transaction */
 		list_for_each_entry_safe(io, po, &tr->op, list) {
-			if (io->type == KZNL_OP_ZONE) {
+			if (io->type == KZNL_OP_ADD_ZONE) {
 				zone = (struct kz_zone *)(io->data);
 				list_del(&io->list);
 				list_add_tail(&zone->list, &new->zones.head);
@@ -1250,7 +1250,7 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 
 		/* append dispatcherss created in the transaction */
 		list_for_each_entry_safe(io, po, &tr->op, list) {
-			if (io->type == KZNL_OP_DISPATCHER) {
+			if (io->type == KZNL_OP_ADD_DISPATCHER) {
 				struct kz_dispatcher *dispatcher = (struct kz_dispatcher *) io->data;
 				kz_debug("add dispatcher; name='%s', alloc_rules='%u', num_rules='%u'\n", dispatcher->name, dispatcher->alloc_rule, dispatcher->num_rule);
 				list_del(&io->list);
@@ -1486,7 +1486,7 @@ kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
 		zone->depth = p->depth + 1;
 	}
 
-	res = transaction_add_op(tr, KZNL_OP_ZONE, kz_zone_get(zone), transaction_destroy_zone);
+	res = transaction_add_op(tr, KZNL_OP_ADD_ZONE, kz_zone_get(zone), transaction_destroy_zone);
 	if (res < 0) {
 		kz_err("failed to queue transaction operation\n");
 	}
@@ -1822,7 +1822,7 @@ kznl_recv_add_service(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-	res = transaction_add_op(tr, KZNL_OP_SERVICE, kz_service_get(svc), transaction_destroy_service);
+	res = transaction_add_op(tr, KZNL_OP_ADD_SERVICE, kz_service_get(svc), transaction_destroy_service);
 	if (res < 0) {
 		kz_err("failed to queue transaction operation\n");
 	}
@@ -2272,7 +2272,7 @@ kznl_recv_add_dispatcher(struct sk_buff *skb, struct genl_info *info)
 		goto error_unlock_op;
 	}
 
-	res = transaction_add_op(tr, KZNL_OP_DISPATCHER, kz_dispatcher_get(dpt), transaction_destroy_dispatcher);
+	res = transaction_add_op(tr, KZNL_OP_ADD_DISPATCHER, kz_dispatcher_get(dpt), transaction_destroy_dispatcher);
 	if (res < 0) {
 		kz_err("failed to queue transaction operation\n");
 	}
@@ -2880,7 +2880,7 @@ kznl_recv_add_bind(struct sk_buff *skb, struct genl_info *info)
 		goto error_free_bind;
 	}
 
-	res = transaction_add_op(tr, KZNL_OP_BIND, bind, transaction_destroy_bind);
+	res = transaction_add_op(tr, KZNL_OP_ADD_BIND, bind, transaction_destroy_bind);
 	if (res < 0) {
 		kz_err("failed to queue transaction operation\n");
 		goto error_free_bind;
