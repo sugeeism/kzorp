@@ -143,10 +143,10 @@ struct kz_transaction {
 };
 
 enum kznl_op_data_type {
-	KZNL_OP_ZONE,
-	KZNL_OP_SERVICE,
-	KZNL_OP_DISPATCHER,
-	KZNL_OP_BIND,
+	KZNL_OP_ADD_ZONE,
+	KZNL_OP_ADD_SERVICE,
+	KZNL_OP_ADD_DISPATCHER,
+	KZNL_OP_ADD_BIND,
 };
 
 struct kz_operation {
