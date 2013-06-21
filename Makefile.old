@@ -3,9 +3,3 @@
 imgtest:
 	(cd end-to-end-test && [ ! -f Makefile ] || $(MAKE))
 
-kernel-module-clean:
-	(cd kernel-module && [ ! -f Makefile ] || $(MAKE) clean)
-
-eet-clean:
-	(cd end-to-end-test  && [ ! -f Makefile ] || $(MAKE) clean)
-

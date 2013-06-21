@@ -61,3 +61,7 @@ ksrcpytest_DATA = kernel-module/tests/pytests/__init__.py\
                   kernel-module/tests/pytests/KZorpTestCaseZones.py\
                   kernel-module/tests/pytests/testall.py\
                   kernel-module/tests/pytests/testutil.py
+
+clean-local:
+	(cd kernel-module && [ ! -f Makefile ] || $(MAKE) clean)
+	(cd end-to-end-test  && [ ! -f Makefile ] || $(MAKE) clean)
