@@ -35,8 +35,6 @@ ksrctest_DATA = kernel-module/tests/100000rules_policy.py\
                 kernel-module/tests/Makefile\
                 kernel-module/tests/perf_measure.c\
                 kernel-module/tests/policy.py\
-                kernel-module/tests/rand-lfsr258.c\
-                kernel-module/tests/rand-lfsr258.h\
                 kernel-module/tests/sort.c\
                 kernel-module/tests/test_ext.c\
                 kernel-module/tests/test.h\
@@ -61,3 +59,10 @@ ksrcpytest_DATA = kernel-module/tests/pytests/__init__.py\
                   kernel-module/tests/pytests/KZorpTestCaseZones.py\
                   kernel-module/tests/pytests/testall.py\
                   kernel-module/tests/pytests/testutil.py
+
+clean-local:
+	(cd kernel-module && [ ! -f Makefile ] || $(MAKE) clean)
+	(cd end-to-end-test  && [ ! -f Makefile ] || $(MAKE) clean)
+
+imgtest:
+	(cd end-to-end-test && [ ! -f Makefile ] || $(MAKE))
