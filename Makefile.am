@@ -35,8 +35,6 @@ ksrctest_DATA = kernel-module/tests/100000rules_policy.py\
                 kernel-module/tests/Makefile\
                 kernel-module/tests/perf_measure.c\
                 kernel-module/tests/policy.py\
-                kernel-module/tests/rand-lfsr258.c\
-                kernel-module/tests/rand-lfsr258.h\
                 kernel-module/tests/sort.c\
                 kernel-module/tests/test_ext.c\
                 kernel-module/tests/test.h\
