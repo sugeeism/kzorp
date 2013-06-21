@@ -1,5 +1,0 @@
-# This is a teporaly Makefile untill autoconfigured this module
-
-imgtest:
-	(cd end-to-end-test && [ ! -f Makefile ] || $(MAKE))
-

@@ -65,3 +65,6 @@ ksrcpytest_DATA = kernel-module/tests/pytests/__init__.py\
 clean-local:
 	(cd kernel-module && [ ! -f Makefile ] || $(MAKE) clean)
 	(cd end-to-end-test  && [ ! -f Makefile ] || $(MAKE) clean)
+
+imgtest:
+	(cd end-to-end-test && [ ! -f Makefile ] || $(MAKE))
