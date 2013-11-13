@@ -1088,6 +1088,204 @@ error:
 	return res;
 }
 
+static int
+kz_commit_transaction_check(const struct kz_transaction *tr)
+/* preliminary sanity checks */
+{
+	const struct kz_operation *io;
+
+	/* append dispatcherss created in the transaction */
+	list_for_each_entry(io, &tr->op, list) {
+		if (io->type == KZNL_OP_ADD_DISPATCHER) {
+			const struct kz_dispatcher *dispatcher = (struct kz_dispatcher *) io->data;
+
+			if (dispatcher->num_rule != dispatcher->alloc_rule) {
+				kz_err("rule number mismatch; dispatcher='%s', alloc_rules='%u', num_rules='%u'\n",
+					dispatcher->name, dispatcher->alloc_rule, dispatcher->num_rule);
+				return -EINVAL;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int
+kz_commit_transaction_process_services(const struct kz_transaction *tr, struct kz_config *new)
+{
+	const struct kz_config * const old = tr->cfg;
+	struct kz_operation *io, *po;
+	struct kz_service *i, *svc, *orig;
+
+	/* clone existing services */
+	list_for_each_entry(i, &old->services.head, list) {
+		/* skip service if the FLUSH flag is set and it belongs
+		 * to the same instance */
+		if ((tr->flags & KZF_TRANSACTION_FLUSH_SERVICES) &&
+		    (i->instance_id == tr->instance_id)) {
+			continue;
+		}
+
+		svc = kz_service_clone(i);
+		if (svc == NULL)
+			return -ENOMEM;
+		kz_debug("cloned service; name='%s'\n", svc->name);
+		list_add_tail(&svc->list, &new->services.head);
+		atomic_set(&svc->session_cnt, kz_service_lock(i));
+	}
+
+	/* add services in the transaction */
+	list_for_each_entry_safe(io, po, &tr->op, list) {
+		if (io->type == KZNL_OP_ADD_SERVICE) {
+			svc = (struct kz_service *)(io->data);
+			list_del(&io->list);
+			list_add_tail(&svc->list, &new->services.head);
+			kfree(io);
+			kz_debug("add service; name='%s'\n", svc->name);
+			orig = kz_service_lookup_name(old, svc->name);
+			if (orig != NULL) {
+				kz_debug("migrate service session count\n");
+				atomic_set(&svc->session_cnt, kz_service_lock(orig));
+				svc->id = orig->id; /* use the original ID! */
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int
+kz_commit_transaction_delete_zones(const struct kz_transaction *tr, struct kz_config *new)
+{
+	const struct kz_config * const old = tr->cfg;
+	struct kz_zone *i, *zone;
+
+	/* clone existing zones */
+	if (!(tr->flags & KZF_TRANSACTION_FLUSH_ZONES)) {
+		list_for_each_entry(i, &old->zones.head, list) {
+			zone = kz_zone_clone(i);
+			if (zone == NULL)
+				return ENOMEM;
+			kz_debug("clone zone; name='%s', depth='%u'\n", zone->name, zone->depth);
+			list_add_tail(&zone->list, &new->zones.head);
+		}
+	}
+
+	return 0;
+}
+
+static int
+kz_commit_transaction_add_zones(const struct kz_transaction *tr, struct kz_config *new)
+{
+	struct kz_operation *io, *po;
+
+	/* append zones created in the transaction */
+	list_for_each_entry_safe(io, po, &tr->op, list) {
+		if (io->type == KZNL_OP_ADD_ZONE) {
+			struct kz_zone *zone = (struct kz_zone *)(io->data);
+			const struct kz_zone *existing_zone;
+
+			existing_zone = __kz_zone_lookup_name(&new->zones.head, zone->name);
+			if (existing_zone != NULL) {
+				kz_err("zone with the same name already exists; name='%s'\n", existing_zone->name);
+				return -EEXIST;
+			}
+
+			list_del(&io->list);
+			list_add_tail(&zone->list, &new->zones.head);
+			kfree(io);
+			kz_debug("add zone; name='%s', depth='%u'\n", zone->name, zone->depth);
+		}
+	}
+
+	return 0;
+}
+
+static int
+kz_commit_transaction_consolidate_zones(const struct kz_transaction *tr, struct kz_config *new)
+{
+	struct kz_zone *i;
+
+	/* consolidate admin_parent links - must point to zones in new list */
+	list_for_each_entry(i, &new->zones.head, list) {
+		if (i->admin_parent != NULL) {
+			struct kz_zone *parent;
+
+			parent = __kz_zone_lookup_name(&new->zones.head, i->admin_parent->name);
+			if (parent == NULL) {
+				/* oops, its admin parent was deleted, this is an
+				 * internal error */
+				kz_err("transaction problem: internal error, aborting\n");
+				return -EINVAL;
+			}
+
+			kz_zone_get(parent);
+			kz_zone_put(i->admin_parent);
+			i->admin_parent = parent;
+			kz_debug("set admin-parent for zone; name='%s' parent='%s', depth='%u', parent_depth='%u'\n", i->name, parent->name, i->depth, parent->depth);
+		}
+	}
+
+	return 0;
+}
+
+static int
+kz_commit_transaction_process_zones(const struct kz_transaction *tr, struct kz_config *new)
+{
+	int res;
+
+	if ((res = kz_commit_transaction_delete_zones(tr, new)) < 0)
+		return res;
+	if ((res = kz_commit_transaction_add_zones(tr, new)) < 0)
+		return res;
+	if ((res = kz_commit_transaction_consolidate_zones(tr, new)) < 0)
+		return res;
+
+	return 0;
+}
+
+static int
+kz_commit_transaction_process_dispatchers(const struct kz_transaction *tr, struct kz_config *new)
+{
+	const struct kz_config * const old = tr->cfg;
+	struct kz_dispatcher *i, *dpt;
+	struct kz_operation *io, *po;
+
+	/* clone existing dispatchers */
+	list_for_each_entry(i, &old->dispatchers.head, list) {
+		/* skip service if the FLUSH flag is set and it belongs
+		 * to the same instance */
+		if ((tr->flags & KZF_TRANSACTION_FLUSH_DISPATCHERS) &&
+		    (i->instance->id == tr->instance_id))
+			continue;
+
+		kz_debug("cloning dispatcher; name='%s', alloc_rules='%u'\n", i->name, i->alloc_rule);
+
+		dpt = kz_dispatcher_clone(i);
+		if (dpt == NULL)
+			return -ENOMEM;
+		list_add_tail(&dpt->list, &new->dispatchers.head);
+	}
+
+	/* append dispatcherss created in the transaction */
+	list_for_each_entry_safe(io, po, &tr->op, list) {
+		if (io->type == KZNL_OP_ADD_DISPATCHER) {
+			struct kz_dispatcher *dispatcher = (struct kz_dispatcher *) io->data;
+			kz_debug("add dispatcher; name='%s', alloc_rules='%u', num_rules='%u'\n", dispatcher->name, dispatcher->alloc_rule, dispatcher->num_rule);
+			list_del(&io->list);
+			list_add_tail(&dispatcher->list, &new->dispatchers.head);
+			kfree(io);
+		}
+	}
+
+	/* consolidate content */
+	list_for_each_entry(i, &new->dispatchers.head, list) {
+		kz_dispatcher_relink(i, &new->zones.head, &new->services.head);
+	}
+
+	return 0;
+}
+
 /* this is a SINGLE point that changes the config (should that change, review what thinks so)
 
    we could just collect operations raw, and do all the checks here. for historic reasons we
@@ -1129,163 +1327,24 @@ error:
 static int
 kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction *tr)
 {
-	struct kz_operation *io, *po;
 	int res = 0;
 	const struct kz_config * const old = tr->cfg;
 	struct kz_config *new ;
 
-	/* preliminary sanity checks */
-	{
-		/* append dispatcherss created in the transaction */
-		list_for_each_entry(io, &tr->op, list) {
-			if (io->type == KZNL_OP_ADD_DISPATCHER) {
-				const struct kz_dispatcher *dispatcher = (struct kz_dispatcher *) io->data;
-
-				if (dispatcher->num_rule != dispatcher->alloc_rule) {
-					kz_err("rule number mismatch; dispatcher='%s', alloc_rules='%u', num_rules='%u'\n",
-						dispatcher->name, dispatcher->alloc_rule, dispatcher->num_rule);
-					return -EINVAL;
-				}
-			}
-		}
-	}
+	if ((res = kz_commit_transaction_check(tr)) < 0)
+		return res;
 
 	/* the new config instance */
 	new = kz_config_new();
 	if (new == NULL)
 		return -ENOMEM;
 
-	/* process services */
-	{
-		struct kz_service *i, *svc, *orig;
-
-		/* clone existing services */
-		list_for_each_entry(i, &old->services.head, list) {
-			/* skip service if the FLUSH flag is set and it belongs
-			 * to the same instance */
-			if ((tr->flags & KZF_TRANSACTION_FLUSH_SERVICES) &&
-			    (i->instance_id == tr->instance_id)) {
-				continue;
-			}
-
-			svc = kz_service_clone(i);
-			if (svc == NULL)
-				goto mem_error;
-			kz_debug("cloned service; name='%s'\n", svc->name);
-			list_add_tail(&svc->list, &new->services.head);
-			atomic_set(&svc->session_cnt, kz_service_lock(i));
-		}
-
-		/* add services in the transaction */
-		list_for_each_entry_safe(io, po, &tr->op, list) {
-			if (io->type == KZNL_OP_ADD_SERVICE) {
-				svc = (struct kz_service *)(io->data);
-				list_del(&io->list);
-				list_add_tail(&svc->list, &new->services.head);
-				kfree(io);
-				kz_debug("add service; name='%s'\n", svc->name);
-				orig = kz_service_lookup_name(old, svc->name);
-				if (orig != NULL) {
-					kz_debug("migrate service session count\n");
-					atomic_set(&svc->session_cnt, kz_service_lock(orig));
-					svc->id = orig->id; /* use the original ID! */
-				}
-			}
-		}
-	}
-
-	/* process zones */
-	{
-		struct kz_zone *i, *zone;
-
-		/* clone existing zones */
-		if (!(tr->flags & KZF_TRANSACTION_FLUSH_ZONES)) {
-			list_for_each_entry(i, &old->zones.head, list) {
-				zone = kz_zone_clone(i);
-				if (zone == NULL)
-					goto mem_error;
-				kz_debug("clone zone; name='%s', depth='%u'\n", zone->name, zone->depth);
-				list_add_tail(&zone->list, &new->zones.head);
-			}
-		}
-
-		/* append zones created in the transaction */
-		list_for_each_entry_safe(io, po, &tr->op, list) {
-			if (io->type == KZNL_OP_ADD_ZONE) {
-				struct kz_zone *existing_zone;
-
-				zone = (struct kz_zone *)(io->data);
-				existing_zone = __kz_zone_lookup_name(&new->zones.head, zone->name);
-				if (existing_zone != NULL) {
-					kz_err("zone with the same name already exists; name='%s'\n", existing_zone->name);
-					res = -EEXIST;
-					goto error;
-				}
-
-				list_del(&io->list);
-				list_add_tail(&zone->list, &new->zones.head);
-				kfree(io);
-				kz_debug("add zone; name='%s', depth='%u'\n", zone->name, zone->depth);
-			}
-		}
-
-		/* consolidate admin_parent links - must point to zones in new list */
-		list_for_each_entry(i, &new->zones.head, list) {
-			if (i->admin_parent != NULL) {
-				struct kz_zone *parent;
-
-				parent = __kz_zone_lookup_name(&new->zones.head, i->admin_parent->name);
-				if (parent == NULL) {
-					/* oops, its admin parent was deleted, this is an
-					 * internal error */
-					kz_err("transaction problem: internal error, aborting\n");
-					res = -EINVAL;
-					goto error;
-				}
-
-				kz_zone_get(parent);
-				kz_zone_put(i->admin_parent);
-				i->admin_parent = parent;
-				kz_debug("set admin-parent for zone; name='%s' parent='%s', depth='%u', parent_depth='%u'\n", i->name, parent->name, i->depth, parent->depth);
-			}
-		}
-	}
-	/* process dispatchers */
-	{
-		struct kz_dispatcher *i, *dpt;
-
-		/* clone existing dispatchers */
-		list_for_each_entry(i, &old->dispatchers.head, list) {
-			/* skip service if the FLUSH flag is set and it belongs
-			 * to the same instance */
-			if ((tr->flags & KZF_TRANSACTION_FLUSH_DISPATCHERS) &&
-			    (i->instance->id == tr->instance_id))
-				continue;
-
-			kz_debug("cloning dispatcher; name='%s', alloc_rules='%u'\n", i->name, i->alloc_rule);
-
-			dpt = kz_dispatcher_clone(i);
-			if (dpt == NULL)
-				goto mem_error;
-			list_add_tail(&dpt->list, &new->dispatchers.head);
-		}
-
-		/* append dispatcherss created in the transaction */
-		list_for_each_entry_safe(io, po, &tr->op, list) {
-			if (io->type == KZNL_OP_ADD_DISPATCHER) {
-				struct kz_dispatcher *dispatcher = (struct kz_dispatcher *) io->data;
-				kz_debug("add dispatcher; name='%s', alloc_rules='%u', num_rules='%u'\n", dispatcher->name, dispatcher->alloc_rule, dispatcher->num_rule);
-				list_del(&io->list);
-				list_add_tail(&dispatcher->list, &new->dispatchers.head);
-				kfree(io);
-			}
-		}
-
-		/* consolidate content */
-		list_for_each_entry(i, &new->dispatchers.head, list) {
-			kz_dispatcher_relink(i, &new->zones.head, &new->services.head);
-		}
-	}
+	if ((res = kz_commit_transaction_process_services(tr, new)) < 0)
+		goto error;
+	if ((res = kz_commit_transaction_process_zones(tr, new)) < 0)
+		goto error;
+	if ((res = kz_commit_transaction_process_dispatchers(tr, new)) < 0)
+		goto error;
 
 	/* remove binds of transaction owner process */
 	kz_instance_remove_bind(instance, tr->peer_pid, tr);
@@ -1309,10 +1368,10 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 	res = 0;
 	goto free_locals;
 
-mem_error:
-	kz_err("memory exhausted during kzorp config commit");
-	res = -ENOMEM;
 error:
+	if (res == -ENOMEM)
+		kz_err("memory exhausted during kzorp config commit");
+
 	/* unlock services in old */
 	{
 		struct kz_service *i;
