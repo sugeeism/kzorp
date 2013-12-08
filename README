@@ -1,7 +1,7 @@
 Kzorp is a open source set of mechanisms to implement mixed packet filter/application level gateway functionality on Linux.
 Kzorp is used by Zorp, and anyone is welcome to use it with other gateways.
 
-You can install it by the automake;./configure;make;make install combo.
+You can install it by the autoreconf -i;./configure;make;make install combo.
 There will be Debian packages soon, promise.
 
 See the file COPYRIGHT for copyright (which is GPL), and HACKING.md on internals and stuff.

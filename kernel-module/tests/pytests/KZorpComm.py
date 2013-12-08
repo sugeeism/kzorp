@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 #
 # Copyright (C) 2006-2012, BalaBit IT Ltd.
 # This program/include file is free software; you can redistribute it and/or

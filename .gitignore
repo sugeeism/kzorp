@@ -1,0 +1,10 @@
+Makefile.in
+aclocal.m4
+autom4te.cache/
+build-aux/
+config.h.in
+configure
+m4/
+pylib/Makefile.in
+pylib/kzorp/Makefile.in
+pylib/kzorp/kzorp/Makefile.in

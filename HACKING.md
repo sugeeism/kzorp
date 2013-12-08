@@ -15,7 +15,6 @@ Copyright is GPL v2+.
 The source code is meant to be autotools compatible, and readily useable after 'make install'.
 kzorp is meant to be packaged as the following (sets of) binary packages:
  - dkms module
- - set of iptables modules
  - python package, containing the python API and the kzorp binary 
 
 In git, the 'stable' branch is meant to contain the stable code.
