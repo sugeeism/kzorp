@@ -1,4 +1,4 @@
-AC_INIT([kzorp-iptables], m4_esyscmd([tr -d '\n' <VERSION]))
+AC_INIT([kzorp], m4_esyscmd([tr -d '\n' <VERSION]))
 AC_CONFIG_SRCDIR([kernel-module/kzorp_core.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
@@ -40,7 +40,6 @@ AC_SUBST([xtlibdir])
 AC_SUBST([PACKAGE_VERSION])
 AC_SUBST([PYTHON])
 AC_CONFIG_FILES([Makefile
-                 iptables/Makefile
                  pylib/Makefile
                  pylib/kzorp/Makefile
                  pylib/kzorp/kzorp/Makefile

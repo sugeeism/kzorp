@@ -1,4 +1,4 @@
-SUBDIRS = iptables pylib
+SUBDIRS = pylib kernel-module
 
 ksrcdir = $(prefix)/src/kzorp-$(PACKAGE_VERSION)
 
@@ -63,6 +63,9 @@ ksrcpytest_DATA = kernel-module/tests/pytests/__init__.py\
 clean-local:
 	(cd kernel-module && [ ! -f Makefile ] || $(MAKE) clean)
 	(cd end-to-end-test  && [ ! -f Makefile ] || $(MAKE) clean)
+
+distclean-local:
+	-rm -rf Makefile.in aclocal.m4 build-aux/ config.h.in configure debian/files debian/kzorp-dkms.debhelper.log debian/kzorp-dkms.postinst.debhelper debian/kzorp-dkms.prerm.debhelper debian/kzorp-dkms.substvars debian/kzorp-dkms/ debian/kzorp.debhelper.log debian/kzorp.postinst.debhelper debian/kzorp.prerm.debhelper debian/kzorp.substvars debian/kzorp/ end-to-end-test/iptables.zones m4/ pylib/Makefile.in pylib/kzorp/Makefile.in pylib/kzorp/kzorp/Makefile.in debian/tmp
 
 imgtest:
 	(cd end-to-end-test && [ ! -f Makefile ] || $(MAKE))
