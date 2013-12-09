@@ -1,4 +1,4 @@
-KVERSION ?= $(shell uname -r)
+KVERSION ?= 3.5.0-32-generic
 KERNELRELEASE ?= $(KVERSION)
 
 kzorp-objs := kzorp_core.o kzorp_lookup.o kzorp_sockopt.o kzorp_netlink.o kzorp_ext.o
@@ -7,7 +7,7 @@ obj-m += xt_KZORP.o
 obj-m += xt_service.o
 obj-m += xt_zone.o
 
-all: xt_KZORP.ko
+all: 
 	echo "done"
 
 notest: xt_KZORP.ko
@@ -27,7 +27,7 @@ endif
 
 distclean: clean
 
-check: testing
+check: testing xt_KZORP.ko
 
 testing: tests/kzorp_ext.o
 
