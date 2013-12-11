@@ -23,7 +23,7 @@
  * The File containing the definitions of the functions must include this file.
  */
 
-#include "kzorp.h"
+#include <linux/netfilter/kzorp.h>
 
 #ifdef KZ_USERSPACE
 #define KZ_PROTECTED

@@ -14,8 +14,8 @@
 #include <linux/netdevice.h>
 
 #include <linux/netfilter/x_tables.h>
-#include "include/xt_zone.h"
-#include "include/kzorp.h"
+#include <linux/netfilter/xt_zone.h>
+#include <linux/netfilter/kzorp.h>
 
 static bool
 zone_mt_v1_eval(const struct sk_buff *skb,

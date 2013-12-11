@@ -26,7 +26,7 @@
 #include <linux/if.h>
 #include <linux/netdevice.h>
 
-#include "kzorp_internal.h"
+#include <net/netfilter/kzorp_internal.h>
 #include <linux/version.h>
 
 #define KZ_MAJOR_VERSION  4

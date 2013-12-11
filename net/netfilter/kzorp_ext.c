@@ -13,7 +13,7 @@
 #include <linux/hash.h>
 #include <linux/bootmem.h>
 #include <net/netfilter/nf_conntrack_zones.h>
-#include "include/kzorp.h"
+#include <linux/netfilter/kzorp.h>
 
 #ifdef KZ_USERSPACE
 

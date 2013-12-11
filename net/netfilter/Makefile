@@ -1,5 +1,6 @@
 KVERSION ?= $(shell uname -r)
 KERNELRELEASE ?= $(KVERSION)
+EXTRA_CFLAGS       = -I$(src)/../../include
 
 kzorp-objs := kzorp_core.o kzorp_lookup.o kzorp_sockopt.o kzorp_netlink.o kzorp_ext.o
 obj-m := kzorp.o
@@ -32,7 +33,7 @@ check: testing
 testing: tests/kzorp_ext.o
 
 tests/kzorp_ext.o:
-	$(MAKE) -C tests KVERSION=$(KVERSION) 
+	$(MAKE) -C tests KVERSION=$(KVERSION)
 
 imgtest: tests/kzorp_ext.o xt_KZORP.ko
 	$(MAKE) -C tests KVERSION=$(KVERSION) img_test

@@ -14,8 +14,8 @@
 #include <linux/skbuff.h>
 
 #include <linux/netfilter/x_tables.h>
-#include "include/xt_service.h"
-#include "include/kzorp.h"
+#include <linux/netfilter/xt_service.h>
+#include <linux/netfilter/kzorp.h>
 
 static bool
 service_mt(const struct sk_buff *skb, struct xt_action_param *par)
