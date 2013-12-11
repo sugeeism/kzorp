@@ -1,1 +1,1 @@
-kernel-module/dkms.conf
+net/netfilter/dkms.conf

@@ -1,16 +1,4 @@
-
-The files kernel-module/tests/rand-lfsr258.c and kernel-module/tests/rand-lfsr258.c
-Contain code from the following sources:
-
-* MATHEMATICS OF COMPUTATION
-  Volume 68, Number 225, January 1999, Pages 261-269
-  S 0025-5718(99)01039-X
-
-* D. E. Knuth. The Art of Computer Programming,
-  Volume 2: Seminumerical Algorithms, Third Edition. Addison-Wesley, 1997.
-  ISBN 0-201-89684-2. Section 3.2.1: The Linear Congruential Method, pp. 10–26.
-
-./kernel-module/tests/sort.c is copied from the Linux kernel sorce (lib/sort.c),
+net/netfilter/tests/sort.c is copied from the Linux kernel sorce (lib/sort.c),
 which means GPL v2, and no other version. See COPYING in the kernel source for details.
 
 All other sources are under the following copyright:
