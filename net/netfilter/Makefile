@@ -33,7 +33,7 @@ check: testing xt_KZORP.ko
 testing: tests/kzorp_ext.o
 
 tests/kzorp_ext.o:
-	$(MAKE) -C tests KVERSION=$(KVERSION) 
+	$(MAKE) -C tests KVERSION=$(KVERSION)
 
 imgtest: tests/kzorp_ext.o xt_KZORP.ko
 	$(MAKE) -C tests KVERSION=$(KVERSION) img_test

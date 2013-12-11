@@ -40,6 +40,7 @@ realclean:
 FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement
 CFLAGS = $(FLAGS) -D__KERNEL__ -DKBUILD_MODNAME=\"\" -O2 -fno-strict-aliasing -pipe -g -Wno-pointer-sign
 CFLAGS += $(DEPENDENT_FLAGS)
+CFLAGS += -I../../../include
 ifeq ($(wildcard $(srctree)/include/linux/kconfig.h),) 
   CFLAGS += -include $(commontree)/include/linux/kconfig.h
 else 

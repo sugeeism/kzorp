@@ -17,8 +17,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include <kzorp.h>
-#include <kzorp_lookup_internal.h>
+#include <linux/netfilter/kzorp.h>
+#include <net/netfilter/kzorp_lookup_internal.h>
 
 // libc:
 void *malloc(size_t size);
