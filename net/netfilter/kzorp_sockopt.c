@@ -15,8 +15,8 @@
 #include <net/ipv6.h>
 #include <linux/netfilter.h>
 #include <net/netfilter/nf_conntrack.h>
-#include "include/kzorp.h"
-#include "include/kzorp_sockopt.h"
+#include <linux/netfilter/kzorp.h>
+#include <linux/netfilter/kzorp_sockopt.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_tuple.h>
 #include <net/netfilter/nf_conntrack_core.h>

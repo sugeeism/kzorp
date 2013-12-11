@@ -1,5 +1,6 @@
 KVERSION ?= 3.5.0-32-generic
 KERNELRELEASE ?= $(KVERSION)
+EXTRA_CFLAGS       = -I$(src)/../../include
 
 kzorp-objs := kzorp_core.o kzorp_lookup.o kzorp_sockopt.o kzorp_netlink.o kzorp_ext.o
 obj-m := kzorp.o
