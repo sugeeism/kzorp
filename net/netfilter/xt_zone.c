@@ -18,9 +18,7 @@
 #include <linux/netfilter/kzorp.h>
 
 static bool
-zone_mt_v1_eval(const struct sk_buff *skb,
-		const struct ipt_zone_info_v1 *info,
-		const struct xt_action_param *par)
+zone_mt_v1_eval(const struct sk_buff *skb, const struct ipt_zone_info_v1 *info, const struct xt_action_param *par)
 {
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct;
@@ -31,18 +29,16 @@ zone_mt_v1_eval(const struct sk_buff *skb,
 	bool res;
 
 	rcu_read_lock();
-	ct = nf_ct_get((struct sk_buff *) skb, &ctinfo);
-	if (ct == NULL)		/* we're really only interested if REPLY or not... */
+	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
+	if (ct == NULL) /* we're really only interested if REPLY or not... */
 		ctinfo = IP_CT_NEW;
-	kzorp =
-	    ct ? nfct_kzorp_cached_lookup_rcu(ct, ctinfo, skb, par->in,
-					      par->family, NULL) : NULL;
+	kzorp = ct ? nfct_kzorp_cached_lookup_rcu(ct, ctinfo, skb, par->in, par->family, NULL) : NULL;
 
-	if (kzorp == NULL) {
+	if (kzorp == NULL)
+	{
 		kzorp = &local_kzorp;
 		memset(&local_kzorp, 0, sizeof(local_kzorp));
-		nfct_kzorp_lookup_rcu(&local_kzorp, ctinfo, skb, par->in,
-				      par->family, NULL);
+		nfct_kzorp_lookup_rcu(&local_kzorp, ctinfo, skb, par->in, par->family, NULL);
 	}
 	rcu_read_unlock();
 
@@ -68,9 +64,9 @@ zone_mt_v1_eval(const struct sk_buff *skb,
 /* ret_false: */
 	res = false;
 	goto done;
-      ret_true:
+ret_true:
 	res = true;
-      done:
+done:
 	if (kzorp == &local_kzorp)
 		kz_destroy_kzorp(&local_kzorp);
 	return res;
@@ -79,21 +75,16 @@ zone_mt_v1_eval(const struct sk_buff *skb,
 static bool
 zone_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	return zone_mt_v1_eval(skb,
-			       (const struct ipt_zone_info_v1 *) par->
-			       matchinfo, par);
+	return zone_mt_v1_eval(skb, (const struct ipt_zone_info_v1 *) par->matchinfo, par);
 }
 
 static bool
 zone_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ipt_zone_info *oldinfo =
-	    (const struct ipt_zone_info *) par->matchinfo;
-	/* would be ipt_zone_info_v1 directly, but that may exceed stack limit; we only need 1 entry */
-	unsigned char buf[16 + offsetof(struct ipt_zone_info_v1, names) +
-			  sizeof(oldinfo->name)];
-	struct ipt_zone_info_v1 *info =
-	    (struct ipt_zone_info_v1 *) &buf[0];
+	const struct ipt_zone_info *oldinfo = (const struct ipt_zone_info *) par->matchinfo;
+	/* would be ipt_zone_info_v1 directly, but that may exceed stack limit; we only need 1 entry*/
+	unsigned char buf[16 + offsetof(struct ipt_zone_info_v1, names) + sizeof(oldinfo->name)];
+	struct ipt_zone_info_v1 *info = (struct ipt_zone_info_v1 *) &buf[0];
 
 	info->flags = oldinfo->flags;
 	info->count = 1;
@@ -104,34 +95,33 @@ zone_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
 
 static struct xt_match xt_zone_match[] __read_mostly = {
 	{
-	 .name = "zone",
-	 .family = NFPROTO_IPV4,
-	 .match = zone_mt_v0,
-	 .matchsize = sizeof(struct ipt_zone_info),
-	 .me = THIS_MODULE,
-	 },
+		.name		= "zone",
+		.family		= NFPROTO_IPV4,
+		.match		= zone_mt_v0,
+		.matchsize	= sizeof(struct ipt_zone_info),
+		.me		= THIS_MODULE,
+	},
 	{
-	 .name = "zone",
-	 .revision = 1,
-	 .family = NFPROTO_IPV4,
-	 .match = zone_mt_v1,
-	 .matchsize = sizeof(struct ipt_zone_info_v1),
-	 .me = THIS_MODULE,
-	 },
+		.name		= "zone",
+		.revision	= 1,
+		.family		= NFPROTO_IPV4,
+		.match		= zone_mt_v1,
+		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.me		= THIS_MODULE,
+	},
 	{
-	 .name = "zone",
-	 .revision = 1,
-	 .family = NFPROTO_IPV6,
-	 .match = zone_mt_v1,
-	 .matchsize = sizeof(struct ipt_zone_info_v1),
-	 .me = THIS_MODULE,
-	 },
+		.name		= "zone",
+		.revision	= 1,
+		.family		= NFPROTO_IPV6,
+		.match		= zone_mt_v1,
+		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.me		= THIS_MODULE,
+	},
 };
 
 static int __init zone_mt_init(void)
 {
-	return xt_register_matches(xt_zone_match,
-				   ARRAY_SIZE(xt_zone_match));
+	return xt_register_matches(xt_zone_match, ARRAY_SIZE(xt_zone_match));
 }
 
 static void __exit zone_mt_exit(void)

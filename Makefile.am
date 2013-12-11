@@ -29,7 +29,8 @@ nobase_ksrcinc_DATA = include/linux/netfilter/kzorp.h\
             include/linux/netfilter/kzorp_sockopt.h\
             include/linux/netfilter/xt_KZORP.h\
             include/net/netfilter/kzorp_internal.h\
-            include/net/netfilter/kzorp_lookup_internal.h
+            include/net/netfilter/kzorp_lookup_internal.h\
+            include/net/netfilter/kzorp_compat.h
 
 ksrctest_DATA = net/netfilter/tests/100000rules_policy.py\
                 net/netfilter/tests/get_kzorp_result.c\
