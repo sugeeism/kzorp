@@ -6,7 +6,7 @@ ksrctestdir = $(ksrcdir)/tests
 
 ksrcpytestdir = $(ksrcdir)/tests/pytests
 
-ksrcincdir = $(ksrcdir)/include
+ksrcincdir = $(ksrcdir)
 
 ksrc_DATA = net/netfilter/dkms.conf\
             net/netfilter/kzorp_core.c\
@@ -20,7 +20,7 @@ ksrc_DATA = net/netfilter/dkms.conf\
             net/netfilter/xt_service.c\
             net/netfilter/xt_zone.c
 
-ksrcinc_DATA = include/linux/netfilter/kzorp.h\
+nobase_ksrcinc_DATA = include/linux/netfilter/kzorp.h\
             include/linux/netfilter/kzorp_netlink.h\
             include/linux/netfilter/xt_service.h\
             include/linux/netfilter/xt_zone.h\
