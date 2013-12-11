@@ -1,4 +1,4 @@
-SUBDIRS = pylib kernel-module
+SUBDIRS = pylib net/netfilter
 
 ksrcdir = $(prefix)/src/kzorp-$(PACKAGE_VERSION)
 
@@ -8,60 +8,60 @@ ksrcpytestdir = $(ksrcdir)/tests/pytests
 
 ksrcincdir = $(ksrcdir)/include
 
-ksrc_DATA = kernel-module/dkms.conf\
-            kernel-module/kzorp_core.c\
-            kernel-module/kzorp_ext.c\
-            kernel-module/kzorp_lookup.c\
-            kernel-module/kzorp_netlink.c\
-            kernel-module/kzorp_sockopt.c\
-            kernel-module/Makefile\
-            kernel-module/README\
-            kernel-module/xt_KZORP.c\
-            kernel-module/xt_service.c\
-            kernel-module/xt_zone.c
+ksrc_DATA = net/netfilter/dkms.conf\
+            net/netfilter/kzorp_core.c\
+            net/netfilter/kzorp_ext.c\
+            net/netfilter/kzorp_lookup.c\
+            net/netfilter/kzorp_netlink.c\
+            net/netfilter/kzorp_sockopt.c\
+            net/netfilter/Makefile\
+            net/netfilter/README\
+            net/netfilter/xt_KZORP.c\
+            net/netfilter/xt_service.c\
+            net/netfilter/xt_zone.c
 
-ksrcinc_DATA = kernel-module/include/kzorp.h\
-               kernel-module/include/kzorp_internal.h\
-               kernel-module/include/kzorp_lookup_internal.h\
-               kernel-module/include/kzorp_netlink.h\
-               kernel-module/include/kzorp_sockopt.h\
-               kernel-module/include/xt_KZORP.h\
-               kernel-module/include/xt_service.h\
-               kernel-module/include/xt_zone.h
+ksrcinc_DATA = include/linux/netfilter/kzorp.h\
+            include/linux/netfilter/kzorp_netlink.h\
+            include/linux/netfilter/xt_service.h\
+            include/linux/netfilter/xt_zone.h\
+            include/linux/netfilter/kzorp_sockopt.h\
+            include/linux/netfilter/xt_KZORP.h\
+            include/net/netfilter/kzorp_internal.h\
+            include/net/netfilter/kzorp_lookup_internal.h
 
-ksrctest_DATA = kernel-module/tests/100000rules_policy.py\
-                kernel-module/tests/get_kzorp_result.c\
-                kernel-module/tests/kzorp_rule_generator.py\
-                kernel-module/tests/Makefile\
-                kernel-module/tests/perf_measure.c\
-                kernel-module/tests/policy.py\
-                kernel-module/tests/sort.c\
-                kernel-module/tests/test_ext.c\
-                kernel-module/tests/test.h\
-                kernel-module/tests/test_ipv6_radix.c\
-                kernel-module/tests/test_kzorp_dump.sh\
-                kernel-module/tests/test_kzorp_lookup.c\
-                kernel-module/tests/test_kzorp_sockopt.py\
-                kernel-module/tests/test_mocks.c\
-                kernel-module/tests/test_ndim_eval.c
+ksrctest_DATA = net/netfilter/tests/100000rules_policy.py\
+                net/netfilter/tests/get_kzorp_result.c\
+                net/netfilter/tests/kzorp_rule_generator.py\
+                net/netfilter/tests/Makefile\
+                net/netfilter/tests/perf_measure.c\
+                net/netfilter/tests/policy.py\
+                net/netfilter/tests/sort.c\
+                net/netfilter/tests/test_ext.c\
+                net/netfilter/tests/test.h\
+                net/netfilter/tests/test_ipv6_radix.c\
+                net/netfilter/tests/test_kzorp_dump.sh\
+                net/netfilter/tests/test_kzorp_lookup.c\
+                net/netfilter/tests/test_kzorp_sockopt.py\
+                net/netfilter/tests/test_mocks.c\
+                net/netfilter/tests/test_ndim_eval.c
 
 
-ksrcpytest_DATA = kernel-module/tests/pytests/__init__.py\
-                  kernel-module/tests/pytests/KZorpBaseTestCaseBind.py\
-                  kernel-module/tests/pytests/KZorpBaseTestCaseDispatchers.py\
-                  kernel-module/tests/pytests/KZorpBaseTestCaseQuery.py\
-                  kernel-module/tests/pytests/KZorpBaseTestCaseZones.py\
-                  kernel-module/tests/pytests/KZorpComm.py\
-                  kernel-module/tests/pytests/KZorpTestCaseDispatchers.py\
-                  kernel-module/tests/pytests/KZorpTestCaseQueryNDim.py\
-                  kernel-module/tests/pytests/KZorpTestCaseServices.py\
-                  kernel-module/tests/pytests/KZorpTestCaseTransaction.py\
-                  kernel-module/tests/pytests/KZorpTestCaseZones.py\
-                  kernel-module/tests/pytests/testall.py\
-                  kernel-module/tests/pytests/testutil.py
+ksrcpytest_DATA = net/netfilter/tests/pytests/__init__.py\
+                  net/netfilter/tests/pytests/KZorpBaseTestCaseBind.py\
+                  net/netfilter/tests/pytests/KZorpBaseTestCaseDispatchers.py\
+                  net/netfilter/tests/pytests/KZorpBaseTestCaseQuery.py\
+                  net/netfilter/tests/pytests/KZorpBaseTestCaseZones.py\
+                  net/netfilter/tests/pytests/KZorpComm.py\
+                  net/netfilter/tests/pytests/KZorpTestCaseDispatchers.py\
+                  net/netfilter/tests/pytests/KZorpTestCaseQueryNDim.py\
+                  net/netfilter/tests/pytests/KZorpTestCaseServices.py\
+                  net/netfilter/tests/pytests/KZorpTestCaseTransaction.py\
+                  net/netfilter/tests/pytests/KZorpTestCaseZones.py\
+                  net/netfilter/tests/pytests/testall.py\
+                  net/netfilter/tests/pytests/testutil.py
 
 clean-local:
-	(cd kernel-module && [ ! -f Makefile ] || $(MAKE) clean)
+	(cd net/netfilter && [ ! -f Makefile ] || $(MAKE) clean)
 	(cd end-to-end-test  && [ ! -f Makefile ] || $(MAKE) clean)
 
 distclean-local:
