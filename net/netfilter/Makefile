@@ -41,9 +41,6 @@ imgtest: tests/kzorp_ext.o xt_KZORP.ko
 imgrun: tests/kzorp_ext.o xt_KZORP.ko
 	$(MAKE) -C tests KVERSION=$(KVERSION) img_run
 
-../kzorp-dkms_0.1.0_all.deb:
-	dkms mkdeb --source-only
-
 dkmsdeb: ../kzorp-dkms_0.1.0_all.deb
 
 install:

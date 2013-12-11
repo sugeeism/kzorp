@@ -1,12 +1,14 @@
 SUBDIRS = pylib net/netfilter
 
-ksrcdir = $(prefix)/src/kzorp-$(PACKAGE_VERSION)
+kprefix = $(prefix)/src/kzorp-$(PACKAGE_VERSION)
+
+ksrcdir = $(kprefix)/net/netfilter
 
 ksrctestdir = $(ksrcdir)/tests
 
 ksrcpytestdir = $(ksrcdir)/tests/pytests
 
-ksrcincdir = $(ksrcdir)
+ksrcincdir = $(kprefix)/
 
 ksrc_DATA = net/netfilter/dkms.conf\
             net/netfilter/kzorp_core.c\
@@ -69,3 +71,6 @@ distclean-local:
 
 imgtest:
 	(cd end-to-end-test && [ ! -f Makefile ] || $(MAKE))
+
+install-exec-local:
+	mkdir -p $(DESTDIR)$(kprefix);cp net/netfilter/proxy-Makefile $(DESTDIR)$(kprefix)/Makefile
