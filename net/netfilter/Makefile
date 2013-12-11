@@ -8,7 +8,7 @@ obj-m += xt_KZORP.o
 obj-m += xt_service.o
 obj-m += xt_zone.o
 
-all: 
+all: xt_KZORP.ko
 	echo "done"
 
 notest: xt_KZORP.ko
@@ -40,9 +40,6 @@ imgtest: tests/kzorp_ext.o xt_KZORP.ko
 
 imgrun: tests/kzorp_ext.o xt_KZORP.ko
 	$(MAKE) -C tests KVERSION=$(KVERSION) img_run
-
-../kzorp-dkms_0.1.0_all.deb:
-	dkms mkdeb --source-only
 
 dkmsdeb: ../kzorp-dkms_0.1.0_all.deb
 
