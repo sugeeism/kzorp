@@ -35,6 +35,7 @@
 #include <asm/bitops.h>
 
 #include <linux/netfilter/kzorp.h>
+
 #include <net/netfilter/kzorp_lookup_internal.h>
 
 static const char *const kz_log_null = "(NULL)";
@@ -43,7 +44,8 @@ static const char *const kz_log_null = "(NULL)";
  * Global lookup structures
  ***********************************************************/
 
-struct zone_lookup_t {
+struct zone_lookup_t
+{
 	u_int16_t index;
 	u_int16_t depth;
 };
@@ -52,7 +54,8 @@ void kz_generate_lookup_data(struct kz_head_d *dispatchers);
 
 static DEFINE_PER_CPU(struct kz_percpu_env *, kz_percpu);
 
-void kz_lookup_cleanup(void)
+void
+kz_lookup_cleanup(void)
 {
 	int cpu;
 
@@ -68,32 +71,29 @@ void kz_lookup_cleanup(void)
 	}
 }
 
-int __init kz_lookup_init(void)
+int __init
+kz_lookup_init(void)
 {
 	int cpu;
 
 	for_each_possible_cpu(cpu) {
 		struct kz_percpu_env *l;
 
-		l = (struct kz_percpu_env *) kzalloc(sizeof(*l),
-						     GFP_KERNEL);
+		l = (struct kz_percpu_env *) kzalloc(sizeof(*l), GFP_KERNEL);
 		if (l == NULL)
 			goto cleanup;
 
-		per_cpu(kz_percpu, cpu) = l;	/* store early, so cleanup works! */
+		per_cpu(kz_percpu, cpu) = l; /* store early, so cleanup works! */
 
-		l->src_mask =
-		    (unsigned long *) kzalloc(KZ_ZONE_BF_SIZE, GFP_KERNEL);
+		l->src_mask = (unsigned long *) kzalloc(KZ_ZONE_BF_SIZE, GFP_KERNEL);
 		if (l->src_mask == NULL)
 			goto cleanup;
 
-		l->dst_mask =
-		    (unsigned long *) kzalloc(KZ_ZONE_BF_SIZE, GFP_KERNEL);
+		l->dst_mask = (unsigned long *) kzalloc(KZ_ZONE_BF_SIZE, GFP_KERNEL);
 		if (l->dst_mask == NULL)
 			goto cleanup;
 
-		l->result_rules =
-		    kzalloc(sizeof(*l->result_rules), GFP_KERNEL);
+		l->result_rules = kzalloc(sizeof(*l->result_rules), GFP_KERNEL);
 		if (l->result_rules == NULL)
 			goto cleanup;
 
@@ -102,7 +102,7 @@ int __init kz_lookup_init(void)
 
 	return 0;
 
-      cleanup:
+cleanup:
 	kz_lookup_cleanup();
 
 	return -ENOMEM;
@@ -119,7 +119,7 @@ int __init kz_lookup_init(void)
  * Returns: the number of leading '1' bits in @mask
  */
 KZ_PROTECTED inline unsigned int
-mask_to_size_v4(const struct in_addr *const mask)
+mask_to_size_v4(const struct in_addr * const mask)
 {
 	if (mask == 0U)
 		return 0;
@@ -134,13 +134,14 @@ mask_to_size_v4(const struct in_addr *const mask)
  * Returns: the number of leading '1' bits in @mask
  */
 KZ_PROTECTED inline unsigned int
-mask_to_size_v6(const struct in6_addr *const mask)
+mask_to_size_v6(const struct in6_addr * const mask)
 {
 	unsigned int i;
 
 	if (mask->s6_addr32[0] == 0U &&
 	    mask->s6_addr32[1] == 0U &&
-	    mask->s6_addr32[2] == 0U && mask->s6_addr32[3] == 0U)
+	    mask->s6_addr32[2] == 0U &&
+	    mask->s6_addr32[3] == 0U)
 		return 0;
 
 	for (i = 0; i < 4; i++) {
@@ -158,8 +159,7 @@ mask_to_size_v6(const struct in6_addr *const mask)
 
 /* Return 1 if the destination address is local on the interface. */
 static inline int
-match_iface_local(const struct net_device *in, u_int8_t proto,
-		  const union nf_inet_addr *addr)
+match_iface_local(const struct net_device * in, u_int8_t proto, const union nf_inet_addr *addr)
 {
 	int res = 0;
 
@@ -194,10 +194,8 @@ match_iface_local(const struct net_device *in, u_int8_t proto,
 			if (in6dev == NULL)
 				return 0;
 
-			list_for_each_entry(ifp, &in6dev->addr_list,
-					    if_list) {
-				if (ipv6_addr_cmp(&ifp->addr, &addr->in6)
-				    == 0) {
+			list_for_each_entry(ifp, &in6dev->addr_list, if_list) {
+				if (ipv6_addr_cmp(&ifp->addr, &addr->in6) == 0) {
 					res = 1;
 					break;
 				}
@@ -215,10 +213,11 @@ match_iface_local(const struct net_device *in, u_int8_t proto,
  * Dispatchers
  ***********************************************************/
 
-static int port_range_cmp(const void *_a, const void *_b)
+static int
+port_range_cmp(const void *_a, const void *_b)
 {
-	const struct kz_port_range *a = (struct kz_port_range *) _a;
-	const struct kz_port_range *b = (struct kz_port_range *) _b;
+	const struct kz_port_range *a = (struct kz_port_range *)_a;
+	const struct kz_port_range *b = (struct kz_port_range *)_b;
 	int res;
 
 	res = a->from - b->from;
@@ -228,10 +227,11 @@ static int port_range_cmp(const void *_a, const void *_b)
 	return res;
 }
 
-static void port_range_swap(void *_a, void *_b, int size)
+static void
+port_range_swap(void *_a, void *_b, int size)
 {
-	struct kz_port_range *a = (struct kz_port_range *) _a;
-	struct kz_port_range *b = (struct kz_port_range *) _b;
+	struct kz_port_range *a = (struct kz_port_range *)_a;
+	struct kz_port_range *b = (struct kz_port_range *)_b;
 
 	swap(a->from, b->from);
 	swap(a->to, b->to);
@@ -246,10 +246,11 @@ dpt_ndim_rule_sort_ports(unsigned int n, struct kz_port_range *r)
 	return 0;
 }
 
-static int in_subnet_size_cmp(const void *_a, const void *_b)
+static int
+in_subnet_size_cmp(const void *_a, const void *_b)
 {
-	const struct kz_in_subnet *a = (struct kz_in_subnet *) _a;
-	const struct kz_in_subnet *b = (struct kz_in_subnet *) _b;
+	const struct kz_in_subnet *a = (struct kz_in_subnet *)_a;
+	const struct kz_in_subnet *b = (struct kz_in_subnet *)_b;
 
 	int res;
 
@@ -259,15 +260,16 @@ static int in_subnet_size_cmp(const void *_a, const void *_b)
 
 	if (res == 0)
 		res = (a->addr.s_addr < b->addr.s_addr) ? -1 :
-		    ((a->addr.s_addr == b->addr.s_addr) ? 0 : 1);
+			((a->addr.s_addr == b->addr.s_addr) ? 0 : 1);
 
 	return res;
 }
 
-static void in_subnet_swap(void *_a, void *_b, int size)
+static void
+in_subnet_swap(void *_a, void *_b, int size)
 {
-	struct kz_in_subnet *a = (struct kz_in_subnet *) _a;
-	struct kz_in_subnet *b = (struct kz_in_subnet *) _b;
+	struct kz_in_subnet *a = (struct kz_in_subnet *)_a;
+	struct kz_in_subnet *b = (struct kz_in_subnet *)_b;
 
 	swap(a->addr, b->addr);
 	swap(a->mask, b->mask);
@@ -301,10 +303,11 @@ ipv6_addr_less(const struct in6_addr *a1, const struct in6_addr *a2)
 	return false;
 }
 
-static int in6_subnet_size_cmp(const void *_a, const void *_b)
+static int
+in6_subnet_size_cmp(const void *_a, const void *_b)
 {
-	const struct kz_in6_subnet *a = (struct kz_in6_subnet *) _a;
-	const struct kz_in6_subnet *b = (struct kz_in6_subnet *) _b;
+	const struct kz_in6_subnet *a = (struct kz_in6_subnet *)_a;
+	const struct kz_in6_subnet *b = (struct kz_in6_subnet *)_b;
 
 	int res;
 
@@ -314,15 +317,16 @@ static int in6_subnet_size_cmp(const void *_a, const void *_b)
 
 	if (res == 0)
 		res = ipv6_addr_less(&a->addr, &b->addr) ? -1 :
-		    (ipv6_addr_equal(&a->addr, &b->addr) ? 0 : 1);
+		       (ipv6_addr_equal(&a->addr, &b->addr) ? 0 : 1);
 
 	return res;
 }
 
-static void in6_subnet_swap(void *_a, void *_b, int size)
+static void
+in6_subnet_swap(void *_a, void *_b, int size)
 {
-	struct kz_in6_subnet *a = (struct kz_in6_subnet *) _a;
-	struct kz_in6_subnet *b = (struct kz_in6_subnet *) _b;
+	struct kz_in6_subnet *a = (struct kz_in6_subnet *)_a;
+	struct kz_in6_subnet *b = (struct kz_in6_subnet *)_b;
 
 	swap(a->addr, b->addr);
 	swap(a->mask, b->mask);
@@ -344,10 +348,11 @@ dpt_ndim_rule_sort_in6_subnets(unsigned int n, struct kz_in6_subnet *r)
 	return 0;
 }
 
-static int zone_depth_cmp(const void *_a, const void *_b)
+static int
+zone_depth_cmp(const void *_a, const void *_b)
 {
-	const struct kz_zone *a = *(const struct kz_zone **) _a;
-	const struct kz_zone *b = *(const struct kz_zone **) _b;
+	const struct kz_zone *a = *(const struct kz_zone **)_a;
+	const struct kz_zone *b = *(const struct kz_zone **)_b;
 	int res;
 
 	/* NOTE: inverted result because we need to sort by the depth
@@ -356,28 +361,30 @@ static int zone_depth_cmp(const void *_a, const void *_b)
 	if (res == 0)
 		res = strcmp(a->unique_name, b->unique_name);
 
-	kz_debug("a='%s', b='%s', res='%d'\n", a->unique_name,
-		 b->unique_name, res);
+	kz_debug("a='%s', b='%s', res='%d'\n", a->unique_name, b->unique_name, res);
 
 	return res;
 }
 
-static void zone_swap(void *_a, void *_b, int size)
+static void
+zone_swap(void *_a, void *_b, int size)
 {
-	struct kz_zone **a = (struct kz_zone **) _a;
-	struct kz_zone **b = (struct kz_zone **) _b;
+	struct kz_zone **a = (struct kz_zone **)_a;
+	struct kz_zone **b = (struct kz_zone **)_b;
 
 	swap(*a, *b);
 }
 
-static int dpt_ndim_rule_sort_zones(unsigned int n, struct kz_zone **r)
+static int
+dpt_ndim_rule_sort_zones(unsigned int n, struct kz_zone **r)
 {
 	sort(r, n, sizeof(*r), zone_depth_cmp, zone_swap);
 
 	return 0;
 }
 
-static int dpt_ndim_rule_sort(struct kz_dispatcher_n_dimension_rule *rule)
+static int
+dpt_ndim_rule_sort(struct kz_dispatcher_n_dimension_rule *rule)
 {
 	int res;
 
@@ -391,27 +398,19 @@ static int dpt_ndim_rule_sort(struct kz_dispatcher_n_dimension_rule *rule)
 	if (res < 0)
 		return res;
 
-	res =
-	    dpt_ndim_rule_sort_in_subnets(rule->num_src_in_subnet,
-					  rule->src_in_subnet);
+	res = dpt_ndim_rule_sort_in_subnets(rule->num_src_in_subnet, rule->src_in_subnet);
 	if (res < 0)
 		return res;
 
-	res =
-	    dpt_ndim_rule_sort_in6_subnets(rule->num_src_in6_subnet,
-					   rule->src_in6_subnet);
+	res = dpt_ndim_rule_sort_in6_subnets(rule->num_src_in6_subnet, rule->src_in6_subnet);
 	if (res < 0)
 		return res;
 
-	res =
-	    dpt_ndim_rule_sort_in_subnets(rule->num_dst_in_subnet,
-					  rule->dst_in_subnet);
+	res = dpt_ndim_rule_sort_in_subnets(rule->num_dst_in_subnet, rule->dst_in_subnet);
 	if (res < 0)
 		return res;
 
-	res =
-	    dpt_ndim_rule_sort_in6_subnets(rule->num_dst_in6_subnet,
-					   rule->dst_in6_subnet);
+	res = dpt_ndim_rule_sort_in6_subnets(rule->num_dst_in6_subnet, rule->dst_in6_subnet);
 	if (res < 0)
 		return res;
 
@@ -424,7 +423,8 @@ static int dpt_ndim_rule_sort(struct kz_dispatcher_n_dimension_rule *rule)
 	return res;
 }
 
-static int dpt_ndim_sort(struct kz_dispatcher *dispatcher)
+static int
+dpt_ndim_sort(struct kz_dispatcher *dispatcher)
 {
 	unsigned int i;
 	int res;
@@ -444,14 +444,15 @@ static int dpt_ndim_sort(struct kz_dispatcher *dispatcher)
  * Dispatcher lookup
  ***********************************************************/
 
-void kz_head_dispatcher_init(struct kz_head_d *h)
+void
+kz_head_dispatcher_init(struct kz_head_d *h)
 {
 	h->lookup_data = NULL;
 }
-
 EXPORT_SYMBOL_GPL(kz_head_dispatcher_init);
 
-int kz_head_dispatcher_build(struct kz_head_d *h)
+int
+kz_head_dispatcher_build(struct kz_head_d *h)
 {
 	struct kz_dispatcher *i;
 	int res = 0;
@@ -475,20 +476,19 @@ int kz_head_dispatcher_build(struct kz_head_d *h)
 
 	return res;
 
-      cleanup:
+cleanup:
 	kz_debug("problem, cleaning up\n");
 
 	return res;
 }
-
 EXPORT_SYMBOL_GPL(kz_head_dispatcher_build);
 
-void kz_head_dispatcher_destroy(struct kz_head_d *h)
+void
+kz_head_dispatcher_destroy(struct kz_head_d *h)
 {
 	if (h->lookup_data != NULL)
 		kz_big_free(h->lookup_data, h->lookup_data_allocator);
 }
-
 EXPORT_SYMBOL_GPL(kz_head_dispatcher_destroy);
 
 /***********************************************************
@@ -545,8 +545,7 @@ unmark_zone_path(unsigned long *mask, const struct kz_zone *zone)
  *	    n if @zone is reachable through n links from a root zone
  */
 static inline int
-zone_score(const struct zone_lookup_t *zone,
-	   const unsigned long *const mask)
+zone_score(const struct zone_lookup_t *zone, const unsigned long * const mask)
 {
 	/* NULL zone == wildcard */
 	if (zone == NULL)
@@ -555,7 +554,8 @@ zone_score(const struct zone_lookup_t *zone,
 	/* check if the zone is reachable */
 	if (test_bit(zone->index, mask)) {
 		return zone->depth;
-	} else {
+	}
+	else {
 		return -1;
 	}
 }
@@ -572,10 +572,11 @@ static inline int
 ipv4_masked_addr_cmp(const struct in_addr *a1, const struct in_addr *m,
 		     const struct in_addr *a2)
 {
-	return ! !((a1->s_addr ^ a2->s_addr) & m->s_addr);
+	return !!((a1->s_addr ^ a2->s_addr) & m->s_addr);
 }
 
-static inline int iface_name_cmp(const char *ifname1, const char *ifname2)
+static inline int
+iface_name_cmp(const char *ifname1, const char *ifname2)
 {
 	return !strncmp(ifname1, ifname2, IFNAMSIZ);
 }
@@ -587,9 +588,9 @@ static inline int iface_name_cmp(const char *ifname1, const char *ifname2)
  * list of rules in all N-dimension dispatchers.
  ***********************************************************/
 
-#define SCORE_ZONE_BITS 5	/* max. zone->depth + 1 */
-#define SCORE_SUBNET_BITS 8	/* /128 IPv6 subnet depth + 1 */
-#define SCORE_DST_IFACE_BITS 2	/* Tri-state: 2 iface match, 1 ifgroup match, 0 empty */
+#define SCORE_ZONE_BITS 5 /* max. zone->depth + 1 */
+#define SCORE_SUBNET_BITS 8 /* /128 IPv6 subnet depth + 1 */
+#define SCORE_DST_IFACE_BITS 2 /* Tri-state: 2 iface match, 1 ifgroup match, 0 empty */
 #define SCORE_SRC_ADDRESS_BITS (SCORE_ZONE_BITS + SCORE_SUBNET_BITS)
 #define SCORE_DST_ADDRESS_BITS (SCORE_ZONE_BITS + SCORE_DST_IFACE_BITS + SCORE_SUBNET_BITS)
 
@@ -604,20 +605,19 @@ static inline int iface_name_cmp(const char *ifname1, const char *ifname2)
  */
 typedef union kz_ndim_score {
 	struct {
-		unsigned long dst_address:SCORE_DST_ADDRESS_BITS;
-		unsigned long src_address:SCORE_SRC_ADDRESS_BITS;
-		unsigned long dst_port:2;	/* 1: matching range, 2: specific match (range of 1 element) */
-		unsigned long src_port:2;	/* 1: matching range, 2: specific match (range of 1 element) */
-		unsigned long proto:1;	/* 1: protocol match */
-		unsigned long iface:3;	/* 1: interface group match, 2: interface match, 4: reqid match */
+		unsigned long dst_address : SCORE_DST_ADDRESS_BITS;
+		unsigned long src_address : SCORE_SRC_ADDRESS_BITS;
+		unsigned long dst_port : 2;		/* 1: matching range, 2: specific match (range of 1 element) */
+		unsigned long src_port : 2;		/* 1: matching range, 2: specific match (range of 1 element) */
+		unsigned long proto : 1;		/* 1: protocol match */
+		unsigned long iface : 3;		/* 1: interface group match, 2: interface match, 4: reqid match */
 	} d;
 	int64_t all;
 } kz_ndim_score;
 
 static int
-kz_ndim_eval_reqid_match(const struct kz_reqids *const reqids,
-			 const u_int32_t n_reqids,
-			 const u_int32_t * const r_reqids)
+kz_ndim_eval_reqid_match(const struct kz_reqids * const reqids,
+			 const u_int32_t n_reqids, const u_int32_t * const r_reqids)
 {
 	int reqid_idx, idx;
 	if (!reqids || n_reqids == 0)
@@ -626,9 +626,7 @@ kz_ndim_eval_reqid_match(const struct kz_reqids *const reqids,
 	for (idx = 0; idx < reqids->len; idx++) {
 		const u_int32_t reqid = reqids->vec[idx];
 		for (reqid_idx = 0; reqid_idx < n_reqids; reqid_idx++) {
-			kz_debug
-			    ("comparing reqids; id='%d', r_reqid='%d'\n",
-			     reqid, r_reqids[reqid_idx]);
+			kz_debug("comparing reqids; id='%d', r_reqid='%d'\n", reqid, r_reqids[reqid_idx]);
 			if (reqid == r_reqids[reqid_idx])
 				return 1;
 		}
@@ -652,13 +650,11 @@ kz_ndim_eval_reqid_match(const struct kz_reqids *const reqids,
  *	     2, if a matching interface name was found
  */
 static int
-kz_ndim_eval_rule_iface(const u_int32_t n_reqids,
-			const u_int32_t * const r_reqids,
+kz_ndim_eval_rule_iface(const u_int32_t n_reqids, const u_int32_t * const r_reqids,
 			const u_int32_t n_ifaces, ifname_t * r_ifaces,
-			const u_int32_t n_ifgroups,
-			const u_int32_t * const r_ifgroups,
-			const struct kz_reqids *const reqids,
-			const struct net_device *const iface)
+			const u_int32_t n_ifgroups, const u_int32_t * const r_ifgroups,
+			const struct kz_reqids * const reqids,
+			const struct net_device * const iface)
 {
 	unsigned int i;
 	int score = 0;
@@ -673,8 +669,7 @@ kz_ndim_eval_rule_iface(const u_int32_t n_reqids,
 		return -1;
 
 	for (i = 0; i < n_ifgroups; i++) {
-		kz_debug("comparing groups; id='%u', r_id='%u'\n",
-			 iface->group, r_ifgroups[i]);
+		kz_debug("comparing groups; id='%u', r_id='%u'\n", iface->group, r_ifgroups[i]);
 		if (iface->group == r_ifgroups[i]) {
 			score = 1;
 			break;
@@ -682,8 +677,7 @@ kz_ndim_eval_rule_iface(const u_int32_t n_reqids,
 	}
 
 	for (i = 0; i < n_ifaces; i++) {
-		kz_debug("comparing names; name='%s', r_name='%s'\n",
-			 iface->name, (char *) (r_ifaces + i));
+		kz_debug("comparing names; name='%s', r_name='%s'\n", iface->name, (char *) (r_ifaces + i));
 		if (iface_name_cmp(iface->name, (char *) (r_ifaces + i))) {
 			score |= 2;
 			break;
@@ -698,11 +692,9 @@ kz_ndim_eval_rule_iface(const u_int32_t n_reqids,
 
 static int
 kz_ndim_eval_rule_dst_if(const u_int32_t n_ifaces, ifname_t * r_ifaces,
-			 const u_int32_t n_ifgroups,
-			 const u_int32_t * const r_ifgroups,
-			 const struct net_device *const iface,
-			 const u_int8_t proto,
-			 const union nf_inet_addr *daddr)
+		    const u_int32_t n_ifgroups, const u_int32_t * const r_ifgroups,
+		    const struct net_device * const iface,
+		    const u_int8_t proto, const union nf_inet_addr *daddr)
 {
 	if (n_ifaces == 0 && n_ifgroups == 0)
 		return 0;
@@ -711,7 +703,7 @@ kz_ndim_eval_rule_dst_if(const u_int32_t n_ifaces, ifname_t * r_ifaces,
 		return -1;
 
 	if (match_iface_local(iface, proto, daddr))
-		return kz_ndim_eval_rule_iface(0, NULL,	/* We don't have reqid for dst addresses */
+		return kz_ndim_eval_rule_iface(0, NULL, /* We don't have reqid for dst addresses */
 					       n_ifaces, r_ifaces,
 					       n_ifgroups, r_ifgroups,
 					       NULL, iface);
@@ -730,8 +722,7 @@ kz_ndim_eval_rule_dst_if(const u_int32_t n_ifaces, ifname_t * r_ifaces,
  *	     1, if a match was found
  */
 static int
-kz_ndim_eval_rule_proto(const u_int32_t n_protos,
-			const u_int8_t * const r_protos,
+kz_ndim_eval_rule_proto(const u_int32_t n_protos, const u_int8_t * const r_protos,
 			const u_int8_t proto)
 {
 	unsigned int i;
@@ -742,8 +733,7 @@ kz_ndim_eval_rule_proto(const u_int32_t n_protos,
 		return 0;
 
 	for (i = 0; i < n_protos; i++) {
-		kz_debug("comparing protocol; proto='%u', r_proto='%u'\n",
-			 proto, r_protos[i]);
+		kz_debug("comparing protocol; proto='%u', r_proto='%u'\n", proto, r_protos[i]);
 		if (proto == r_protos[i])
 			return 1;
 	}
@@ -766,8 +756,7 @@ kz_ndim_eval_rule_proto(const u_int32_t n_protos,
  *	     2, if a matching range of size one (iow. one port) was found in the list
  */
 static int
-kz_ndim_eval_rule_port(const u_int32_t n_ports,
-		       const struct kz_port_range *const r_ports,
+kz_ndim_eval_rule_port(const u_int32_t n_ports, const struct kz_port_range * const r_ports,
 		       const u_int16_t port)
 {
 	unsigned int i;
@@ -778,9 +767,8 @@ kz_ndim_eval_rule_port(const u_int32_t n_ports,
 		return 0;
 
 	for (i = 0; i < n_ports; i++) {
-		kz_debug
-		    ("comparing port range; port='%u', r_from='%u', r_to='%u'\n",
-		     port, r_ports[i].from, r_ports[i].to);
+		kz_debug("comparing port range; port='%u', r_from='%u', r_to='%u'\n", port,
+			 r_ports[i].from, r_ports[i].to);
 
 		/* if port is less than 'from' we can be sure that
 		 * there's no match */
@@ -819,47 +807,35 @@ kz_ndim_eval_rule_port(const u_int32_t n_ports,
  *              the matching subnet + 1
  */
 static int
-kz_ndim_eval_rule_subnet(const u_int32_t n_subnets,
-			 const struct kz_in_subnet *const r_subnets,
-			 const u_int32_t n_subnets6,
-			 const struct kz_in6_subnet *const r_subnets6,
-			 u_int8_t proto, const union nf_inet_addr *addr)
+kz_ndim_eval_rule_subnet(const u_int32_t n_subnets, const struct kz_in_subnet *const r_subnets,
+                         const u_int32_t n_subnets6, const struct kz_in6_subnet * const r_subnets6,
+                         u_int8_t proto, const union nf_inet_addr * addr)
 {
 	unsigned int i;
 
-	kz_debug("n_subnets='%u', n_subnets6='%u'\n", n_subnets,
-		 n_subnets6);
+	kz_debug("n_subnets='%u', n_subnets6='%u'\n", n_subnets, n_subnets6);
 
 	if (n_subnets == 0 && n_subnets6 == 0)
 		return 0;
 
-	switch (proto) {
+	switch (proto)
+	{
 	case NFPROTO_IPV4:
 		for (i = 0; i < n_subnets; i++) {
-			kz_debug
-			    ("comparing subnet; ip='%pI4', network='%pI4', mask='%pI4'\n",
-			     &addr->in, &r_subnets[i].addr,
-			     &r_subnets[i].mask);
+			kz_debug("comparing subnet; ip='%pI4', network='%pI4', mask='%pI4'\n",
+				 &addr->in, &r_subnets[i].addr, &r_subnets[i].mask);
 
-			if (!ipv4_masked_addr_cmp
-			    (&addr->in, &r_subnets[i].mask,
-			     &r_subnets[i].addr))
-				return mask_to_size_v4(&r_subnets[i].
-						       mask) + 1;
+			if (!ipv4_masked_addr_cmp(&addr->in, &r_subnets[i].mask, &r_subnets[i].addr))
+				return mask_to_size_v4(&r_subnets[i].mask) + 1;
 		}
 		break;
 	case NFPROTO_IPV6:
 		for (i = 0; i < n_subnets6; i++) {
-			kz_debug
-			    ("comparing subnet; ip='%pI6', network='%pI6', mask='%pI6'\n",
-			     &addr->in6, &r_subnets6[i].addr,
-			     &r_subnets6[i].mask);
+			kz_debug("comparing subnet; ip='%pI6', network='%pI6', mask='%pI6'\n",
+				 &addr->in6, &r_subnets6[i].addr, &r_subnets6[i].mask);
 
-			if (!ipv6_masked_addr_cmp
-			    (&addr->in6, &r_subnets6[i].mask,
-			     &r_subnets6[i].addr))
-				return mask_to_size_v6(&r_subnets6[i].
-						       mask) + 1;
+			if (!ipv6_masked_addr_cmp(&addr->in6, &r_subnets6[i].mask, &r_subnets6[i].addr))
+				return mask_to_size_v6(&r_subnets6[i].mask) + 1;
 		}
 		break;
 	default:
@@ -888,16 +864,13 @@ kz_ndim_eval_rule_subnet(const u_int32_t n_subnets,
  *              the zone depth starts with 1, @see kz_zone_new in kzorp_core.c.
  */
 static int
-kz_ndim_eval_rule_zone(const u_int32_t n_zones,
-		       struct zone_lookup_t *const r_zones,
-		       const struct kz_zone *const zone,
-		       const unsigned long *mask)
+kz_ndim_eval_rule_zone(const u_int32_t n_zones, struct zone_lookup_t * const r_zones,
+		        const struct kz_zone * const zone, const unsigned long *mask)
 {
 	unsigned int i;
 	int zscore = -1;
 
-	kz_debug("n_zones='%u', zone='%s'\n", n_zones,
-		 zone ? zone->unique_name : kz_log_null);
+	kz_debug("n_zones='%u', zone='%s'\n", n_zones, zone ? zone->unique_name : kz_log_null);
 
 	if (n_zones == 0)
 		return 0;
@@ -906,6 +879,7 @@ kz_ndim_eval_rule_zone(const u_int32_t n_zones,
 		return -1;
 
 	for (i = 0; i < n_zones; i++) {
+		//kz_debug("comparing zone; zone='%s', r_zone='%s'\n", zone->unique_name, r_zones[i]->unique_name);
 
 		zscore = zone_score(&r_zones[i], mask);
 
@@ -954,22 +928,15 @@ kz_ndim_eval_rule_zone(const u_int32_t n_zones,
  */
 
 static int
-kz_ndim_eval_rule_address(const u_int32_t n_subnets,
-			  const struct kz_in_subnet *const r_subnets,
-			  const u_int32_t n_subnets6,
-			  const struct kz_in6_subnet *const r_subnets6,
-			  const u_int32_t n_zones,
-			  struct zone_lookup_t *const r_zones,
-			  u_int8_t proto, const union nf_inet_addr *addr,
-			  const struct kz_zone *const zone,
-			  const unsigned long *mask)
+kz_ndim_eval_rule_address(const u_int32_t n_subnets, const struct kz_in_subnet * const r_subnets,
+			   const u_int32_t n_subnets6, const struct kz_in6_subnet * const r_subnets6,
+			   const u_int32_t n_zones, struct zone_lookup_t * const r_zones,
+			   u_int8_t proto, const union nf_inet_addr *addr,
+			   const struct kz_zone * const zone, const unsigned long *mask)
 {
 	int score = 0;
-	int subnet_score =
-	    kz_ndim_eval_rule_subnet(n_subnets, r_subnets, n_subnets6,
-				     r_subnets6, proto, addr);
-	int zone_score =
-	    kz_ndim_eval_rule_zone(n_zones, r_zones, zone, mask);
+	int subnet_score = kz_ndim_eval_rule_subnet(n_subnets, r_subnets, n_subnets6, r_subnets6, proto, addr);
+	int zone_score = kz_ndim_eval_rule_zone(n_zones, r_zones, zone, mask);
 
 	if (subnet_score > 0)
 		score = subnet_score << SCORE_ZONE_BITS;
@@ -977,39 +944,26 @@ kz_ndim_eval_rule_address(const u_int32_t n_subnets,
 	if (zone_score > 0)
 		score |= zone_score;
 
-	return (score == 0
-		&& (subnet_score < 0 || zone_score < 0)) ? -1 : score;
+	return (score == 0 && (subnet_score < 0 || zone_score < 0)) ? -1 : score;
 }
 
 static int
-kz_ndim_eval_rule_dst(const u_int32_t n_subnets,
-		      const struct kz_in_subnet *const r_subnets,
-		      const u_int32_t n_subnets6,
-		      const struct kz_in6_subnet *const r_subnets6,
-		      const u_int32_t n_zones,
-		      struct zone_lookup_t *const r_zones,
+kz_ndim_eval_rule_dst(const u_int32_t n_subnets, const struct kz_in_subnet * const r_subnets,
+		      const u_int32_t n_subnets6, const struct kz_in6_subnet * const r_subnets6,
+		      const u_int32_t n_zones, struct zone_lookup_t * const r_zones,
 		      const u_int32_t n_ifaces, ifname_t * r_ifaces,
-		      const u_int32_t n_ifgroups,
-		      const u_int32_t * const r_ifgroups,
-		      const struct net_device *const iface, u_int8_t proto,
-		      const union nf_inet_addr *addr,
-		      const struct kz_zone *const zone,
-		      const unsigned long *mask)
+		      const u_int32_t n_ifgroups, const u_int32_t * const r_ifgroups,
+		      const struct net_device * const iface,
+		      u_int8_t proto, const union nf_inet_addr *addr,
+		      const struct kz_zone * const zone, const unsigned long *mask)
 {
 	int score = 0;
-	int subnet_score =
-	    kz_ndim_eval_rule_subnet(n_subnets, r_subnets, n_subnets6,
-				     r_subnets6, proto, addr);
-	int iface_score =
-	    kz_ndim_eval_rule_dst_if(n_ifaces, r_ifaces, n_ifgroups,
-				     r_ifgroups, iface, proto, addr);
-	int zone_score =
-	    kz_ndim_eval_rule_zone(n_zones, r_zones, zone, mask);
+	int subnet_score = kz_ndim_eval_rule_subnet(n_subnets, r_subnets, n_subnets6, r_subnets6, proto, addr);
+	int iface_score = kz_ndim_eval_rule_dst_if(n_ifaces, r_ifaces, n_ifgroups, r_ifgroups, iface, proto, addr);
+	int zone_score = kz_ndim_eval_rule_zone(n_zones, r_zones, zone, mask);
 
 	if (subnet_score > 0)
-		score =
-		    subnet_score << (SCORE_ZONE_BITS +
-				     SCORE_DST_IFACE_BITS);
+		score = subnet_score << (SCORE_ZONE_BITS + SCORE_DST_IFACE_BITS);
 
 	if (iface_score > 0)
 		score |= iface_score << SCORE_ZONE_BITS;
@@ -1017,9 +971,7 @@ kz_ndim_eval_rule_dst(const u_int32_t n_subnets,
 	if (zone_score > 0)
 		score |= zone_score;
 
-	return (score == 0
-		&& (subnet_score < 0 || iface_score < 0
-		    || zone_score < 0)) ? -1 : score;
+	return (score == 0 && (subnet_score < 0 || iface_score < 0 || zone_score < 0)) ? -1 : score;
 }
 
 
@@ -1040,14 +992,13 @@ kz_ndim_eval_rule_dst(const u_int32_t n_subnets,
 
 /* structs used for lookup data to encode dimensions */
 
-KZ_PROTECTED struct kz_rule_lookup_data
-    *kz_rule_lookup_cursor_next_rule(struct kz_rule_lookup_cursor *cursor)
+KZ_PROTECTED struct kz_rule_lookup_data*
+kz_rule_lookup_cursor_next_rule(struct kz_rule_lookup_cursor *cursor)
 {
 	if (cursor->rule->bytes_to_next == 0)
 		return NULL;
 
-	cursor->rule =
-	    (void *) (cursor->rule) + cursor->rule->bytes_to_next;
+	cursor->rule = (void*)(cursor->rule) + cursor->rule->bytes_to_next;
 	cursor->pos = sizeof(struct kz_rule_lookup_data);
 	return cursor->rule;
 }
@@ -1058,8 +1009,7 @@ KZ_PROTECTED struct kz_rule_lookup_data
 		LOOKUP_TYPE data[]; \
 	} DIM_NAME##_dim_lookup_data
 
-KZORP_DIM_LIST(DEFINE_LOOKUP_DATA_TYPE,;
-    );
+KZORP_DIM_LIST(DEFINE_LOOKUP_DATA_TYPE, ;);
 
 #undef DEF_LOOKUP_DATA_TYPE
 
@@ -1078,6 +1028,7 @@ enum KZORP_DIMENSIONS {
 #define KZORP_DIM_ENUM(DIM_NAME, ...) KZORP_DIM_##DIM_NAME
 
 	KZORP_DIM_LIST(KZORP_DIM_ENUM, KZORP_COMMA_SEPARATOR)
+
 #undef KZORP_DIM_ENUM
 };
 
@@ -1095,9 +1046,7 @@ enum KZORP_DIMENSIONS {
 	} while (0);
 
 KZ_PROTECTED size_t
-kz_generate_lookup_data_rule_size(const struct
-				  kz_dispatcher_n_dimension_rule *const
-				  rule)
+kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * const rule)
 {
 	size_t rule_size = sizeof(struct kz_rule_lookup_data);
 
@@ -1111,13 +1060,8 @@ kz_generate_lookup_data_rule_size(const struct
 	return PAD(rule_size, 8);
 }
 
-KZ_PROTECTED struct kz_rule_lookup_data *kz_generate_lookup_data_rule(const
-								      struct
-								      kz_dispatcher_n_dimension_rule
-								      *const
-								      rule,
-								      void
-								      *buf)
+KZ_PROTECTED struct kz_rule_lookup_data *
+kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const rule, void *buf)
 {
 	void *pos = buf;
 	int map = 0;
@@ -1128,7 +1072,7 @@ KZ_PROTECTED struct kz_rule_lookup_data *kz_generate_lookup_data_rule(const
 
 	GENERATE_DIM(map, reqid);
 
-	if (! !rule->num_ifname) {
+	if (!!rule->num_ifname) {
 		int i;
 		ifname_dim_lookup_data *d = pos;
 
@@ -1147,13 +1091,14 @@ KZ_PROTECTED struct kz_rule_lookup_data *kz_generate_lookup_data_rule(const
 	GENERATE_DIM(map, src_in_subnet);
 	GENERATE_DIM(map, src_in6_subnet);
 
-	if (! !rule->num_src_zone) {
+	if (!!rule->num_src_zone) {
 		int i;
 		src_zone_dim_lookup_data *d = pos;
 		pos += LOOKUP_DATA_SIZE(src_zone, rule->num_src_zone);
 		map = map | (1 << KZORP_DIM_src_zone);
 		d->num = rule->num_src_zone;
-		for (i = 0; i < d->num; ++i) {
+		for (i = 0; i < d->num; ++i)
+		{
 			d->data[i].index = rule->src_zone[i]->index;
 			d->data[i].depth = rule->src_zone[i]->depth;
 		}
@@ -1162,19 +1107,20 @@ KZ_PROTECTED struct kz_rule_lookup_data *kz_generate_lookup_data_rule(const
 	GENERATE_DIM(map, dst_in_subnet);
 	GENERATE_DIM(map, dst_in6_subnet);
 
-	if (! !rule->num_dst_zone) {
+	if (!!rule->num_dst_zone) {
 		int i;
 		dst_zone_dim_lookup_data *d = pos;
 		pos += LOOKUP_DATA_SIZE(dst_zone, rule->num_dst_zone);
 		map = map | (1 << KZORP_DIM_dst_zone);
 		d->num = rule->num_dst_zone;
-		for (i = 0; i < d->num; ++i) {
+		for (i = 0; i < d->num; ++i)
+		{
 			d->data[i].index = rule->dst_zone[i]->index;
 			d->data[i].depth = rule->dst_zone[i]->depth;
 		}
 	}
 
-	if (! !rule->num_dst_ifname) {
+	if (!!rule->num_dst_ifname) {
 		int i;
 		ifname_dim_lookup_data *d = pos;
 		pos += LOOKUP_DATA_SIZE(ifname, rule->num_dst_ifname);
@@ -1186,47 +1132,38 @@ KZ_PROTECTED struct kz_rule_lookup_data *kz_generate_lookup_data_rule(const
 
 	GENERATE_DIM(map, dst_ifgroup);
 
-	pos = (void *) PAD((int64_t) pos, 8);
+	pos = (void*)PAD((int64_t)pos, 8);
 	current_rule->dimension_map = map;
 	current_rule->bytes_to_next = pos - buf;
 	current_rule = pos;
 	return buf;
 }
 
-KZ_PROTECTED void kz_generate_lookup_data(struct kz_head_d *dispatchers)
+KZ_PROTECTED void
+kz_generate_lookup_data(struct kz_head_d *dispatchers)
 {
 	struct kz_dispatcher *dispatcher;
-	struct kz_rule_lookup_data *lookup_data, *current_rule,
-	    *prev_rule = NULL;
+	struct kz_rule_lookup_data *lookup_data, *current_rule, *prev_rule = NULL;
 	void *pos;
 	u_int32_t rules_data_size = 0;
 
 	/* First pass calculates total size */
-	list_for_each_entry(dispatcher, &dispatchers->head, list) {
+        list_for_each_entry(dispatcher, &dispatchers->head, list) {
 		unsigned int rule_idx;
-		for (rule_idx = 0; rule_idx < dispatcher->num_rule;
-		     rule_idx++) {
-			rules_data_size +=
-			    kz_generate_lookup_data_rule_size(&dispatcher->
-							      rule
-							      [rule_idx]);
+		for (rule_idx = 0; rule_idx < dispatcher->num_rule; rule_idx++) {
+			rules_data_size += kz_generate_lookup_data_rule_size(&dispatcher->rule[rule_idx]);
 		}
 	}
 
 	if (rules_data_size > 0) {
-		pos = current_rule = lookup_data =
-		    kz_big_alloc(rules_data_size,
-				 &dispatchers->lookup_data_allocator);
+		pos = current_rule = lookup_data = kz_big_alloc(rules_data_size, &dispatchers->lookup_data_allocator);
 
 		/* Second pass builds up the lookup data */
 		list_for_each_entry(dispatcher, &dispatchers->head, list) {
 			unsigned int rule_idx;
-			for (rule_idx = 0; rule_idx < dispatcher->num_rule;
-			     rule_idx++) {
+			for (rule_idx = 0; rule_idx < dispatcher->num_rule; rule_idx++) {
 				prev_rule = current_rule;
-				current_rule =
-				    kz_generate_lookup_data_rule
-				    (&dispatcher->rule[rule_idx], pos);
+				current_rule = kz_generate_lookup_data_rule(&dispatcher->rule[rule_idx], pos);
 				pos += current_rule->bytes_to_next;
 			}
 		}
@@ -1265,18 +1202,18 @@ KZ_PROTECTED void kz_generate_lookup_data(struct kz_head_d *dispatchers)
 	} while (0);
 
 KZ_PROTECTED int64_t
-kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
-		  int64_t best_all,
-		  const struct kz_reqids *const reqids,
-		  const struct net_device *const iface,
-		  u_int8_t l3proto,
-		  const union nf_inet_addr *const src_addr,
-		  const union nf_inet_addr *const dst_addr,
-		  u_int8_t l4proto, u_int16_t src_port, u_int16_t dst_port,
-		  const struct kz_zone *const src_zone,
-		  const struct kz_zone *const dst_zone,
-		  const unsigned long *src_zone_mask,
-		  const unsigned long *dst_zone_mask)
+kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
+		   int64_t best_all,
+		   const struct kz_reqids * const reqids,
+		   const struct net_device * const iface,
+		   u_int8_t l3proto,
+		   const union nf_inet_addr * const src_addr,
+		   const union nf_inet_addr * const dst_addr,
+		   u_int8_t l4proto, u_int16_t src_port, u_int16_t dst_port,
+		   const struct kz_zone * const src_zone,
+		   const struct kz_zone * const dst_zone,
+		   const unsigned long *src_zone_mask,
+		   const unsigned long *dst_zone_mask)
 {
 	kz_ndim_score best, res;
 	bool equal = true;
@@ -1284,6 +1221,8 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
 	u_int8_t proto = l4proto;
 
 	u_int32_t cursor_pos = cursor->pos;
+
+	/*kz_debug("evaluating rule; id='%u'\n", rule->id);*/
 
 	best.all = best_all;
 	res.all = 0;
@@ -1299,9 +1238,8 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
 		RULE_FETCH_DIM(ifgroup);
 		dim_res = kz_ndim_eval_rule_iface(num_reqid, data_reqid,
 						  num_ifname, data_ifname,
-						  num_ifgroup,
-						  data_ifgroup, reqids,
-						  iface);
+						  num_ifgroup, data_ifgroup,
+						  reqids, iface);
 		EVAL_DIM_RES(iface);
 	}
 
@@ -1310,9 +1248,8 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
 	EVAL_DIM_LOOKUP(dst_port);
 
 	{
-		/* source address */
-		u_int32_t num_src_in_subnet, num_src_in6_subnet,
-		    num_src_zone;
+	/* source address */
+		u_int32_t num_src_in_subnet, num_src_in6_subnet, num_src_zone;
 		struct kz_in_subnet *data_src_in_subnet;
 		struct kz_in6_subnet *data_src_in6_subnet;
 		struct zone_lookup_t *data_src_zone;
@@ -1320,21 +1257,16 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
 		RULE_FETCH_DIM(src_in6_subnet);
 		RULE_FETCH_DIM(src_zone);
 
-		dim_res =
-		    kz_ndim_eval_rule_address(num_src_in_subnet,
-					      data_src_in_subnet,
-					      num_src_in6_subnet,
-					      data_src_in6_subnet,
-					      num_src_zone, data_src_zone,
-					      l3proto, src_addr, src_zone,
-					      src_zone_mask);
+		dim_res = kz_ndim_eval_rule_address(num_src_in_subnet, data_src_in_subnet,
+						     num_src_in6_subnet, data_src_in6_subnet,
+						     num_src_zone, data_src_zone,
+						     l3proto, src_addr, src_zone, src_zone_mask);
 		EVAL_DIM_RES(src_address);
 	}
 
 	{
 		/* destination interface/address */
-		u_int32_t num_dst_in_subnet, num_dst_in6_subnet,
-		    num_dst_zone, num_dst_ifname, num_dst_ifgroup;
+		u_int32_t num_dst_in_subnet, num_dst_in6_subnet, num_dst_zone, num_dst_ifname, num_dst_ifgroup;
 		struct kz_in_subnet *data_dst_in_subnet;
 		struct kz_in6_subnet *data_dst_in6_subnet;
 		struct zone_lookup_t *data_dst_zone;
@@ -1346,17 +1278,12 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
 		RULE_FETCH_DIM(dst_ifname);
 		RULE_FETCH_DIM(dst_ifgroup);
 
-		dim_res =
-		    kz_ndim_eval_rule_dst(num_dst_in_subnet,
-					  data_dst_in_subnet,
-					  num_dst_in6_subnet,
-					  data_dst_in6_subnet,
-					  num_dst_zone, data_dst_zone,
-					  num_dst_ifname, data_dst_ifname,
-					  num_dst_ifgroup,
-					  data_dst_ifgroup, iface, l3proto,
-					  dst_addr, dst_zone,
-					  dst_zone_mask);
+		dim_res = kz_ndim_eval_rule_dst(num_dst_in_subnet, data_dst_in_subnet,
+						 num_dst_in6_subnet, data_dst_in6_subnet,
+						 num_dst_zone, data_dst_zone,
+						 num_dst_ifname, data_dst_ifname,
+						 num_dst_ifgroup, data_dst_ifgroup,
+						 iface, l3proto, dst_addr, dst_zone, dst_zone_mask);
 		EVAL_DIM_RES(dst_address);
 	}
 
@@ -1372,8 +1299,8 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor *cursor,
  * of multiple subnets configured by the user; or @zone if it's not a
  * pseudo-zone.
  */
-static inline const struct kz_zone *kz_adjust_zone(const struct kz_zone
-						   *zone)
+static inline const struct kz_zone *
+kz_adjust_zone(const struct kz_zone *zone)
 {
 	if (zone && zone->name != zone->unique_name)
 		zone = zone->admin_parent;
@@ -1382,15 +1309,13 @@ static inline const struct kz_zone *kz_adjust_zone(const struct kz_zone
 }
 
 KZ_PROTECTED u_int32_t
-kz_ndim_eval(const struct kz_reqids * reqids,
-	     const struct net_device * iface, u_int8_t l3proto,
-	     const union nf_inet_addr * const src_addr,
-	     const union nf_inet_addr * const dst_addr, u_int8_t l4proto,
-	     u_int16_t src_port, u_int16_t dst_port,
-	     const struct kz_zone * src_zone,
-	     const struct kz_zone * dst_zone,
-	     const struct kz_head_d * const dispatchers,
-	     struct kz_percpu_env * lenv)
+kz_ndim_eval(const struct kz_reqids *reqids, const struct net_device *iface, u_int8_t l3proto,
+	      const union nf_inet_addr * const src_addr, const union nf_inet_addr * const dst_addr,
+	      u_int8_t l4proto, u_int16_t src_port, u_int16_t dst_port,
+	      const struct kz_zone * src_zone,
+	      const struct kz_zone * dst_zone,
+	      const struct kz_head_d * const dispatchers,
+	      struct kz_percpu_env *lenv)
 {
 	kz_ndim_score best;
 	const size_t max_out_idx = lenv->max_result_size;
@@ -1423,7 +1348,7 @@ kz_ndim_eval(const struct kz_reqids * reqids,
 
 	while (rule) {
 		int64_t score;
-		prefetch(rule->bytes_to_next + (void *) rule);
+		prefetch(rule->bytes_to_next + (void*)rule);
 		score = kz_ndim_eval_rule(&cursor, best.all, reqids, iface,
 					  l3proto, src_addr, dst_addr,
 					  l4proto, src_port, dst_port,
@@ -1441,9 +1366,7 @@ kz_ndim_eval(const struct kz_reqids * reqids,
 			best.all = score;
 		}
 		if (out_idx < max_out_idx) {
-			kz_debug
-			    ("appending rule to result list; id='%u', score='%llu'\n",
-			     rule->orig->id, score);
+			kz_debug("appending rule to result list; id='%u', score='%llu'\n", rule->orig->id, score);
 			lenv->result_rules[out_idx] = rule->orig;
 		}
 		rule = kz_rule_lookup_cursor_next_rule(&cursor);
@@ -1477,22 +1400,19 @@ kz_ndim_eval(const struct kz_reqids * reqids,
  * resulting service as a result. If no matching rule was found or
  * there were more than one matching rule, we return NULL.
  */
-static struct kz_service *kz_ndim_lookup(const struct kz_config *cfg,
-					 const struct kz_reqids *reqids,
-					 const struct net_device *iface,
-					 u_int8_t l3proto,
-					 const union nf_inet_addr *const
-					 src_addr,
-					 const union nf_inet_addr *const
-					 dst_addr, u_int8_t l4proto,
-					 u_int16_t src_port,
-					 u_int16_t dst_port,
-					 const struct kz_zone *src_zone,
-					 const struct kz_zone *dst_zone,
-					 struct kz_dispatcher **dispatcher)
+static struct kz_service *
+kz_ndim_lookup(const struct kz_config *cfg,
+	       const struct kz_reqids *reqids,
+	       const struct net_device *iface,
+	       u_int8_t l3proto,
+	       const union nf_inet_addr * const src_addr, const union nf_inet_addr * const dst_addr,
+	       u_int8_t l4proto, u_int16_t src_port, u_int16_t dst_port,
+	       const struct kz_zone * src_zone,
+	       const struct kz_zone * dst_zone,
+	       struct kz_dispatcher **dispatcher)
 {
 	struct kz_percpu_env *lenv;
-	const struct kz_head_d *const d = &cfg->dispatchers;
+	const struct kz_head_d * const d = &cfg->dispatchers;
 	struct kz_service *service = NULL;
 	u_int32_t num_results;
 
@@ -1503,10 +1423,9 @@ static struct kz_service *kz_ndim_lookup(const struct kz_config *cfg,
 	preempt_disable();
 	lenv = __get_cpu_var(kz_percpu);
 
-	num_results =
-	    kz_ndim_eval(reqids, iface, l3proto, src_addr, dst_addr,
-			 l4proto, src_port, dst_port, src_zone, dst_zone,
-			 d, lenv);
+	num_results = kz_ndim_eval(reqids, iface, l3proto, src_addr, dst_addr,
+				    l4proto, src_port, dst_port, src_zone, dst_zone,
+				    d, lenv);
 
 	kz_debug("num_results='%u'\n", num_results);
 
@@ -1514,11 +1433,10 @@ static struct kz_service *kz_ndim_lookup(const struct kz_config *cfg,
 		service = lenv->result_rules[0]->service;
 		*dispatcher = lenv->result_rules[0]->dispatcher;
 
-		kz_debug
-		    ("found service; dispatcher='%s', rule_id='%u', name='%s'\n",
-		     lenv->result_rules[0]->dispatcher->name,
-		     lenv->result_rules[0]->id,
-		     service ? service->name : kz_log_null);
+		kz_debug("found service; dispatcher='%s', rule_id='%u', name='%s'\n",
+			 lenv->result_rules[0]->dispatcher->name,
+			 lenv->result_rules[0]->id,
+			 service ? service->name : kz_log_null);
 	}
 
 	preempt_enable();
@@ -1532,57 +1450,58 @@ static struct kz_service *kz_ndim_lookup(const struct kz_config *cfg,
  * IPv4 zone lookup
  ***********************************************************/
 
-static inline unsigned int zone_ipv4_hash_fn(const u_int32_t prefix)
+static inline unsigned int
+zone_ipv4_hash_fn(const u_int32_t prefix)
 {
 	return jhash_1word(prefix, 0) % KZ_ZONE_HASH_SIZE;
 }
 
 static inline bool
-zone_ipv4_cmp(const struct kz_zone *const z, const u_int32_t _mask)
+zone_ipv4_cmp(const struct kz_zone * const z, const u_int32_t _mask)
 {
 	struct in_addr mask = { htonl(_mask) };
 	return !ipv4_masked_addr_cmp(&z->addr.in, &z->mask.in, &mask);
 }
 
 static inline unsigned int
-zone_ipv4_hash_fn_z(const struct kz_zone *const z)
+zone_ipv4_hash_fn_z(const struct kz_zone * const z)
 {
-	return zone_ipv4_hash_fn(ntohl(z->addr.in.s_addr) &
-				 ntohl(z->mask.in.s_addr));
+	return zone_ipv4_hash_fn(ntohl(z->addr.in.s_addr) & ntohl(z->mask.in.s_addr));
 }
 
 static inline unsigned int
-zone_ipv4_mask_bits(const struct kz_zone *const z)
+zone_ipv4_mask_bits(const struct kz_zone * const z)
 {
 	return mask_to_size_v4(&z->mask.in);
 }
 
-static inline void zone_ipv4_hash(struct kz_head_z *h, struct kz_zone *z)
+static inline void
+zone_ipv4_hash(struct kz_head_z *h, struct kz_zone *z)
 {
 	const unsigned int b = zone_ipv4_mask_bits(z);
 	const unsigned int v = zone_ipv4_hash_fn_z(z);
 
-	kz_debug("mask='%pI4', order='%d', bucket='%d'\n", &z->mask.in, b,
-		 v);
+	kz_debug("mask='%pI4', order='%d', bucket='%d'\n", &z->mask.in, b, v);
 
 	hlist_add_head(&z->hlist, &h->luzone.hash[b][v]);
 }
 
-static inline void zone_ipv4_unhash(struct kz_zone *z)
+static inline void
+zone_ipv4_unhash(struct kz_zone *z)
 {
 	if (!hlist_unhashed(&z->hlist))
 		hlist_del(&z->hlist);
 }
 
-struct kz_zone *kz_head_zone_ipv4_lookup(const struct kz_head_z *h,
-					 const struct in_addr *const addr)
+struct kz_zone *
+kz_head_zone_ipv4_lookup(const struct kz_head_z *h, const struct in_addr * const addr)
 {
 	int o;
 	u_int32_t m, ip;
 
 	kz_debug("addr='%pI4'\n", addr);
 
-	ip = ntohl(addr->s_addr);
+        ip = ntohl(addr->s_addr);
 	for (o = 32, m = 0xffffffff; o >= 0; o--, m <<= 1) {
 		struct kz_zone *i;
 		struct hlist_node *n;
@@ -1590,11 +1509,9 @@ struct kz_zone *kz_head_zone_ipv4_lookup(const struct kz_head_z *h,
 		const unsigned int v = zone_ipv4_hash_fn(p);
 
 		if (!hlist_empty(&h->luzone.hash[o][v])) {
-			hlist_for_each_entry(i, n, &h->luzone.hash[o][v],
-					     hlist) {
+			hlist_for_each_entry(i, n, &h->luzone.hash[o][v], hlist) {
 				if (zone_ipv4_cmp(i, p)) {
-					kz_debug("found zone; name='%s'\n",
-						 i->name);
+					kz_debug("found zone; name='%s'\n", i->name);
 					return i;
 				}
 			}
@@ -1603,7 +1520,6 @@ struct kz_zone *kz_head_zone_ipv4_lookup(const struct kz_head_z *h,
 
 	return NULL;
 }
-
 EXPORT_SYMBOL_GPL(kz_head_zone_ipv4_lookup);
 
 /***********************************************************
@@ -1611,26 +1527,29 @@ EXPORT_SYMBOL_GPL(kz_head_zone_ipv4_lookup);
  ***********************************************************/
 
 #ifndef KZ_USERSPACE
-KZ_PROTECTED inline struct kz_lookup_ipv6_node *ipv6_node_new(void)
+KZ_PROTECTED inline struct kz_lookup_ipv6_node *
+ipv6_node_new(void)
 {
 	return kzalloc(sizeof(struct kz_lookup_ipv6_node), GFP_KERNEL);
 }
 
-KZ_PROTECTED inline void ipv6_node_free(struct kz_lookup_ipv6_node *n)
+KZ_PROTECTED inline void
+ipv6_node_free(struct kz_lookup_ipv6_node *n)
 {
 	kfree(n);
 }
 #endif
 
-static inline __be32 ipv6_addr_bit_set(const void *token, int bit)
+static inline __be32
+ipv6_addr_bit_set(const void *token, int bit)
 {
 	const __be32 *addr = token;
 
 	return htonl(1 << ((~bit) & 0x1F)) & addr[bit >> 5];
 }
 
-struct kz_lookup_ipv6_node *ipv6_add(struct kz_lookup_ipv6_node *root,
-				     struct in6_addr *addr, int prefix_len)
+struct kz_lookup_ipv6_node *
+ipv6_add(struct kz_lookup_ipv6_node *root, struct in6_addr *addr, int prefix_len)
 {
 	struct kz_lookup_ipv6_node *n, *parent, *leaf, *intermediate;
 	__be32 dir = 0;
@@ -1670,7 +1589,7 @@ struct kz_lookup_ipv6_node *ipv6_add(struct kz_lookup_ipv6_node *root,
 
 	return leaf;
 
-      insert_above:
+insert_above:
 	/* split node, since we have a new key with shorter or different prefix */
 	parent = n->parent;
 
@@ -1678,12 +1597,12 @@ struct kz_lookup_ipv6_node *ipv6_add(struct kz_lookup_ipv6_node *root,
 
 	if (prefix_len > prefix_match_len) {
 		/*
-		 *         +----------------+
-		 *         |  intermediate  |
-		 *         +----------------+
-		 *            /           \
+		 *	   +----------------+
+		 *	   |  intermediate  |
+		 *	   +----------------+
+		 *	      /	       	  \
 		 * +--------------+  +--------------+
-		 * |   new leaf   |  |   old node   |
+		 * |   new leaf	  |  |   old node   |
 		 * +--------------+  +--------------+
 		 */
 		intermediate = ipv6_node_new();
@@ -1721,10 +1640,10 @@ struct kz_lookup_ipv6_node *ipv6_add(struct kz_lookup_ipv6_node *root,
 	} else {
 		/* prefix_len <= prefix_match_len
 		 *
-		 *       +-------------------+
-		 *       |     new leaf      |
-		 *       +-------------------+
-		 *          /             \
+		 *	 +-------------------+
+		 *	 |     new leaf      |
+		 *	 +-------------------+
+		 *	    /  	       	  \
 		 * +--------------+  +--------------+
 		 * |   old node   |  |     NULL     |
 		 * +--------------+  +--------------+
@@ -1753,11 +1672,8 @@ struct kz_lookup_ipv6_node *ipv6_add(struct kz_lookup_ipv6_node *root,
 	return leaf;
 }
 
-KZ_PROTECTED struct kz_lookup_ipv6_node *ipv6_lookup(struct
-						     kz_lookup_ipv6_node
-						     *root,
-						     const struct in6_addr
-						     *addr)
+KZ_PROTECTED struct kz_lookup_ipv6_node *
+ipv6_lookup(struct kz_lookup_ipv6_node *root, const struct in6_addr *addr)
 {
 	struct kz_lookup_ipv6_node *n = root;
 	__be32 dir;
@@ -1786,8 +1702,7 @@ KZ_PROTECTED struct kz_lookup_ipv6_node *ipv6_lookup(struct
 		if (n->zone) {
 			/* this is not an intermediate node, but a
 			 * real one with data associated with it */
-			if (ipv6_prefix_equal
-			    (&n->addr, addr, n->prefix_len))
+			if (ipv6_prefix_equal(&n->addr, addr, n->prefix_len))
 				return n;
 		}
 
@@ -1797,7 +1712,8 @@ KZ_PROTECTED struct kz_lookup_ipv6_node *ipv6_lookup(struct
 	return NULL;
 }
 
-KZ_PROTECTED void ipv6_destroy(struct kz_lookup_ipv6_node *node)
+KZ_PROTECTED void
+ipv6_destroy(struct kz_lookup_ipv6_node *node)
 {
 	if (node->left)
 		ipv6_destroy(node->left);
@@ -1808,25 +1724,22 @@ KZ_PROTECTED void ipv6_destroy(struct kz_lookup_ipv6_node *node)
 	ipv6_node_free(node);
 }
 
-static int zone_ipv6_tree_add(struct kz_head_z *h, struct kz_zone *z)
+static int
+zone_ipv6_tree_add(struct kz_head_z *h, struct kz_zone *z)
 {
 	struct kz_lookup_ipv6_node *node;
 	const unsigned int prefix_len = mask_to_size_v6(&z->mask.in6);
 
-	kz_debug
-	    ("adding zone to radix tree; name='%s', address='%pI6', mask='%pI6', prefix_len='%u'\n",
-	     z->name, &z->addr.in6, &z->mask.in6, prefix_len);
+	kz_debug("adding zone to radix tree; name='%s', address='%pI6', mask='%pI6', prefix_len='%u'\n", z->name, &z->addr.in6, &z->mask.in6, prefix_len);
 
-	node = ipv6_add(h->luzone.root, &z->addr.in6, prefix_len);
+        node = ipv6_add(h->luzone.root, &z->addr.in6, prefix_len);
 	if (node == NULL) {
 		kz_err("error allocating node structure\n");
 		return -ENOMEM;
 	}
 
 	if (node->zone != NULL) {
-		kz_err
-		    ("duplicate subnet detected; zone1='%s', zone2='%s'\n",
-		     z->name, node->zone->name);
+		kz_err("duplicate subnet detected; zone1='%s', zone2='%s'\n", z->name, node->zone->name);
 		return -EEXIST;
 	}
 
@@ -1835,8 +1748,8 @@ static int zone_ipv6_tree_add(struct kz_head_z *h, struct kz_zone *z)
 	return 0;
 }
 
-struct kz_zone *kz_head_zone_ipv6_lookup(const struct kz_head_z *h,
-					 const struct in6_addr *const addr)
+struct kz_zone *
+kz_head_zone_ipv6_lookup(const struct kz_head_z *h, const struct in6_addr * const addr)
 {
 	struct kz_lookup_ipv6_node *node;
 
@@ -1862,7 +1775,8 @@ struct kz_zone *kz_head_zone_ipv6_lookup(const struct kz_head_z *h,
  * kz_head_zone_init - initialize zone lookup data structures to an empty state
  * @h: head to set up
  */
-void kz_head_zone_init(struct kz_head_z *h)
+void
+kz_head_zone_init(struct kz_head_z *h)
 {
 	unsigned int i, j;
 
@@ -1871,13 +1785,13 @@ void kz_head_zone_init(struct kz_head_z *h)
 			INIT_HLIST_HEAD(&h->luzone.hash[i][j]);
 	h->luzone.root = ipv6_node_new();
 }
-
 EXPORT_SYMBOL_GPL(kz_head_zone_init);
 
 /**
  * kz_head_zone_build - build zone lookup data structures
  */
-int kz_head_zone_build(struct kz_head_z *h)
+int
+kz_head_zone_build(struct kz_head_z *h)
 {
 	struct kz_zone *i;
 	int res;
@@ -1912,18 +1826,17 @@ int kz_head_zone_build(struct kz_head_z *h)
 	}
 
 	if (index > KZ_ZONE_MAX) {
-		kz_err
-		    ("maximum number of zones exceeded; supported='%d', present='%d'\n",
-		     KZ_ZONE_MAX, index);
+		kz_err("maximum number of zones exceeded; supported='%d', present='%d'\n",
+		       KZ_ZONE_MAX, index);
 		return -EINVAL;
 	}
 
 	return 0;
 }
-
 EXPORT_SYMBOL_GPL(kz_head_zone_build);
 
-void kz_head_zone_destroy(struct kz_head_z *h)
+void
+kz_head_zone_destroy(struct kz_head_z *h)
 {
 	struct kz_zone *i;
 
@@ -1949,7 +1862,6 @@ void kz_head_zone_destroy(struct kz_head_z *h)
 		}
 	}
 }
-
 EXPORT_SYMBOL_GPL(kz_head_zone_destroy);
 
 /***********************************************************
@@ -1959,7 +1871,8 @@ EXPORT_SYMBOL_GPL(kz_head_zone_destroy);
 /**
  * bind_lookup_new() - allocate and initialize a new bind lookup structure
  */
-static struct kz_bind_lookup *bind_lookup_new(void)
+static struct kz_bind_lookup *
+bind_lookup_new(void)
 {
 	struct kz_bind_lookup *bind_lookup;
 
@@ -1972,12 +1885,12 @@ static struct kz_bind_lookup *bind_lookup_new(void)
 	return bind_lookup;
 }
 
-static void bind_lookup_destroy(struct kz_bind_lookup *bind_lookup)
+static void
+bind_lookup_destroy(struct kz_bind_lookup *bind_lookup)
 {
 	struct kz_bind *pos_bind, *n_bind;
 
-	list_for_each_entry_safe(pos_bind, n_bind, &bind_lookup->list_bind,
-				 list) {
+	list_for_each_entry_safe(pos_bind, n_bind, &bind_lookup->list_bind, list) {
 		list_del(&pos_bind->list);
 		kz_bind_destroy(pos_bind);
 	}
@@ -1993,7 +1906,8 @@ static void bind_lookup_destroy(struct kz_bind_lookup *bind_lookup)
  * @l3proto: layer 3 protocol (IPv4 or IPv6)
  * Returns: enum value matching @l3proto
  */
-static enum kz_bind_l3proto bind_lookup_get_l3proto(const u8 l3proto)
+static enum kz_bind_l3proto
+bind_lookup_get_l3proto(const u8 l3proto)
 {
 	switch (l3proto) {
 	case AF_INET:
@@ -2014,7 +1928,8 @@ static enum kz_bind_l3proto bind_lookup_get_l3proto(const u8 l3proto)
  * @l4proto: layer 4 protocol (TCP or UDP)
  * Returns: enum value matching @l4proto
  */
-static enum kz_bind_l4proto bind_lookup_get_l4proto(const u8 l4proto)
+static enum kz_bind_l4proto
+bind_lookup_get_l4proto(const u8 l4proto)
 {
 	switch (l4proto) {
 	case IPPROTO_TCP:
@@ -2030,15 +1945,14 @@ static enum kz_bind_l4proto bind_lookup_get_l4proto(const u8 l4proto)
 	BUG();
 }
 
-static void bind_lookup_build(struct kz_bind_lookup *bind_lookup)
+static void
+bind_lookup_build(struct kz_bind_lookup *bind_lookup)
 {
 	const struct kz_bind const *bind;
 	unsigned int num_binds;
 	enum kz_bind_l3proto l3proto;
 	enum kz_bind_l4proto l4proto;
-	unsigned int
-	    filled_bind_nums[KZ_BIND_L3PROTO_COUNT][KZ_BIND_L4PROTO_COUNT]
-	    = { {0, 0}, {0, 0} };
+        unsigned int filled_bind_nums[KZ_BIND_L3PROTO_COUNT][KZ_BIND_L4PROTO_COUNT] = { { 0, 0 }, { 0, 0 } };
 
 	num_binds = 0;
 	list_for_each_entry(bind, &bind_lookup->list_bind, list) {
@@ -2052,18 +1966,12 @@ static void bind_lookup_build(struct kz_bind_lookup *bind_lookup)
 	if (num_binds == 0)
 		return;
 
-	bind_lookup->binds =
-	    (const struct kz_bind const **)
-	    kzalloc(sizeof(struct kz_bind *) * num_binds, GFP_KERNEL);
+	bind_lookup->binds = (const struct kz_bind const **) kzalloc(sizeof(struct kz_bind *) * num_binds, GFP_KERNEL);
 	num_binds = 0;
-	for (l3proto = KZ_BIND_L3PROTO_IPV4;
-	     l3proto < KZ_BIND_L3PROTO_COUNT; l3proto++) {
-		for (l4proto = KZ_BIND_L4PROTO_TCP;
-		     l4proto < KZ_BIND_L4PROTO_COUNT; l4proto++) {
-			bind_lookup->binds_by_type[l3proto][l4proto] =
-			    &bind_lookup->binds[num_binds];
-			num_binds +=
-			    bind_lookup->bind_nums[l3proto][l4proto];
+	for (l3proto = KZ_BIND_L3PROTO_IPV4; l3proto < KZ_BIND_L3PROTO_COUNT; l3proto++) {
+		for (l4proto = KZ_BIND_L4PROTO_TCP; l4proto < KZ_BIND_L4PROTO_COUNT; l4proto++) {
+			bind_lookup->binds_by_type[l3proto][l4proto] = &bind_lookup->binds[num_binds];
+			num_binds += bind_lookup->bind_nums[l3proto][l4proto];
 		}
 	}
 
@@ -2071,24 +1979,20 @@ static void bind_lookup_build(struct kz_bind_lookup *bind_lookup)
 		l3proto = bind_lookup_get_l3proto(bind->family);
 		l4proto = bind_lookup_get_l4proto(bind->proto);
 
-		bind_lookup->
-		    binds_by_type[l3proto][l4proto][filled_bind_nums
-						    [l3proto][l4proto]++] =
-		    bind;
+		bind_lookup->binds_by_type[l3proto][l4proto][filled_bind_nums[l3proto][l4proto]++] = bind;
 	}
 }
 
-static void bind_lookup_free_rcu(struct rcu_head *rcu_head)
+static void
+bind_lookup_free_rcu(struct rcu_head *rcu_head)
 {
-	struct kz_bind_lookup *bind_lookup =
-	    container_of(rcu_head, struct kz_bind_lookup, rcu);
+	struct kz_bind_lookup *bind_lookup = container_of(rcu_head, struct kz_bind_lookup, rcu);
 
 	bind_lookup_destroy(bind_lookup);
 }
 
 static inline void
-instance_bind_lookup_swap(struct kz_instance *instance,
-			  struct kz_bind_lookup *new_bind_lookup)
+instance_bind_lookup_swap(struct kz_instance *instance, struct kz_bind_lookup *new_bind_lookup)
 {
 	struct kz_bind_lookup *old_bind_lookup;
 
@@ -2103,9 +2007,7 @@ instance_bind_lookup_swap(struct kz_instance *instance,
 
 /* !!! must be called with the instance mutex held !!! */
 void
-kz_instance_remove_bind(struct kz_instance *instance,
-			const netlink_port_t pid_to_remove,
-			const struct kz_transaction const *tr)
+kz_instance_remove_bind(struct kz_instance *instance, const netlink_port_t pid_to_remove, const struct kz_transaction const *tr)
 {
 	struct kz_bind_lookup *bind_lookup;
 	const struct kz_bind const *orig_bind;
@@ -2114,34 +2016,29 @@ kz_instance_remove_bind(struct kz_instance *instance,
 
 	bind_lookup = bind_lookup_new();
 
-	list_for_each_entry(orig_bind, &instance->bind_lookup->list_bind,
-			    list) {
-		bool skip = (!tr
-			     || (tr->flags & KZF_TRANSACTION_FLUSH_BIND))
-		    && orig_bind->peer_pid == pid_to_remove;
+	list_for_each_entry(orig_bind, &instance->bind_lookup->list_bind, list) {
+		bool skip = (!tr || (tr->flags & KZF_TRANSACTION_FLUSH_BIND)) &&
+			    orig_bind->peer_pid == pid_to_remove;
 		if (!skip) {
 			new_bind = kz_bind_clone(orig_bind);
 			list_add(&new_bind->list, &bind_lookup->list_bind);
-			kz_bind_debug(new_bind,
-				      "bind from old bind list added");
+			kz_bind_debug(new_bind, "bind from old bind list added");
 		}
 	}
 
 	if (tr)
 		list_for_each_entry_safe(io, po, &tr->op, list) {
-		if (io->type == KZNL_OP_BIND) {
-			new_bind = (struct kz_bind *) (io->data);
-			list_del(&io->list);
-			list_add(&new_bind->list, &bind_lookup->list_bind);
-			kz_bind_debug(new_bind,
-				      "bind from transaction added");
-		}
+			if (io->type == KZNL_OP_BIND) {
+				new_bind = (struct kz_bind *) (io->data);
+				list_del(&io->list);
+				list_add(&new_bind->list, &bind_lookup->list_bind);
+				kz_bind_debug(new_bind, "bind from transaction added");
+			}
 		}
 
 	bind_lookup_build(bind_lookup);
 	instance_bind_lookup_swap(instance, bind_lookup);
 }
-
 EXPORT_SYMBOL_GPL(kz_instance_remove_bind);
 
 /* Bind lookup */
@@ -2153,102 +2050,72 @@ bind_lookup_hash_v4(__be32 saddr, __be16 sport, __be32 daddr, __be16 dport)
 	return jhash_3words(saddr, daddr, (sport << 16) + dport, 0);
 }
 
-const struct kz_bind *const
-kz_instance_bind_lookup_v4(const struct kz_instance const *instance,
-			   u8 l4proto, __be32 saddr, __be16 sport,
-			   __be32 daddr, __be16 dport)
+const struct kz_bind * const
+kz_instance_bind_lookup_v4(const struct kz_instance const *instance, u8 l4proto,
+			__be32 saddr, __be16 sport,
+			__be32 daddr, __be16 dport)
 {
 	unsigned int bind_num;
 	unsigned int lookup_bind_num;
-	enum kz_bind_l4proto bind_l4proto =
-	    bind_lookup_get_l4proto(l4proto);
+	enum kz_bind_l4proto bind_l4proto = bind_lookup_get_l4proto(l4proto);
 	const struct kz_bind const *bind;
 
-	kz_debug
-	    ("lookup bind; l4proto='%d', saddr='%pI4', sport='%d', daddr='%pI4', dport='%d'\n",
-	     l4proto, &saddr, htons(sport), &daddr, htons(dport));
+	kz_debug("lookup bind; l4proto='%d', saddr='%pI4', sport='%d', daddr='%pI4', dport='%d'\n", l4proto, &saddr, htons(sport), &daddr, htons(dport));
 
-	bind_num =
-	    instance->bind_lookup->
-	    bind_nums[KZ_BIND_L3PROTO_IPV4][bind_l4proto];
+	bind_num = instance->bind_lookup->bind_nums[KZ_BIND_L3PROTO_IPV4][bind_l4proto];
 	if (bind_num == 0) {
 		kz_debug("no potential bind found;\n");
 		return NULL;
 	}
 
-	lookup_bind_num =
-	    bind_lookup_hash_v4(saddr, sport, daddr, dport) % bind_num;
-	kz_debug
-	    ("potential bind found; bind_num='%d', selected_bind_num='%d'\n",
-	     bind_num, lookup_bind_num);
+	lookup_bind_num = bind_lookup_hash_v4(saddr, sport, daddr, dport) % bind_num;
+	kz_debug("potential bind found; bind_num='%d', selected_bind_num='%d'\n", bind_num, lookup_bind_num);
 
-	bind =
-	    instance->bind_lookup->
-	    binds_by_type[KZ_BIND_L3PROTO_IPV4][bind_l4proto]
-	    [lookup_bind_num];
+	bind = instance->bind_lookup->binds_by_type[KZ_BIND_L3PROTO_IPV4][bind_l4proto][lookup_bind_num];
 
 	kz_bind_debug(bind, "bind found");
 
 	return bind;
 
 }
-
 EXPORT_SYMBOL(kz_instance_bind_lookup_v4);
 
 static inline unsigned int
-bind_lookup_hash_v6(const struct in6_addr const *saddr, __be16 sport,
-		    const struct in6_addr const *daddr, __be16 dport)
+bind_lookup_hash_v6(const struct in6_addr const *saddr, __be16 sport, const struct in6_addr const *daddr, __be16 dport)
 {
 	/* FIXME: seed */
-	return
-	    jhash_3words(jhash2
-			 (saddr->s6_addr32, ARRAY_SIZE(saddr->s6_addr32),
-			  0), jhash2(daddr->s6_addr32,
-				     ARRAY_SIZE(daddr->s6_addr32), 0),
-			 (sport << 16) + dport, 0);
+	return jhash_3words(jhash2(saddr->s6_addr32, ARRAY_SIZE(saddr->s6_addr32), 0),
+			    jhash2(daddr->s6_addr32, ARRAY_SIZE(daddr->s6_addr32), 0),
+			    (sport << 16) + dport, 0);
 }
 
-const struct kz_bind *const
-kz_instance_bind_lookup_v6(const struct kz_instance const *instance,
-			   u8 l4proto, const struct in6_addr const *saddr,
-			   __be16 sport,
-			   const struct in6_addr const *daddr,
-			   __be16 dport)
+const struct kz_bind * const
+kz_instance_bind_lookup_v6(const struct kz_instance const *instance, u8 l4proto,
+			   const struct in6_addr const *saddr, __be16 sport,
+			   const struct in6_addr const *daddr, __be16 dport)
 {
 	unsigned int bind_num;
 	unsigned int lookup_bind_num;
-	enum kz_bind_l4proto bind_l4proto =
-	    bind_lookup_get_l4proto(l4proto);
+	enum kz_bind_l4proto bind_l4proto = bind_lookup_get_l4proto(l4proto);
 	const struct kz_bind const *bind;
 
-	kz_debug
-	    ("lookup bind; l4proto='%d', saddr='%pI6', sport='%d', daddr='%pI6', dport='%d'\n",
-	     l4proto, saddr, htons(sport), daddr, htons(dport));
+	kz_debug("lookup bind; l4proto='%d', saddr='%pI6', sport='%d', daddr='%pI6', dport='%d'\n", l4proto, saddr, htons(sport), daddr, htons(dport));
 
-	bind_num =
-	    instance->bind_lookup->
-	    bind_nums[KZ_BIND_L3PROTO_IPV6][bind_l4proto];
+	bind_num = instance->bind_lookup->bind_nums[KZ_BIND_L3PROTO_IPV6][bind_l4proto];
 	if (bind_num == 0) {
 		kz_debug("no potential bind found;\n");
 		return NULL;
 	}
 
-	lookup_bind_num =
-	    bind_lookup_hash_v6(saddr, sport, daddr, dport) % bind_num;
-	kz_debug
-	    ("potential bind found; bind_num='%d', selected_bind_num='%d'\n",
-	     bind_num, lookup_bind_num);
+	lookup_bind_num = bind_lookup_hash_v6(saddr, sport, daddr, dport) % bind_num;
+	kz_debug("potential bind found; bind_num='%d', selected_bind_num='%d'\n", bind_num, lookup_bind_num);
 
-	bind =
-	    instance->bind_lookup->
-	    binds_by_type[KZ_BIND_L3PROTO_IPV6][bind_l4proto]
-	    [lookup_bind_num];
+	bind = instance->bind_lookup->binds_by_type[KZ_BIND_L3PROTO_IPV6][bind_l4proto][lookup_bind_num];
 
 	kz_bind_debug(bind, "bind found");
 
 	return bind;
 }
-
 EXPORT_SYMBOL_GPL(kz_instance_bind_lookup_v6);
 
 /***********************************************************
@@ -2259,15 +2126,14 @@ EXPORT_SYMBOL_GPL(kz_instance_bind_lookup_v6);
  * being mapped to the same offset in the ip_nat_range structure */
 static inline int
 nat_in_range(const struct nf_nat_range *r,
-	     const __be32 addr, const __be16 port, const u_int8_t proto)
+	 const __be32 addr, const __be16 port,
+	 const u_int8_t proto)
 {
 	/* log messages: the IP addresses are in host-endian format due to usage of "<" and ">" relations */
-	kz_debug
-	    ("comparing range; flags='%x', start_ip='%pI4', end_ip='%pI4', start_port='%u', end_port='%u'\n",
-	     r->flags, &r->min_ip, &r->max_ip, ntohs(r->min.udp.port),
-	     ntohs(r->max.udp.port));
-	kz_debug("with packet; proto='%d', ip='%pI4', port='%u'\n", proto,
-		 &addr, ntohs(port));
+	kz_debug("comparing range; flags='%x', start_ip='%pI4', end_ip='%pI4', start_port='%u', end_port='%u'\n",
+		 r->flags, &r->min_ip, &r->max_ip, ntohs(r->min.udp.port), ntohs(r->max.udp.port));
+	kz_debug("with packet; proto='%d', ip='%pI4', port='%u'\n",
+		 proto, &addr, ntohs(port));
 
 	if ((proto != IPPROTO_TCP) && (proto != IPPROTO_UDP))
 		return 0;
@@ -2279,10 +2145,8 @@ nat_in_range(const struct nf_nat_range *r,
 	}
 
 	if (r->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
-		if ((r->min.udp.port
-		     && ntohs(port) < ntohs(r->min.udp.port))
-		    || (r->max.udp.port
-			&& ntohs(port) > ntohs(r->max.udp.port)))
+		if ((r->min.udp.port && ntohs(port) < ntohs(r->min.udp.port)) ||
+		    (r->max.udp.port && ntohs(port) > ntohs(r->max.udp.port)))
 			return 0;
 	}
 
@@ -2291,13 +2155,11 @@ nat_in_range(const struct nf_nat_range *r,
 	return 1;
 }
 
-const struct nf_nat_range *kz_service_nat_lookup(const struct list_head
-						 *const head,
-						 const __be32 saddr,
-						 const __be32 daddr,
-						 const __be16 sport,
-						 const __be16 dport,
-						 const u_int8_t proto)
+const struct nf_nat_range *
+kz_service_nat_lookup(const struct list_head * const head,
+		      const __be32 saddr, const __be32 daddr,
+		      const __be16 sport, const __be16 dport,
+		  const u_int8_t proto)
 {
 	struct kz_service_nat_entry *i;
 
@@ -2308,15 +2170,13 @@ const struct nf_nat_range *kz_service_nat_lookup(const struct list_head
 		/* source range _must_ match, destination either matches or
 		 * the destination range is empty in the rule */
 		if (nat_in_range(&i->src, saddr, sport, proto) &&
-		    (((i->dst.min_ip == 0) && (i->dst.max_ip == 0))
-		     || nat_in_range(&i->dst, daddr, dport, proto))) {
+		    (((i->dst.min_ip == 0) && (i->dst.max_ip == 0)) || nat_in_range(&i->dst, daddr, dport, proto))) {
 			return &i->map;
 		}
 	}
 
 	return NULL;
 }
-
 EXPORT_SYMBOL_GPL(kz_service_nat_lookup);
 
 /***********************************************************
@@ -2329,9 +2189,8 @@ kz_lookup_session(const struct kz_config *cfg,
 		  const struct kz_reqids *reqids,
 		  const struct net_device *in,
 		  u_int8_t l3proto,
-		  const union nf_inet_addr *const saddr,
-		  const union nf_inet_addr *const daddr, u_int8_t l4proto,
-		  u_int16_t sport, u_int16_t dport,
+		  const union nf_inet_addr * const saddr, const union nf_inet_addr * const daddr,
+		  u_int8_t l4proto, u_int16_t sport, u_int16_t dport,
 		  struct kz_dispatcher **dispatcher,
 		  struct kz_zone **clientzone, struct kz_zone **serverzone,
 		  struct kz_service **service, int reply)
@@ -2339,20 +2198,16 @@ kz_lookup_session(const struct kz_config *cfg,
 	struct kz_dispatcher *dpt = NULL;
 	struct kz_zone *czone = NULL, *szone = NULL;
 	struct kz_service *svc = NULL;
-	const struct kz_head_z *const zones = &cfg->zones;
+	const struct kz_head_z * const zones = &cfg->zones;
 
 	switch (l3proto) {
 	case NFPROTO_IPV4:
-		kz_debug
-		    ("in='%s', l3proto='%u', l4proto='%u', src='%pI4:%u', dst='%pI4:%u'\n",
-		     in ? in->name : "(NULL)", l3proto, l4proto,
-		     &saddr->in, sport, &daddr->in, dport);
+		kz_debug("in='%s', l3proto='%u', l4proto='%u', src='%pI4:%u', dst='%pI4:%u'\n",
+			 in ? in->name : "(NULL)", l3proto, l4proto, &saddr->in, sport, &daddr->in, dport);
 		break;
 	case NFPROTO_IPV6:
-		kz_debug
-		    ("in='%s', l3proto='%u', l4proto='%u', src='%pI6:%u', dst='%pI6:%u'\n",
-		     in ? in->name : "(NULL)", l3proto, l4proto,
-		     &saddr->in6, sport, &daddr->in6, dport);
+		kz_debug("in='%s', l3proto='%u', l4proto='%u', src='%pI6:%u', dst='%pI6:%u'\n",
+			 in ? in->name : "(NULL)", l3proto, l4proto, &saddr->in6, sport, &daddr->in6, dport);
 		break;
 	default:
 		BUG();
@@ -2362,24 +2217,12 @@ kz_lookup_session(const struct kz_config *cfg,
 	/* look up src/dst zone */
 	switch (l3proto) {
 	case NFPROTO_IPV4:
-		czone =
-		    kz_head_zone_ipv4_lookup(zones,
-					     reply ? &daddr->in : &saddr->
-					     in);
-		szone =
-		    kz_head_zone_ipv4_lookup(zones,
-					     reply ? &saddr->in : &daddr->
-					     in);
+		czone = kz_head_zone_ipv4_lookup(zones, reply ? &daddr->in : &saddr->in);
+		szone = kz_head_zone_ipv4_lookup(zones, reply ? &saddr->in : &daddr->in);
 		break;
 	case NFPROTO_IPV6:
-		czone =
-		    kz_head_zone_ipv6_lookup(zones,
-					     reply ? &daddr->in6 : &saddr->
-					     in6);
-		szone =
-		    kz_head_zone_ipv6_lookup(zones,
-					     reply ? &saddr->in6 : &daddr->
-					     in6);
+		czone = kz_head_zone_ipv6_lookup(zones, reply ? &daddr->in6 : &saddr->in6);
+		szone = kz_head_zone_ipv6_lookup(zones, reply ? &saddr->in6 : &daddr->in6);
 		break;
 	default:
 		BUG();
@@ -2394,14 +2237,11 @@ kz_lookup_session(const struct kz_config *cfg,
 	}
 
 	/* evaluate n-dimensional rules */
-	svc =
-	    kz_ndim_lookup(cfg, reqids, in, l3proto, saddr, daddr, l4proto,
-			   sport, dport, czone, szone, &dpt);
+	svc = kz_ndim_lookup(cfg, reqids, in, l3proto, saddr, daddr, l4proto, sport, dport, czone, szone, &dpt);
 
 	*dispatcher = dpt;
 	*clientzone = czone;
 	*serverzone = szone;
 	*service = svc;
 }
-
 EXPORT_SYMBOL_GPL(kz_lookup_session);
