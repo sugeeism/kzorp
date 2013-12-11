@@ -4,9 +4,8 @@
  * Copyright (C) 2006-2010, BalaBit IT Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
  */
 
@@ -57,12 +56,14 @@ struct list_head kz_instances;
 /* instance 0 is the "global" instance, so it must be the first instance created */
 static unsigned int instance_id_cnt = 0;
 
-static void __init instance_init(void)
+static void __init
+instance_init(void)
 {
 	INIT_LIST_HEAD(&kz_instances);
 }
 
-static void __exit instance_cleanup(void)
+static void __exit 
+instance_cleanup(void)
 {
 	struct kz_instance *i, *s;
 	list_for_each_entry_safe(i, s, &kz_instances, list) {
@@ -72,7 +73,8 @@ static void __exit instance_cleanup(void)
 }
 
 /* !!! must be called with the instance mutex held !!! */
-struct kz_instance *kz_instance_lookup_nocheck(const char *name)
+struct kz_instance *
+kz_instance_lookup_nocheck(const char *name)
 {
 	struct kz_instance *i;
 
@@ -87,7 +89,8 @@ struct kz_instance *kz_instance_lookup_nocheck(const char *name)
 }
 
 /* !!! must be called with the instance mutex held !!! */
-struct kz_instance *kz_instance_lookup(const char *name)
+struct kz_instance *
+kz_instance_lookup(const char *name)
 {
 	struct kz_instance *i;
 
@@ -103,14 +106,16 @@ struct kz_instance *kz_instance_lookup(const char *name)
 }
 
 /* !!! must be called with the instance mutex held !!! */
-struct kz_instance *kz_instance_lookup_id(const unsigned int id)
+struct kz_instance *
+kz_instance_lookup_id(const unsigned int id)
 {
 	struct kz_instance *i;
 
 	kz_debug("id='%u'\n", id);
 
 	list_for_each_entry(i, &kz_instances, list) {
-		if (!(i->flags & KZF_INSTANCE_DELETED) && (i->id == id))
+		if (!(i->flags & KZF_INSTANCE_DELETED) &&
+		    (i->id == id))
 			return i;
 	}
 
@@ -121,7 +126,8 @@ struct kz_instance *kz_instance_lookup_id(const unsigned int id)
  * Per-instance bind address lists
  ***********************************************************/
 
-struct kz_bind *kz_bind_new(void)
+struct kz_bind *
+kz_bind_new(void)
 {
 	struct kz_bind *bind;
 
@@ -134,7 +140,8 @@ struct kz_bind *kz_bind_new(void)
 	return bind;
 }
 
-struct kz_bind *kz_bind_clone(const struct kz_bind const *_bind)
+struct kz_bind *
+kz_bind_clone(const struct kz_bind const *_bind)
 {
 	struct kz_bind *bind;
 
@@ -151,15 +158,15 @@ struct kz_bind *kz_bind_clone(const struct kz_bind const *_bind)
 	return bind;
 }
 
-void kz_bind_destroy(struct kz_bind *bind)
+void
+kz_bind_destroy(struct kz_bind *bind)
 {
 	kfree(bind);
 }
 
 /* !!! must be called with the instance mutex held !!! */
-struct kz_instance *kz_instance_create(const char *name,
-				       const unsigned int len,
-				       const netlink_port_t peer_pid)
+struct kz_instance *
+kz_instance_create(const char *name, const unsigned int len, const netlink_port_t peer_pid)
 {
 	struct kz_instance *i;
 
@@ -187,8 +194,7 @@ struct kz_instance *kz_instance_create(const char *name,
 	i->peer_pid = peer_pid;
 	/* terminating zero comes from kzalloc() */
 	memcpy(i->name, name, len);
-	i->bind_lookup =
-	    kzalloc(sizeof(struct kz_bind_lookup), GFP_KERNEL);
+	i->bind_lookup = kzalloc(sizeof(struct kz_bind_lookup), GFP_KERNEL);
 	INIT_LIST_HEAD(&i->bind_lookup->list_bind);
 	list_add(&i->list, &kz_instances);
 
@@ -198,7 +204,8 @@ struct kz_instance *kz_instance_create(const char *name,
 }
 
 /* !!! must be called with the instance mutex held !!! */
-void kz_instance_delete(struct kz_instance *const i)
+void
+kz_instance_delete(struct kz_instance * const i)
 {
 	kz_debug("name='%s'\n", i->name);
 
@@ -209,7 +216,8 @@ void kz_instance_delete(struct kz_instance *const i)
  * Utility functions
  ***********************************************************/
 
-char *kz_name_dup(const char *const name)
+char *
+kz_name_dup(const char * const name)
 {
 	char *n;
 	unsigned int len;
@@ -234,16 +242,17 @@ char *kz_name_dup(const char *const name)
 
 /* content shall stay semantically 'empty', properly inited for work,
    only generation may change after module init!  */
-static struct kz_config static_config = {
-	.zones = {.head = LIST_HEAD_INIT(static_config.zones.head)},
-	.services = {.head = LIST_HEAD_INIT(static_config.services.head)},
-	.dispatchers = {.head =
-			LIST_HEAD_INIT(static_config.dispatchers.head)},
+static struct kz_config static_config =
+{
+	.zones = {.head = LIST_HEAD_INIT(static_config.zones.head)}, 
+	.services = {.head = LIST_HEAD_INIT(static_config.services.head)}, 
+	.dispatchers = {.head = LIST_HEAD_INIT(static_config.dispatchers.head)}, 
 	.generation = 1,
 	.cookie = 0UL
 };
 
-static void kz_config_init(struct kz_config *cfg)
+static void
+kz_config_init(struct kz_config *cfg)
 {
 	cfg->cookie = 0;
 	cfg->generation = 0;
@@ -254,7 +263,8 @@ static void kz_config_init(struct kz_config *cfg)
 	kz_head_dispatcher_init(&cfg->dispatchers);
 }
 
-static int __init static_cfg_init(void)
+static int __init
+static_cfg_init(void)
 {
 	int res = 0;
 	kz_config_init(&static_config);
@@ -266,7 +276,8 @@ static int __init static_cfg_init(void)
 	return res;
 }
 
-static void __exit static_cfg_cleanup(void)
+static void __exit
+static_cfg_cleanup(void)
 {
 	kz_head_dispatcher_destroy(&static_config.dispatchers);
 	kz_head_zone_destroy(&static_config.zones);
@@ -276,14 +287,13 @@ struct kz_config *kz_config_rcu = &static_config;
 
 struct kz_config *kz_config_new(void)
 {
-	struct kz_config *cfg =
-	    kzalloc(sizeof(struct kz_config), GFP_KERNEL);
+	struct kz_config *cfg = kzalloc(sizeof(struct kz_config), GFP_KERNEL);
 	if (cfg)
 		kz_config_init(cfg);
 	return cfg;
 }
 
-void kz_config_destroy(struct kz_config *cfg)
+void kz_config_destroy(struct kz_config * cfg)
 {
 	if (cfg != NULL) {
 		kz_head_destroy_zone(&cfg->zones);
@@ -293,17 +303,18 @@ void kz_config_destroy(struct kz_config *cfg)
 	}
 }
 
-static void kz_config_list_free_rcu(struct rcu_head *rcu_head)
+static void
+kz_config_list_free_rcu(struct rcu_head *rcu_head)
 {
-	struct kz_config *cfg =
-	    container_of(rcu_head, struct kz_config, rcu);
+	struct kz_config *cfg = container_of(rcu_head, struct kz_config, rcu);
 	if (cfg != &static_config)
 		kz_config_destroy(cfg);
 }
 
-void kz_config_swap(struct kz_config *new_cfg)
+void
+kz_config_swap(struct kz_config * new_cfg)
 {
-	struct kz_config *old_cfg;
+	struct kz_config * old_cfg;
 	rcu_read_lock();
 	old_cfg = rcu_dereference(kz_config_rcu);
 	if (new_cfg != old_cfg) {
@@ -320,12 +331,12 @@ void kz_config_swap(struct kz_config *new_cfg)
  ***********************************************************/
 
 
-void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp *kzorp,
-			   enum ip_conntrack_info ctinfo,
-			   const struct sk_buff *skb,
-			   const struct net_device *const in,
-			   const u8 l3proto,
-			   const struct kz_config **p_cfg)
+void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
+	enum ip_conntrack_info ctinfo,
+	const struct sk_buff *skb,
+	const struct net_device * const in,
+	const u8 l3proto,
+	const struct kz_config **p_cfg)
 {
 	struct kz_zone *czone = NULL;
 	struct kz_zone *szone = NULL;
@@ -334,12 +345,11 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp *kzorp,
 	struct {
 		u16 src;
 		u16 dst;
-	} __attribute__ ((packed)) * ports, _ports = {
-	.src = 0,.dst = 0};
-	const struct kz_config *loc_cfg;
+	} __attribute__((packed)) *ports, _ports = { .src = 0, .dst = 0 };
+	const struct kz_config * loc_cfg;
 	u8 l4proto;
 	union nf_inet_addr *saddr, *daddr;
-	struct kz_reqids reqids;
+        struct kz_reqids reqids;
 	int sp_idx;
 
 	ports = &_ports;
@@ -351,70 +361,50 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp *kzorp,
 
 	BUG_ON(*p_cfg == NULL);
 	kzorp->generation = (*p_cfg)->generation;
-
+	
 	switch (l3proto) {
 	case NFPROTO_IPV4:
-		{
-			const struct iphdr *const iph = ip_hdr(skb);
+	{
+		const struct iphdr * const iph = ip_hdr(skb);
 
-			l4proto = iph->protocol;
-			saddr = (union nf_inet_addr *) &iph->saddr;
-			daddr = (union nf_inet_addr *) &iph->daddr;
+		l4proto = iph->protocol;
+		saddr = (union nf_inet_addr *) &iph->saddr;
+		daddr = (union nf_inet_addr *) &iph->daddr;
 
-			if ((l4proto == IPPROTO_TCP)
-			    || (l4proto == IPPROTO_UDP)) {
-				ports =
-				    skb_header_pointer(skb, ip_hdrlen(skb),
-						       sizeof(_ports),
-						       &_ports);
-				if (unlikely(ports == NULL))
-					goto done;
-			}
-			kz_debug
-			    ("kzorp lookup for packet: protocol='%u', src='%pI4:%u', dst='%pI4:%u'\n",
-			     iph->protocol, &iph->saddr, ntohs(ports->src),
-			     &iph->daddr, ntohs(ports->dst));
+		if ((l4proto == IPPROTO_TCP) || (l4proto == IPPROTO_UDP)) {
+			ports = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_ports), &_ports);
+			if (unlikely(ports == NULL))
+				goto done;
 		}
+		kz_debug("kzorp lookup for packet: protocol='%u', src='%pI4:%u', dst='%pI4:%u'\n",
+			 iph->protocol, &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
+	}
 		break;
 	case NFPROTO_IPV6:
-		{
-			const struct ipv6hdr *const iph = ipv6_hdr(skb);
-			int thoff;
-			u8 tproto = iph->nexthdr;
+	{
+		const struct ipv6hdr * const iph = ipv6_hdr(skb);
+		int thoff;
+		u8 tproto = iph->nexthdr;
 
-			/* find transport header */
-#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) )
-			__be16 frag_offp;
-			thoff =
-			    ipv6_skip_exthdr(skb, sizeof(*iph), &tproto,
-					     &frag_offp);
-#else
-			thoff =
-			    ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
-#endif
-			if (unlikely(thoff < 0))
+		/* find transport header */
+		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
+		if (unlikely(thoff < 0))
+			goto done;
+
+		l4proto = tproto;
+		saddr = (union nf_inet_addr *) &iph->saddr;
+		daddr = (union nf_inet_addr *) &iph->daddr;
+
+		if ((l4proto == IPPROTO_TCP) || (l4proto == IPPROTO_UDP)) {
+			/* get info from transport header */
+			ports = skb_header_pointer(skb, thoff, sizeof(_ports), &_ports);
+			if (unlikely(ports == NULL))
 				goto done;
-
-			l4proto = tproto;
-			saddr = (union nf_inet_addr *) &iph->saddr;
-			daddr = (union nf_inet_addr *) &iph->daddr;
-
-			if ((l4proto == IPPROTO_TCP)
-			    || (l4proto == IPPROTO_UDP)) {
-				/* get info from transport header */
-				ports =
-				    skb_header_pointer(skb, thoff,
-						       sizeof(_ports),
-						       &_ports);
-				if (unlikely(ports == NULL))
-					goto done;
-			}
-
-			kz_debug
-			    ("kzorp lookup for packet: protocol='%u', src='%pI6:%u', dst='%pI6:%u'\n",
-			     l4proto, &iph->saddr, ntohs(ports->src),
-			     &iph->daddr, ntohs(ports->dst));
 		}
+
+		kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6:%u', dst='%pI6:%u'\n", l4proto,
+			 &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
+	}
 		break;
 	default:
 		BUG();
@@ -424,9 +414,8 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp *kzorp,
 	/* copy IPSEC reqids from secpath to our own structure */
 	if (skb->sp != NULL) {
 		reqids.len = skb->sp->len;
-		for (sp_idx = 0; sp_idx < reqids.len; sp_idx++)
-			reqids.vec[sp_idx] =
-			    skb->sp->xvec[sp_idx]->props.reqid;
+		for (sp_idx = 0; sp_idx  < reqids.len; sp_idx++)
+			reqids.vec[sp_idx] = skb->sp->xvec[sp_idx]->props.reqid;
 	} else {
 		reqids.len = 0;
 	}
@@ -437,14 +426,14 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp *kzorp,
 			  &dpt, &czone, &szone, &svc,
 			  (ctinfo >= IP_CT_IS_REPLY));
 
-      done:
+done:
 #define REPLACE_PTR(name, type) \
 	if (kzorp->name != name) { \
 		if (kzorp->name) \
 			kz_##type##_put(kzorp->name); \
 		kzorp->name = name ? kz_##type##_get(name) : NULL; \
 	}
-
+	
 	REPLACE_PTR(czone, zone);
 	REPLACE_PTR(szone, zone);
 	REPLACE_PTR(dpt, dispatcher);
@@ -452,66 +441,53 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp *kzorp,
 
 #undef REPLACE_PTR
 
-	kz_debug
-	    ("kzorp lookup result; dpt='%s', client_zone='%s', server_zone='%s', svc='%s'\n",
-	     kzorp->dpt ? kzorp->dpt->name : kz_log_null,
-	     kzorp->czone ? kzorp->czone->name : kz_log_null,
-	     kzorp->szone ? kzorp->szone->name : kz_log_null,
-	     kzorp->svc ? kzorp->svc->name : kz_log_null);
+	kz_debug("kzorp lookup result; dpt='%s', client_zone='%s', server_zone='%s', svc='%s'\n",
+		 kzorp->dpt ? kzorp->dpt->name : kz_log_null,
+		 kzorp->czone ? kzorp->czone->name : kz_log_null,
+		 kzorp->szone ? kzorp->szone->name : kz_log_null,
+		 kzorp->svc ? kzorp->svc->name : kz_log_null);
 
 	return;
 }
-
 EXPORT_SYMBOL_GPL(nfct_kzorp_lookup_rcu);
 
-// FIXME: should be rewritten
-const struct nf_conntrack_kzorp *nfct_kzorp_cached_lookup_rcu(struct
-							      nf_conn *ct,
-							      enum
-							      ip_conntrack_info
-							      ctinfo,
-							      const struct
-							      sk_buff *skb,
-							      const struct
-							      net_device
-							      *const in,
-							      const u8
-							      l3proto,
-							      const struct
-							      kz_config
-							      **p_cfg)
+
+const struct nf_conntrack_kzorp * nfct_kzorp_cached_lookup_rcu(
+	struct nf_conn *ct,
+	enum ip_conntrack_info ctinfo,
+	const struct sk_buff *skb,
+	const struct net_device * const in,
+	const u8 l3proto,
+	const struct kz_config **p_cfg)
 {
 	struct nf_conntrack_kzorp *kzorp;
-	const struct kz_config *loc_cfg;
+	const struct kz_config * loc_cfg;
+
 	if (p_cfg == NULL)
 		p_cfg = &loc_cfg;
 
 	*p_cfg = rcu_dereference(kz_config_rcu);
 
-	kzorp = kz_extension_find(ct);
+	kzorp = nf_ct_ext_find(ct, NF_CT_EXT_KZ);
 
-	if (!kzorp) {		/* no kzorp yet, add a fresh one */
+	if (!kzorp) { /* no kzorp yet, add a fresh one */
 		/* no kzorp extension, we need to try and add it only
 		 * if the conntrack is not yet confirmed */
 		if (unlikely(nf_ct_is_confirmed(ct))) {
 			switch (l3proto) {
 			case NFPROTO_IPV4:
-				{
-					const struct iphdr *const iph =
-					    ip_hdr(skb);
-					kz_debug
-					    ("can't add kzorp to ct for packet: src='%pI4', dst='%pI4'\n",
-					     &iph->saddr, &iph->daddr);
-				}
+			{
+				const struct iphdr * const iph = ip_hdr(skb);
+				kz_debug("can't add kzorp to ct for packet: src='%pI4', dst='%pI4'\n",
+					 &iph->saddr, &iph->daddr);
+			}
 				break;
 			case NFPROTO_IPV6:
-				{
-					const struct ipv6hdr *const iph =
-					    ipv6_hdr(skb);
-					kz_debug
-					    ("can't add kzorp to ct for packet: src='%pI6', dst='%pI6'\n",
-					     &iph->saddr, &iph->daddr);
-				}
+			{
+				const struct ipv6hdr * const iph = ipv6_hdr(skb);
+				kz_debug("can't add kzorp to ct for packet: src='%pI6', dst='%pI6'\n",
+					 &iph->saddr, &iph->daddr);
+			}
 				break;
 			default:
 				BUG();
@@ -519,26 +495,24 @@ const struct nf_conntrack_kzorp *nfct_kzorp_cached_lookup_rcu(struct
 			return NULL;
 		}
 
-		kzorp = kz_extension_create(ct);
+		kzorp = nf_ct_ext_add(ct, NF_CT_EXT_KZ, GFP_ATOMIC);
 		if (unlikely(!kzorp)) {
 			kz_debug("allocation failed creating kzorp\n");
 			return NULL;
 		}
 		/* implicit:  kzorp->sid = 0; */
-		nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto,
-				      p_cfg);
+		nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto, p_cfg);
 		return kzorp;
 	}
-
+	
 	/* use existing kzorp, make sure it is okay */
+
 	if (unlikely(!kz_generation_valid(*p_cfg, kzorp->generation))) {
-		nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto,
-				      p_cfg);
+		nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto, p_cfg);
 	}
 
 	return kzorp;
 }
-
 EXPORT_SYMBOL_GPL(nfct_kzorp_cached_lookup_rcu);
 
 /***********************************************************
@@ -546,7 +520,8 @@ EXPORT_SYMBOL_GPL(nfct_kzorp_cached_lookup_rcu);
  ***********************************************************/
 
 #define ZONE_SERVICE_ALLOC_THRESHOLD 8
-struct kz_zone *kz_zone_new(void)
+struct kz_zone *
+kz_zone_new(void)
 {
 	struct kz_zone *zone;
 
@@ -560,22 +535,22 @@ struct kz_zone *kz_zone_new(void)
 	return zone;
 }
 
-void kz_zone_destroy(struct kz_zone *zone)
+void
+kz_zone_destroy(struct kz_zone *zone)
 {
-	if (zone->admin_parent)
-		kz_zone_put(zone->admin_parent);
-	/* unique_name may be the same pointer as name! */
-	if (zone->unique_name != zone->name)
-		kfree(zone->unique_name);
-	if (zone->name)
-		kfree(zone->name);
-	kfree(zone);
+       if (zone->admin_parent)
+	       kz_zone_put(zone->admin_parent);
+       /* unique_name may be the same pointer as name! */
+       if (zone->unique_name != zone->name)
+	       kfree(zone->unique_name);
+       if (zone->name)
+	       kfree(zone->name);
+       kfree(zone);
 }
-
 EXPORT_SYMBOL_GPL(kz_zone_destroy);
 
-struct kz_zone *__kz_zone_lookup_name(const struct list_head *const head,
-				      const char *name)
+struct kz_zone *
+__kz_zone_lookup_name(const struct list_head * const head, const char *name)
 {
 	struct kz_zone *i;
 
@@ -589,13 +564,14 @@ struct kz_zone *__kz_zone_lookup_name(const struct list_head *const head,
 	return NULL;
 }
 
-struct kz_zone *kz_zone_lookup_name(const struct kz_config *cfg,
-				    const char *name)
+struct kz_zone *
+kz_zone_lookup_name(const struct kz_config *cfg, const char *name)
 {
 	return __kz_zone_lookup_name(&cfg->zones.head, name);
 }
 
-struct kz_zone *kz_zone_clone(const struct kz_zone *const o)
+struct kz_zone *
+kz_zone_clone(const struct kz_zone * const o)
 {
 	struct kz_zone *zone;
 
@@ -628,13 +604,14 @@ struct kz_zone *kz_zone_clone(const struct kz_zone *const o)
 
 	return zone;
 
-      error_put:
+error_put:
 	kz_zone_put(zone);
 
 	return NULL;
 }
 
-void kz_head_destroy_zone(struct kz_head_z *head)
+void
+kz_head_destroy_zone(struct kz_head_z *head)
 {
 	struct kz_zone *i, *p;
 
@@ -653,7 +630,8 @@ void kz_head_destroy_zone(struct kz_head_z *head)
 
 static atomic_t service_id_cnt;
 
-struct kz_service *kz_service_new(void)
+struct kz_service *
+kz_service_new(void)
 {
 	struct kz_service *service;
 
@@ -672,7 +650,8 @@ struct kz_service *kz_service_new(void)
 	return service;
 }
 
-void kz_service_destroy(struct kz_service *service)
+void
+kz_service_destroy(struct kz_service *service)
 {
 	struct kz_service_nat_entry *i, *s;
 
@@ -694,8 +673,8 @@ void kz_service_destroy(struct kz_service *service)
 	kfree(service);
 }
 
-struct kz_service *__kz_service_lookup_name(const struct list_head *const
-					    head, const char *name)
+struct kz_service *
+__kz_service_lookup_name(const struct list_head * const head, const char *name)
 {
 	struct kz_service *i;
 
@@ -709,18 +688,16 @@ struct kz_service *__kz_service_lookup_name(const struct list_head *const
 	return NULL;
 }
 
-struct kz_service *kz_service_lookup_name(const struct kz_config *cfg,
-					  const char *name)
+struct kz_service *
+kz_service_lookup_name(const struct kz_config *cfg, const char *name)
 {
 	return __kz_service_lookup_name(&cfg->services.head, name);
 }
-
 EXPORT_SYMBOL_GPL(kz_service_lookup_name);
 
 int
 kz_service_add_nat_entry(struct list_head *head, struct nf_nat_range *src,
-			 struct nf_nat_range *dst,
-			 struct nf_nat_range *map)
+			 struct nf_nat_range *dst, struct nf_nat_range *map)
 {
 	struct kz_service_nat_entry *entry;
 
@@ -742,16 +719,15 @@ kz_service_add_nat_entry(struct list_head *head, struct nf_nat_range *src,
 }
 
 static int
-service_clone_nat_list(const struct list_head *const src,
-		       struct list_head *dst)
+service_clone_nat_list(const struct list_head * const src, struct list_head *dst)
 {
 	struct kz_service_nat_entry *i;
 	int res = 0;
 
 	list_for_each_entry(i, src, list) {
 		res = kz_service_add_nat_entry(dst, &i->src,
-					       i->dst.min_ip ? &i->
-					       dst : NULL, &i->map);
+					    i->dst.min_ip ? &i->dst : NULL,
+					    &i->map);
 		if (res < 0)
 			break;
 	}
@@ -759,7 +735,8 @@ service_clone_nat_list(const struct list_head *const src,
 	return res;
 }
 
-struct kz_service *kz_service_clone(const struct kz_service *const o)
+struct kz_service *
+kz_service_clone(const struct kz_service * const o)
 {
 	struct kz_service *svc;
 
@@ -776,38 +753,37 @@ struct kz_service *kz_service_clone(const struct kz_service *const o)
 		goto error_put;
 	if (svc->type == KZ_SERVICE_FORWARD) {
 		INIT_LIST_HEAD(&svc->a.fwd.snat);
-		if (service_clone_nat_list
-		    (&o->a.fwd.snat, &svc->a.fwd.snat) < 0)
+		if (service_clone_nat_list(&o->a.fwd.snat, &svc->a.fwd.snat) < 0)
 			goto error_put;
 		INIT_LIST_HEAD(&svc->a.fwd.dnat);
-		if (service_clone_nat_list
-		    (&o->a.fwd.dnat, &svc->a.fwd.dnat) < 0)
+		if (service_clone_nat_list(&o->a.fwd.dnat, &svc->a.fwd.dnat) < 0)
 			goto error_put;
 	}
 
 	return svc;
 
-      error_put:
+error_put:
 	kz_service_put(svc);
 
 	return NULL;
 }
 
-int kz_service_lock(struct kz_service *const service)
+int
+kz_service_lock(struct kz_service * const service)
 {
 	/* lock service session counter */
-	set_bit(KZ_SERVICE_CNT_LOCKED_BIT,
-		(unsigned long *) &service->flags);
+	set_bit(KZ_SERVICE_CNT_LOCKED_BIT, (unsigned long *)&service->flags);
 	return atomic_read(&service->session_cnt);
 }
 
-void kz_service_unlock(struct kz_service *const service)
+void
+kz_service_unlock(struct kz_service * const service)
 {
-	clear_bit(KZ_SERVICE_CNT_LOCKED_BIT,
-		  (unsigned long *) &service->flags);
+	clear_bit(KZ_SERVICE_CNT_LOCKED_BIT, (unsigned long *)&service->flags);
 }
 
-void kz_head_destroy_service(struct kz_head_s *head)
+void
+kz_head_destroy_service(struct kz_head_s *head)
 {
 	struct kz_service *i, *p;
 
@@ -825,7 +801,8 @@ static struct workqueue_struct *vfree_queue;
 
 #define DISPATCHER_CSS_ALLOC_THRESHOLD 8
 
-static int __init dpt_init(void)
+static int __init
+dpt_init(void)
 {
 	vfree_queue = create_workqueue("kzorp_vfree_queue");
 	if (vfree_queue == NULL) {
@@ -834,27 +811,29 @@ static int __init dpt_init(void)
 	return 0;
 }
 
-static void dpt_cleanup(void)
+static void
+dpt_cleanup(void)
 {
 	flush_workqueue(vfree_queue);
 	destroy_workqueue(vfree_queue);
 }
 
-void *kz_big_alloc(size_t size, enum KZ_ALLOC_TYPE *alloc_type)
+void*
+kz_big_alloc(size_t size, enum KZ_ALLOC_TYPE *alloc_type)
 {
-	void *ret = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
+	void * ret = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
 	*alloc_type = KZALLOC;
 
 	if (!ret) {
-		ret =
-		    __vmalloc(size, GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);
+		ret = __vmalloc(size, GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);
 		*alloc_type = VMALLOC;
 	}
 
 	return ret;
 }
 
-static void vfree_wq_function(struct work_struct *work)
+static void
+vfree_wq_function(struct work_struct *work)
 {
 	const kz_vfree_work_t *w = (kz_vfree_work_t *) work;
 
@@ -862,23 +841,20 @@ static void vfree_wq_function(struct work_struct *work)
 	kfree(w);
 }
 
-void kz_big_free(void *ptr, enum KZ_ALLOC_TYPE alloc_type)
+void
+kz_big_free(void *ptr, enum KZ_ALLOC_TYPE alloc_type)
 {
 	switch (alloc_type) {
-	case KZALLOC:{
+	case KZALLOC: {
 			kzfree(ptr);
 			break;
 		}
-	case VMALLOC:{
+	case VMALLOC: {
 			int res;
-			kz_vfree_work_t *w =
-			    kzalloc(sizeof(kz_vfree_work_t), GFP_KERNEL);
-			INIT_WORK((struct work_struct *) w,
-				  vfree_wq_function);
+			kz_vfree_work_t *w = kzalloc(sizeof(kz_vfree_work_t), GFP_KERNEL);
+			INIT_WORK((struct work_struct *) w, vfree_wq_function);
 			w->p = ptr;
-			res =
-			    queue_work(vfree_queue,
-				       (struct work_struct *) w);
+			res = queue_work(vfree_queue, (struct work_struct *)w);
 			BUG_ON(!res);
 			break;
 		}
@@ -903,14 +879,11 @@ void kz_big_free(void *ptr, enum KZ_ALLOC_TYPE alloc_type)
  *          -ENOMEM if memory allocation fails
  */
 int
-kz_dispatcher_alloc_rule_array(struct kz_dispatcher *dispatcher,
-			       size_t alloc_rules)
+kz_dispatcher_alloc_rule_array(struct kz_dispatcher *dispatcher, size_t alloc_rules)
 {
-	const size_t rule_size =
-	    sizeof(struct kz_dispatcher_n_dimension_rule) * alloc_rules;
+	const size_t rule_size = sizeof(struct kz_dispatcher_n_dimension_rule) * alloc_rules;
 
-	dispatcher->rule =
-	    kz_big_alloc(rule_size, &dispatcher->rule_allocator);
+	dispatcher->rule = kz_big_alloc(rule_size, &dispatcher->rule_allocator);
 
 	dispatcher->num_rule = 0;
 	dispatcher->alloc_rule = alloc_rules;
@@ -927,7 +900,8 @@ kz_dispatcher_alloc_rule_array(struct kz_dispatcher *dispatcher,
  * that case we have to defer vfree()-ing the memory to a work queue
  * thread (so that it happens in user context).
  */
-static void kz_dispatcher_free_rule_array(struct kz_dispatcher *dispatcher)
+static void
+kz_dispatcher_free_rule_array(struct kz_dispatcher *dispatcher)
 {
 	if (dispatcher->rule != NULL) {
 		kz_big_free(dispatcher->rule, dispatcher->rule_allocator);
@@ -937,7 +911,8 @@ static void kz_dispatcher_free_rule_array(struct kz_dispatcher *dispatcher)
 	dispatcher->rule = NULL;
 }
 
-struct kz_dispatcher *kz_dispatcher_new(void)
+struct kz_dispatcher *
+kz_dispatcher_new(void)
 {
 	struct kz_dispatcher *dispatcher;
 
@@ -950,7 +925,8 @@ struct kz_dispatcher *kz_dispatcher_new(void)
 	return dispatcher;
 }
 
-static void kz_rule_destroy(struct kz_dispatcher_n_dimension_rule *rule)
+static void
+kz_rule_destroy(struct kz_dispatcher_n_dimension_rule *rule)
 {
 	int j;
 
@@ -982,7 +958,8 @@ static void kz_rule_destroy(struct kz_dispatcher_n_dimension_rule *rule)
 	memset(rule, 0, sizeof(*rule));
 }
 
-void kz_dispatcher_destroy(struct kz_dispatcher *dispatcher)
+void
+kz_dispatcher_destroy(struct kz_dispatcher *dispatcher)
 {
 	int i;
 
@@ -1000,8 +977,8 @@ void kz_dispatcher_destroy(struct kz_dispatcher *dispatcher)
 	kfree(dispatcher);
 }
 
-struct kz_dispatcher *kz_dispatcher_lookup_name(const struct kz_config
-						*cfg, const char *name)
+struct kz_dispatcher *
+kz_dispatcher_lookup_name(const struct kz_config *cfg, const char *name)
 {
 	struct kz_dispatcher *i;
 
@@ -1029,17 +1006,15 @@ struct kz_dispatcher *kz_dispatcher_lookup_name(const struct kz_config
 
 int
 kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
-		       const struct kz_dispatcher_n_dimension_rule *const
-		       rule_params)
+		       const struct kz_dispatcher_n_dimension_rule * const rule_params)
 {
 	int res = 0;
 	struct kz_dispatcher_n_dimension_rule *rule = NULL;
 	int64_t last_id = -1L;
 
 	if (d->num_rule + 1 > d->alloc_rule) {
-		kz_err
-		    ("each rule has already been added to this dispatcher; num_rule='%d'\n",
-		     d->alloc_rule);
+		kz_err("each rule has already been added to this dispatcher; num_rule='%d'\n",
+		       d->alloc_rule);
 		res = -EINVAL;
 		goto error;
 	}
@@ -1050,9 +1025,7 @@ kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
 		last_id = d->rule[d->num_rule - 1].id;
 
 	if (rule_params->id <= last_id) {
-		kz_err
-		    ("rule id is not larger than the id of the last rule; id='%u', last_id='%lld'\n",
-		     rule_params->id, last_id);
+		kz_err("rule id is not larger than the id of the last rule; id='%u', last_id='%lld'\n", rule_params->id, last_id);
 		res = -EINVAL;
 		goto error;
 	}
@@ -1062,43 +1035,29 @@ kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
 	rule->service = kz_service_get(service);
 	rule->dispatcher = d;
 
-	kz_alloc_rule_dimension(src_in_subnet, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(dst_in_subnet, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(src_in6_subnet, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(dst_in6_subnet, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(ifname, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(ifgroup, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(src_port, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(dst_port, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(src_zone, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(dst_zone, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(proto, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(dst_ifname, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(dst_ifgroup, rule, rule_params,
-				error_free_dimensions);
-	kz_alloc_rule_dimension(reqid, rule, rule_params,
-				error_free_dimensions);
+	kz_alloc_rule_dimension(src_in_subnet, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(dst_in_subnet, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(src_in6_subnet, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(dst_in6_subnet, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(ifname, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(ifgroup, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(src_port, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(dst_port, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(src_zone, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(dst_zone, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(proto, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(dst_ifname, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(dst_ifgroup, rule, rule_params, error_free_dimensions);
+	kz_alloc_rule_dimension(reqid, rule, rule_params, error_free_dimensions);
 
 	d->num_rule++;
 
 	return 0;
 
-      error_free_dimensions:
+error_free_dimensions:
 	kz_rule_destroy(rule);
 
-      error:
+error:
 	return res;
 }
 
@@ -1156,9 +1115,7 @@ kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
 
 int
 kz_dispatcher_add_rule_entry(struct kz_dispatcher_n_dimension_rule *rule,
-			     const struct
-			     kz_dispatcher_n_dimension_rule_entry_params
-			     *const rule_entry_params)
+			     const struct kz_dispatcher_n_dimension_rule_entry_params * const rule_entry_params)
 {
 	int res = 0;
 	struct kz_zone *zone;
@@ -1205,25 +1162,24 @@ kz_dispatcher_add_rule_entry(struct kz_dispatcher_n_dimension_rule *rule,
 	kz_dispatcher_inc_rule_entry_num(dst_ifname);
 	kz_dispatcher_inc_rule_entry_num(dst_ifgroup);
 	kz_dispatcher_inc_rule_entry_num(reqid);
-      error:
+error:
 	return res;
 }
 
 static void
-kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr,
-			 const struct list_head *zonelist)
+kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr, const struct list_head * zonelist)
 {
 	u_int32_t i, put;
-
+	
 	if (*size == 0)
 		return;
 
-	for (i = 0, put = 0; i < *size; ++i) {
-		struct kz_zone *const in = arr[i];
-		struct kz_zone *out =
-		    __kz_zone_lookup_name(zonelist, in->unique_name);
+	for (i = 0, put = 0; i < *size; ++i)
+	{
+		struct kz_zone * const in = arr[i];
+		struct kz_zone * out = __kz_zone_lookup_name(zonelist, in->unique_name);
 
-		if (out == NULL) {	/* just drop */
+		if (out == NULL) { /* just drop */
 			kz_zone_put(in);
 			continue;
 		}
@@ -1237,8 +1193,7 @@ kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr,
 }
 
 static void
-kz_rule_relink_zones(struct kz_dispatcher_n_dimension_rule *r,
-		     const struct list_head *zonelist)
+kz_rule_relink_zones(struct kz_dispatcher_n_dimension_rule *r, const struct list_head * zonelist)
 {
 	kz_rule_arr_relink_zones(&r->num_src_zone, r->src_zone, zonelist);
 	kz_rule_arr_relink_zones(&r->num_dst_zone, r->dst_zone, zonelist);
@@ -1252,7 +1207,7 @@ kz_rule_relink_zones(struct kz_dispatcher_n_dimension_rule *r,
 
 int
 kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
-	     const struct kz_dispatcher_n_dimension_rule *const src)
+	     const struct kz_dispatcher_n_dimension_rule * const src)
 {
 	int res = 0;
 	int i;
@@ -1298,7 +1253,7 @@ kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
 
 	return 0;
 
-      error:
+error:
 	kz_rule_destroy(dst);
 
 	return res;
@@ -1306,7 +1261,7 @@ kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
 
 int
 kz_dispatcher_copy_rules(struct kz_dispatcher *dst,
-			 const struct kz_dispatcher *const src)
+			 const struct kz_dispatcher * const src)
 {
 	unsigned int i = 0, j;
 	int res = 0;
@@ -1332,14 +1287,12 @@ kz_dispatcher_copy_rules(struct kz_dispatcher *dst,
 		}
 	}
 
-	kz_debug
-	    ("cloned rules; dst_num_rules='%u', dst_alloc_rules='%u', src_num_rules='%u', src_alloc_rules='%u'\n",
-	     dst->num_rule, dst->alloc_rule, src->num_rule,
-	     src->alloc_rule);
+	kz_debug("cloned rules; dst_num_rules='%u', dst_alloc_rules='%u', src_num_rules='%u', src_alloc_rules='%u'\n",
+		 dst->num_rule, dst->alloc_rule, src->num_rule, src->alloc_rule);
 
 	return 0;
 
-      error:
+error:
 	if (dst->rule) {
 		for (j = 0; j < dst->num_rule; j++)
 			kz_rule_destroy(&dst->rule[j]);
@@ -1350,8 +1303,8 @@ kz_dispatcher_copy_rules(struct kz_dispatcher *dst,
 	return res;
 }
 
-struct kz_dispatcher *kz_dispatcher_clone_pure(const struct kz_dispatcher
-					       *const o)
+struct kz_dispatcher *
+kz_dispatcher_clone_pure(const struct kz_dispatcher * const o)
 {
 	struct kz_dispatcher *dpt;
 
@@ -1366,14 +1319,14 @@ struct kz_dispatcher *kz_dispatcher_clone_pure(const struct kz_dispatcher
 
 	return dpt;
 
-      error_put:
+error_put:
 	kz_dispatcher_put(dpt);
 
 	return NULL;
 }
 
-struct kz_dispatcher *kz_dispatcher_clone(const struct kz_dispatcher *const
-					  o)
+struct kz_dispatcher *
+kz_dispatcher_clone(const struct kz_dispatcher * const o)
 {
 	struct kz_dispatcher *dpt;
 
@@ -1386,7 +1339,7 @@ struct kz_dispatcher *kz_dispatcher_clone(const struct kz_dispatcher *const
 
 	return dpt;
 
-      error_put:
+error_put:
 	kz_dispatcher_put(dpt);
 
 	return NULL;
@@ -1394,21 +1347,16 @@ struct kz_dispatcher *kz_dispatcher_clone(const struct kz_dispatcher *const
 
 /* all zone links must point into the passed lists, remove those not found */
 static void
-kz_dispatcher_relink_n_dim(struct kz_dispatcher *d,
-			   const struct list_head *zonelist,
-			   const struct list_head *servicelist)
+kz_dispatcher_relink_n_dim(struct kz_dispatcher *d, const struct list_head * zonelist, const struct list_head * servicelist)
 {
 	unsigned int i, put;
 	bool drop = 0;
 	for (i = 0; i < d->num_rule; ++i) {
 		struct kz_dispatcher_n_dimension_rule *rule = &d->rule[i];
-		struct kz_service *service =
-		    __kz_service_lookup_name(servicelist,
-					     rule->service->name);
+		struct kz_service *service = __kz_service_lookup_name(servicelist, rule->service->name);
 		if (service == NULL) {
-			kz_err
-			    ("Dropping rule with missing service; dispatcher='%s', rule_id='%u', service='%s'\n",
-			     d->name, rule->id, rule->service->name);
+			kz_err("Dropping rule with missing service; dispatcher='%s', rule_id='%u', service='%s'\n",
+			       d->name, rule->id, rule->service->name);
 			kz_rule_destroy(rule);
 			drop = 1;
 			continue;
@@ -1430,16 +1378,14 @@ kz_dispatcher_relink_n_dim(struct kz_dispatcher *d,
 }
 
 void
-kz_dispatcher_relink(struct kz_dispatcher *d,
-		     const struct list_head *zonelist,
-		     const struct list_head *servicelist)
+kz_dispatcher_relink(struct kz_dispatcher *d, const struct list_head * zonelist, const struct list_head * servicelist)
 {
 	kz_dispatcher_relink_n_dim(d, zonelist, servicelist);
-	kz_debug("re-linked n-dim dispatcher; name='%s', num_rules='%u'\n",
-		 d->name, d->num_rule);
+	kz_debug("re-linked n-dim dispatcher; name='%s', num_rules='%u'\n", d->name, d->num_rule);
 }
 
-void kz_head_destroy_dispatcher(struct kz_head_d *head)
+void
+kz_head_destroy_dispatcher(struct kz_head_d *head)
 {
 	struct kz_dispatcher *i, *p;
 
@@ -1459,37 +1405,37 @@ void kz_head_destroy_dispatcher(struct kz_head_d *head)
 #ifdef CONFIG_SYSCTL
 static ctl_table kzorp_table[] = {
 	{
-	 .procname = "log_ratelimit_msg_cost",
-	 .data = &sysctl_kzorp_log_ratelimit_msg_cost,
-	 .maxlen = sizeof(int),
-	 .mode = 0644,
-	 .proc_handler = &proc_dointvec_ms_jiffies},
+		.procname	= "log_ratelimit_msg_cost",
+		.data		= &sysctl_kzorp_log_ratelimit_msg_cost,
+		.maxlen 	= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec_ms_jiffies
+	},
 	{
-	 .procname = "log_ratelimit_burst",
-	 .data = &sysctl_kzorp_log_ratelimit_burst,
-	 .maxlen = sizeof(int),
-	 .mode = 0644,
-	 .proc_handler = &proc_dointvec},
-	{}
+		.procname	= "log_ratelimit_burst",
+		.data		= &sysctl_kzorp_log_ratelimit_burst,
+		.maxlen 	= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
+	{ }
 };
 
-#if ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 5, 0) )
 static struct ctl_path kzorp_sysctl_path[] = {
-	{.procname = "net",},
-	{.procname = "netfilter",},
-	{.procname = "kzorp",},
-	{}
+	{ .procname = "net", },
+	{ .procname = "netfilter", },
+	{ .procname = "kzorp", },
+	{ }
 };
-#endif
 
-static struct ctl_table_header *kzorp_sysctl_header;
-#endif				/* CONFIG_SYSCTL */
+static struct ctl_table_header * kzorp_sysctl_header;
+#endif /* CONFIG_SYSCTL */
 
-#ifdef CONFIG_KZORP_PROC_FS
-
+#ifdef CONFIG_PROC_FS
 static unsigned int
 seq_print_counters(struct seq_file *s,
-		   const struct nf_conn *ct, enum ip_conntrack_dir dir)
+		   const struct nf_conn *ct,
+		   enum ip_conntrack_dir dir)
 {
 	struct nf_conn_counter *acct;
 
@@ -1497,10 +1443,9 @@ seq_print_counters(struct seq_file *s,
 	if (!acct)
 		return 0;
 
-#define counter2long(x) ((unsigned long long)x.counter)
 	return seq_printf(s, "packets=%llu bytes=%llu ",
-			  counter2long(acct[dir].packets),
-			  counter2long(acct[dir].bytes));
+			  (unsigned long long)acct[dir].packets,
+			  (unsigned long long)acct[dir].bytes);
 }
 
 struct kz_iter_state {
@@ -1515,7 +1460,8 @@ static struct hlist_nulls_node *kz_get_first(struct seq_file *seq)
 	struct hlist_nulls_node *n;
 
 	for (st->bucket = 0;
-	     st->bucket < net->ct.htable_size; st->bucket++) {
+	     st->bucket < net->ct.htable_size;
+	     st->bucket++) {
 		n = rcu_dereference(net->ct.hash[st->bucket].first);
 		if (!is_a_nulls(n))
 			return n;
@@ -1523,8 +1469,7 @@ static struct hlist_nulls_node *kz_get_first(struct seq_file *seq)
 	return NULL;
 }
 
-static struct hlist_nulls_node *kz_get_next(struct seq_file *seq,
-					    struct hlist_nulls_node *head)
+static struct hlist_nulls_node *kz_get_next(struct seq_file *seq, struct hlist_nulls_node *head)
 {
 	struct net *net = seq_file_net(seq);
 	struct kz_iter_state *st = seq->private;
@@ -1540,8 +1485,7 @@ static struct hlist_nulls_node *kz_get_next(struct seq_file *seq,
 	return head;
 }
 
-static struct hlist_nulls_node *kz_get_idx(struct seq_file *seq,
-					   loff_t pos)
+static struct hlist_nulls_node *kz_get_idx(struct seq_file *seq, loff_t pos)
 {
 	struct hlist_nulls_node *head = kz_get_first(seq);
 
@@ -1551,20 +1495,21 @@ static struct hlist_nulls_node *kz_get_idx(struct seq_file *seq,
 	return pos ? NULL : head;
 }
 
-static void *kz_seq_start(struct seq_file *seq, loff_t * pos)
-__acquires(RCU)
+static void *kz_seq_start(struct seq_file *seq, loff_t *pos)
+	__acquires(RCU)
 {
 	rcu_read_lock();
 	return kz_get_idx(seq, *pos);
 }
 
-static void *kz_seq_next(struct seq_file *s, void *v, loff_t * pos)
+static void *kz_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
 	(*pos)++;
 	return kz_get_next(s, v);
 }
 
-static void kz_seq_stop(struct seq_file *s, void *v) __releases(RCU)
+static void kz_seq_stop(struct seq_file *s, void *v)
+	__releases(RCU)
 {
 	rcu_read_unlock();
 }
@@ -1574,8 +1519,7 @@ static int kz_seq_show(struct seq_file *s, void *v)
 {
 	const struct nf_conntrack_tuple_hash *hash = v;
 	struct nf_conn *conntrack = nf_ct_tuplehash_to_ctrack(hash);
-	const struct nf_conntrack_kzorp *kzorp =
-	    kz_extension_find(conntrack);
+	const struct nf_conntrack_kzorp *kzorp = nfct_kz(conntrack);
 	struct nf_conntrack_l3proto *l3proto;
 	struct nf_conntrack_l4proto *l4proto;
 	struct kz_dispatcher *dpt = NULL;
@@ -1594,14 +1538,13 @@ static int kz_seq_show(struct seq_file *s, void *v)
 		goto release;
 
 	/* we onyl want to print forwarded sessions */
-	if (!kzorp || !kzorp->czone || !kzorp->szone || !kzorp->dpt
-	    || !kzorp->svc)
+	if (!kzorp || !kzorp->czone || !kzorp->szone || !kzorp->dpt || !kzorp->svc)
 		goto release;
 
 	szone = kzorp->szone;
 	czone = kzorp->czone;
-	dpt = kzorp->dpt;
-	svc = kzorp->svc;
+	dpt   = kzorp->dpt;
+	svc   = kzorp->svc;
 
 	if (svc->type != KZ_SERVICE_FORWARD)
 		goto release;
@@ -1611,39 +1554,34 @@ static int kz_seq_show(struct seq_file *s, void *v)
 	if (!ins)
 		goto release;
 
-	l3proto =
-	    __nf_ct_l3proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-				 .tuple.src.l3num);
+	l3proto = __nf_ct_l3proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
+				       .tuple.src.l3num);
 
 	NF_CT_ASSERT(l3proto);
-	l4proto =
-	    __nf_ct_l4proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-				 .tuple.src.l3num,
-				 conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-				 .tuple.dst.protonum);
+	l4proto = __nf_ct_l4proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
+				   .tuple.src.l3num,
+				   conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
+				   .tuple.dst.protonum);
 	NF_CT_ASSERT(l4proto);
 
 	ret = -ENOSPC;
-	if (seq_printf
-	    (s,
-	     "instance=%-8s sid=%lu dpt=%-8s svc=%-8s czone=%-8s "
-	     "szone=%-8s ", ins->name, kzorp->sid, dpt->name, svc->name,
-	     czone->name, szone->name) != 0)
+	if (seq_printf(s, "instance=%-8s sid=%lu dpt=%-8s svc=%-8s czone=%-8s "
+		       "szone=%-8s ", ins->name, kzorp->sid,
+		       dpt->name, svc->name, czone->name, szone->name) != 0)
 		goto release;
 
 	if (seq_printf(s, "%-8s %u %-8s %u %ld ",
 		       l3proto->name,
-		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.
-		       l3num, l4proto->name,
-		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.
-		       protonum, timer_pending(&conntrack->timeout)
-		       ? (long) (conntrack->timeout.expires -
-				 jiffies) / HZ : 0) != 0)
+		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num,
+		       l4proto->name,
+		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum,
+		       timer_pending(&conntrack->timeout)
+		       ? (long)(conntrack->timeout.expires - jiffies)/HZ : 0) != 0)
 		goto release;
 
-	if (l4proto->print_conntrack
-	    && l4proto->print_conntrack(s, conntrack))
+	if (l4proto->print_conntrack && l4proto->print_conntrack(s, conntrack))
 		goto release;
+
 	if (print_tuple(s, &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
 			l3proto, l4proto))
 		goto release;
@@ -1676,37 +1614,36 @@ static int kz_seq_show(struct seq_file *s, void *v)
 		goto release;
 #endif
 
-	if (seq_printf
-	    (s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
+	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
 		goto release;
 
 	ret = 0;
-      release:
+release:
 	nf_ct_put(conntrack);
 	return ret;
 }
 
 static struct seq_operations kz_seq_ops = {
 	.start = kz_seq_start,
-	.next = kz_seq_next,
-	.stop = kz_seq_stop,
-	.show = kz_seq_show
+	.next  = kz_seq_next,
+	.stop  = kz_seq_stop,
+	.show  = kz_seq_show
 };
 
 static int kz_open(struct inode *inode, struct file *file)
 {
 	return seq_open_net(inode, file, &kz_seq_ops,
-			    sizeof(struct kz_iter_state));
+			sizeof(struct kz_iter_state));
 }
 
 static const struct file_operations kz_file_ops = {
-	.owner = THIS_MODULE,
-	.open = kz_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
+	.owner   = THIS_MODULE,
+	.open    = kz_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
 	.release = seq_release_net,
 };
-#endif				/* CONFIG_KZORP_PROC_FS */
+#endif /* CONFIG_PROC_FS */
 
 
 /***********************************************************
@@ -1726,8 +1663,7 @@ static const struct file_operations kz_file_ops = {
 static int __log_ratelimit(int ratelimit_msg_cost, int ratelimit_burst)
 {
 	static DEFINE_SPINLOCK(ratelimit_lock);
-	static unsigned long toks =
-	    LOG_RATELIMIT_MSG_COST * HZ * LOG_RATELIMIT_BURST / 1000;
+	static unsigned long toks = LOG_RATELIMIT_MSG_COST * HZ * LOG_RATELIMIT_BURST / 1000;
 	static unsigned long last_msg;
 	static int missed;
 	unsigned long flags;
@@ -1748,8 +1684,7 @@ static int __log_ratelimit(int ratelimit_msg_cost, int ratelimit_burst)
 		spin_unlock_irqrestore(&ratelimit_lock, flags);
 
 		if (lost)
-			printk(KERN_WARNING
-			       "kzorp: %d messages suppressed.\n", lost);
+			printk(KERN_WARNING "kzorp: %d messages suppressed.\n", lost);
 
 		return 1;
 	}
@@ -1771,14 +1706,14 @@ int kz_log_ratelimit(void)
 	return __log_ratelimit(sysctl_kzorp_log_ratelimit_msg_cost,
 			       sysctl_kzorp_log_ratelimit_burst);
 }
-
 EXPORT_SYMBOL_GPL(kz_log_ratelimit);
 
 /***********************************************************
  * Conntrack extension
  ***********************************************************/
 
-void kz_destroy_kzorp(struct nf_conntrack_kzorp *kzorp)
+void
+kz_destroy_kzorp(struct nf_conntrack_kzorp *kzorp)
 {
 	if (kzorp->czone != NULL)
 		kz_zone_put(kzorp->czone);
@@ -1789,8 +1724,48 @@ void kz_destroy_kzorp(struct nf_conntrack_kzorp *kzorp)
 	if (kzorp->svc != NULL)
 		kz_service_put(kzorp->svc);
 }
-
 EXPORT_SYMBOL_GPL(kz_destroy_kzorp);
+
+static void
+kz_destroy_conntrack(struct nf_conn *ct)
+{
+	struct nf_conntrack_kzorp *kzorp = nfct_kz(ct);
+
+	if (kzorp == NULL)
+		return;
+
+	if ((kzorp->svc != NULL) && (kzorp->sid != 0) &&
+	    (kzorp->svc->type == KZ_SERVICE_FORWARD)) {
+		if (kz_log_ratelimit()) {
+			struct nf_conn_counter *acct;
+
+			acct = nf_conn_acct_find(ct);
+			if (acct)
+				printk(KERN_INFO "kzorp (svc/%s:%lu): Ending forwarded session; "
+				       "orig_bytes='%llu', orig_packets='%llu', "
+				       "reply_bytes='%llu', reply_packets='%llu'\n",
+				       kzorp->svc->name, kzorp->sid,
+				       acct[IP_CT_DIR_ORIGINAL].bytes,
+				       acct[IP_CT_DIR_ORIGINAL].packets,
+				       acct[IP_CT_DIR_REPLY].bytes,
+				       acct[IP_CT_DIR_REPLY].packets);
+			else
+				printk(KERN_INFO "kzorp (svc/%s:%lu) Ending forwarded session;\n",
+				       kzorp->svc->name, kzorp->sid);
+		}
+	}
+
+	kz_destroy_kzorp(kzorp);
+}
+
+static struct nf_ct_ext_type kz_extend __read_mostly = {
+	.len		= sizeof(struct nf_conntrack_kzorp),
+	.align		= __alignof__(struct nf_conntrack_kzorp),
+	.destroy	= kz_destroy_conntrack,
+	.id		= NF_CT_EXT_KZ,
+	.flags		= NF_CT_EXT_F_PREALLOC,
+};
+
 
 /***********************************************************
  * Initialization
@@ -1800,16 +1775,15 @@ int __init kzorp_core_init(void)
 {
 	int res = -ENOMEM;
 	struct kz_instance *global;
-#ifdef CONFIG_KZORP_PROC_FS
+#ifdef CONFIG_PROC_FS
 	struct proc_dir_entry *proc;
 #endif
 
-	sysctl_kzorp_log_ratelimit_msg_cost =
-	    msecs_to_jiffies(LOG_RATELIMIT_MSG_COST);
+	sysctl_kzorp_log_ratelimit_msg_cost = msecs_to_jiffies(LOG_RATELIMIT_MSG_COST);
 
 	atomic_set(&service_id_cnt, 1);
 	instance_init();
-
+	
 	res = static_cfg_init();
 	if (res < 0)
 		goto cleanup;
@@ -1824,32 +1798,23 @@ int __init kzorp_core_init(void)
 
 	/* create global instance */
 	LOCK_INSTANCES();
-	global =
-	    kz_instance_create(KZ_INSTANCE_GLOBAL,
-			       KZ_INSTANCE_GLOBAL_STRLEN, 0);
+	global = kz_instance_create(KZ_INSTANCE_GLOBAL, KZ_INSTANCE_GLOBAL_STRLEN, 0);
 	if (global == NULL) {
 		UNLOCK_INSTANCES();
-		printk(KERN_ERR
-		       "kzorp: failed to create global instance\n");
+		printk(KERN_ERR "kzorp: failed to create global instance\n");
 		res = -ENOMEM;
 		goto cleanup_lookup;
 	}
 	UNLOCK_INSTANCES();
 
-	res = kz_extension_init();
+	res = nf_ct_extend_register(&kz_extend);
 	if (res < 0) {
-		kz_err("unable to init conntrack extension\n");
+		kz_err("unable to register conntrack extension\n");
 		goto cleanup_global_instance;
 	}
+
 #ifdef CONFIG_SYSCTL
-#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0) )
-	kzorp_sysctl_header =
-	    register_net_sysctl(&init_net, "net/netfilter/kzorp",
-				kzorp_table);
-#else
-	kzorp_sysctl_header =
-	    register_sysctl_paths(kzorp_sysctl_path, kzorp_table);
-#endif
+	kzorp_sysctl_header = register_sysctl_paths(kzorp_sysctl_path, kzorp_table);
 	if (!kzorp_sysctl_header) {
 		printk(KERN_ERR "nf_kzorp: can't register to sysctl.\n");
 		res = -EINVAL;
@@ -1857,10 +1822,8 @@ int __init kzorp_core_init(void)
 	}
 #endif
 
-#ifdef CONFIG_KZORP_PROC_FS
-	proc =
-	    proc_net_fops_create(&init_net, "nf_kzorp", 0440,
-				 &kz_file_ops);
+#ifdef CONFIG_PROC_FS
+	proc = proc_net_fops_create(&init_net, "nf_kzorp", 0440, &kz_file_ops);
 	if (!proc) {
 		res = -EINVAL;
 		goto cleanup_sysctl;
@@ -1877,35 +1840,32 @@ int __init kzorp_core_init(void)
 
 	return res;
 
-      cleanup_sockopt:
+cleanup_sockopt:
 	kz_sockopt_cleanup();
 
-      cleanup_proc:
-#ifdef CONFIG_KZORP_PROC_FS
+cleanup_proc:
+#ifdef CONFIG_PROC_FS
 	proc_net_remove(&init_net, "nf_kzorp");
 #endif
 
-#ifdef CONFIG_KZORP_PROC_FS
-      cleanup_sysctl:
-#endif
-
+cleanup_sysctl:
 #if CONFIG_SYSCTL
 	unregister_sysctl_table(kzorp_sysctl_header);
 #endif
 
-      cleanup_ctx:
-	kz_extension_cleanup();
+cleanup_ctx:
+	nf_ct_extend_unregister(&kz_extend);
 
-      cleanup_global_instance:
+cleanup_global_instance:
 	kz_instance_delete(global);
 
-      cleanup_lookup:
+cleanup_lookup:
 	kz_lookup_cleanup();
 
-      cleanup_dpt:
+cleanup_dpt:
 	dpt_cleanup();
 
-      cleanup:
+cleanup:
 	static_cfg_cleanup();
 	return res;
 }
@@ -1916,13 +1876,13 @@ static void __exit kzorp_core_fini(void)
 
 	kz_sockopt_cleanup();
 
-#ifdef CONFIG_KZORP_PROC_FS
+#ifdef CONFIG_PROC_FS
 	proc_net_remove(&init_net, "nf_kzorp");
 #endif
 #ifdef CONFIG_SYSCTL
 	unregister_sysctl_table(kzorp_sysctl_header);
 #endif
-	kz_extension_fini();
+	nf_ct_extend_unregister(&kz_extend);
 
 	kz_config_swap(&static_config);
 
@@ -1939,7 +1899,7 @@ static void __exit kzorp_core_fini(void)
 	dpt_cleanup();
 
 	/* last things last! */
-	rcu_barrier();
+	rcu_barrier() ;
 	static_cfg_cleanup();
 }
 

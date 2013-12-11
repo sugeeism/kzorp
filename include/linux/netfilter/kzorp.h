@@ -4,9 +4,8 @@
  * Copyright (C) 2006-2010, BalaBit IT Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
  */
 
@@ -18,65 +17,15 @@
 #include <linux/mutex.h>
 #include <linux/rcupdate.h>
 #include <linux/netfilter_ipv4.h>
-#include <linux/in.h>
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_conntrack_extend.h>
-#include "kzorp_netlink.h"
+#include <linux/netfilter/kzorp_netlink.h>
 #include <net/xfrm.h>
 #include <linux/if.h>
 #include <linux/netdevice.h>
 
-#include <net/netfilter/kzorp_internal.h>
-#include <linux/version.h>
-
 #define KZ_MAJOR_VERSION  4
 #define KZ_COMPAT_VERSION 1
-
-#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) )
-	#ifdef CONFIG_NF_CONNTRACK_PROCFS
-		#define CONFIG_KZORP_PROC_FS CONFIG_NF_CONNTRACK_PROCFS
-	#endif
-	#define nf_nat_range nf_nat_ipv4_range
-	#define counter2long(x) ((unsigned long long)x.counter)
-	#define ipv6_addr_copy(x,y) ((*x) = (*y))
-	#define IP_NAT_RANGE_MAP_IPS NF_NAT_RANGE_MAP_IPS
-	#define IP_NAT_RANGE_PROTO_SPECIFIED NF_NAT_RANGE_PROTO_SPECIFIED
-	#define IP_NAT_MANIP_SRC NF_NAT_MANIP_SRC
-#else
-	#define counter2long(x) ((unsigned long long)x)
-	#ifdef CONFIG_KZORP_PROC_FS
-		#define CONFIG_KZORP_PROC_FS CONFIG_KZORP_PROC_FS
-	#endif
-#endif
-
-#ifndef NLA_PUT
-#define NLA_PUT(skb, attrtype, attrlen, data) \
-	do { \
-		if (unlikely(nla_put(skb, attrtype, attrlen, data) < 0)) \
-			goto nla_put_failure; \
-	} while(0)
-#define NLA_PUT_TYPE(skb, type, attrtype, value) \
-	do { \
-		type __tmp = value; \
-		NLA_PUT(skb, attrtype, sizeof(type), &__tmp); \
-	} while(0)
-
-#define NLA_PUT_U8(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, u8, attrtype, value)
-
-#define NLA_PUT_U16(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, u16, attrtype, value)
-
-#define NLA_PUT_LE16(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, __le16, attrtype, value)
-
-#define NLA_PUT_BE16(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, __be16, attrtype, value)
-
-#define NLA_PUT_BE32(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, __be32, attrtype, value)
-
-#endif // NLA_PUT
 
 enum KZ_ALLOC_TYPE
 {
@@ -95,9 +44,6 @@ typedef unsigned int kz_generation_t; /* integral with suitable size */
 typedef __be32 netlink_port_t;
 
 struct nf_conntrack_kzorp {
-	unsigned int ct_zone;
-	struct nf_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
-	void (*timerfunc_save)(unsigned long);
 	unsigned long sid;
 	/*  "lookup data" from here to end */
 	kz_generation_t generation; /* config version */
@@ -106,8 +52,6 @@ struct nf_conntrack_kzorp {
 	struct kz_dispatcher *dpt;	/* dispatcher */
 	struct kz_service *svc;		/* service */
 };
-
-#define NF_CT_EXT_KZ_TYPE struct nf_conntrack_kzorp
 
 enum kzf_instance_flags {
 	KZF_INSTANCE_DELETED = 1 << 0,
@@ -144,13 +88,13 @@ struct kz_bind_lookup {
 	/*
 	 * The binds and binds_by_type look something like this:
 	 *
-	 *         +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
-	 *         |  Bind 1     |  Bind 2     |        ...  |  Bind X     |  Bind X + 1 | ...         |  Bind Y     | ...         |
-	 *         |  (IPv4/TCP) |  (IPv4/TCP) |             |  (IPv4/UDP) |  (IPv6/TCP) |             |  (IPv6/UDP) |             |
-	 *         +-------------+-------------+-------------+------/------+-----/-------+-------------+------/------+-------------+
-	 *               |                                  /-------     /-------                  /-----------
-	 *               |                          /-------      /------               /-----------
-	 *               |                  /-------        /-------        /-----------
+	 *	 +-------------+-------------+-------------+-------------+-------------+-------------+-------------+-------------+
+	 *	 |  Bind 1     |  Bind 2     |	...	   |  Bind X	 |  Bind X + 1 | ...	     |	Bind Y	   | ...	 |
+	 *	 |  (IPv4/TCP) |  (IPv4/TCP) |		   |  (IPv4/UDP) |  (IPv6/TCP) |	     |	(IPv6/UDP) |		 |
+	 *	 +-------------+-------------+-------------+------/------+-----/-------+-------------+------/------+-------------+
+	 *	       |                                  /-------     /-------		        /-----------
+	 *	       |                          /-------      /------		    /-----------
+	 *	       |                  /-------	/-------        /-----------
 	 *       +-----+-------+-------------+-------------+-------------+
 	 *       | IPv4/TCP    | IPv4/UDP    | IPv6/TCP    | IPv6/UDP    |
 	 *       +-------------+-------------+-------------+-------------+
@@ -220,13 +164,46 @@ struct kz_in6_subnet {
 struct kz_dispatcher_n_dimension_rule_entry_params {
 	u_int32_t rule_id;
 
-#define DECLARE_RULE_ENTRY_PARAM(DIM_NAME, _, TYPE, ...) \
-	bool has_##DIM_NAME; \
-	TYPE DIM_NAME
+	bool has_src_in_subnet;
+	struct kz_in_subnet src_in_subnet;
 
-	KZORP_DIM_LIST(DECLARE_RULE_ENTRY_PARAM, ;);
+	bool has_dst_in_subnet;
+	struct kz_in_subnet dst_in_subnet;
 
-#undef DECLARE_RULE_ENTRY_PARAM
+	bool has_src_in6_subnet;
+	struct kz_in6_subnet src_in6_subnet;
+
+	bool has_dst_in6_subnet;
+	struct kz_in6_subnet dst_in6_subnet;
+
+	bool has_ifname;
+	ifname_t ifname;
+
+	bool has_ifgroup;
+	u_int32_t ifgroup;
+
+	bool has_src_port;
+	struct kz_port_range src_port;
+
+	bool has_dst_port;
+	struct kz_port_range dst_port;
+
+	bool has_src_zone;
+	struct kz_zone *src_zone;
+	bool has_dst_zone;
+	struct kz_zone *dst_zone;
+
+	bool has_proto;
+	u_int8_t proto;
+
+	bool has_dst_ifname;
+	ifname_t dst_ifname;
+
+	bool has_dst_ifgroup;
+	u_int32_t dst_ifgroup;
+
+	bool has_reqid;
+	u_int32_t reqid;
 };
 
 struct kz_dispatcher_n_dimension_rule {
@@ -235,14 +212,61 @@ struct kz_dispatcher_n_dimension_rule {
 	struct kz_service *service;
 	struct kz_dispatcher *dispatcher;
 
-#define DECLARE_RULE_ENTRY(DIM_NAME, _, TYPE, ...) \
-	u_int32_t alloc_##DIM_NAME; \
-	u_int32_t num_##DIM_NAME; \
-	TYPE *DIM_NAME
+	u_int32_t alloc_reqid;
+	u_int32_t num_reqid;
+	u_int32_t *reqid;
 
-	KZORP_DIM_LIST(DECLARE_RULE_ENTRY, ;);
+	u_int32_t alloc_ifname;
+	u_int32_t num_ifname;
+	ifname_t *ifname;
 
-#undef DECLARE_RULE_ENTRY
+	u_int32_t alloc_ifgroup;
+	u_int32_t num_ifgroup;
+	u_int32_t *ifgroup;
+
+	u_int32_t alloc_proto;
+	u_int32_t num_proto;
+	u_int8_t *proto;
+
+	u_int32_t alloc_src_port;
+	u_int32_t num_src_port;
+	struct kz_port_range *src_port;
+
+	u_int32_t alloc_dst_port;
+	u_int32_t num_dst_port;
+	struct kz_port_range *dst_port;
+
+	u_int32_t alloc_src_in_subnet;
+	u_int32_t num_src_in_subnet;
+	struct kz_in_subnet *src_in_subnet;
+
+	u_int32_t alloc_src_in6_subnet;
+	u_int32_t num_src_in6_subnet;
+	struct kz_in6_subnet *src_in6_subnet;
+
+	u_int32_t alloc_src_zone;
+	u_int32_t num_src_zone;
+	struct kz_zone **src_zone;
+
+	u_int32_t alloc_dst_in_subnet;
+	u_int32_t num_dst_in_subnet;
+	struct kz_in_subnet *dst_in_subnet;
+
+	u_int32_t alloc_dst_in6_subnet;
+	u_int32_t num_dst_in6_subnet;
+	struct kz_in6_subnet *dst_in6_subnet;
+
+	u_int32_t alloc_dst_ifname;
+	u_int32_t num_dst_ifname;
+	ifname_t *dst_ifname;
+
+	u_int32_t alloc_dst_ifgroup;
+	u_int32_t num_dst_ifgroup;
+	u_int32_t *dst_ifgroup;
+
+	u_int32_t alloc_dst_zone;
+	u_int32_t num_dst_zone;
+	struct kz_zone **dst_zone;
 };
 
 struct kz_reqids {
@@ -258,7 +282,7 @@ struct kz_query {
 	u_int16_t src_port;
 	u_int16_t dst_port;
 	char ifname[IFNAMSIZ];
-	struct kz_reqids reqids;
+        struct kz_reqids reqids;
 	u_int8_t proto;
 };
 
@@ -565,13 +589,11 @@ int kz_log_ratelimit(void);
  * Conntrack structure extension
  ***********************************************************/
 
-extern struct nf_conntrack_kzorp *nfct_kz(const struct nf_conn *ct);
-/* TODO not in upstream
 static inline struct nf_conntrack_kzorp *nfct_kz(const struct nf_conn *ct)
 {
 	return nf_ct_ext_find(ct, NF_CT_EXT_KZ);
 }
-*/
+
 
 /* handle kzorp extension in conntrack record
    an earlier version had the kzorp structure directly in nf_conn
@@ -599,7 +621,6 @@ static inline struct nf_conntrack_kzorp *nfct_kz(const struct nf_conn *ct)
    the returned structure is placed in ct, and destroy will happen
    when ct gets destroyed
 */
-
 extern const struct nf_conntrack_kzorp * nfct_kzorp_cached_lookup_rcu(
 	struct nf_conn *ct,
 	enum ip_conntrack_info ctinfo,
@@ -634,16 +655,6 @@ extern void kz_destroy_kzorp(struct nf_conntrack_kzorp *kzorp);
 
 extern int kz_hooks_init(void);
 extern void kz_hooks_cleanup(void);
-
-/***********************************************************
- * Cache functions
- ***********************************************************/
-
-extern int kz_extension_init(void);
-extern void kz_extension_cleanup(void);
-extern void kz_extension_fini(void);
-extern struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct);
-extern struct nf_conntrack_kzorp *kz_extension_find(struct nf_conn *ct);
 
 /***********************************************************
  * Lookup functions
