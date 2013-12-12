@@ -3047,7 +3047,7 @@ kznl_dump_binds(struct sk_buff *skb, struct netlink_callback *cb)
 				     &rule->dim_name[entry_num].addr, &rule->dim_name[entry_num].mask) < 0)	\
 			goto nla_put_failure;
 
-#define kznl_build_dispatcher_rule_entry_string_ifname(dim_name, attr_name) \
+#define kznl_build_dispatcher_rule_entry_ifname(dim_name, attr_name) \
 	if (rule->num_##dim_name > entry_num)				\
 		if (kznl_dump_name(skb, KZNL_ATTR_N_DIMENSION_##attr_name, \
 				   rule->dim_name[entry_num]) < 0)	\
@@ -3071,20 +3071,12 @@ kznl_build_dispatcher_add_rule_entry(struct sk_buff *skb, u_int32_t pid, u_int32
 
 	NLA_PUT_BE32(skb, KZNL_ATTR_N_DIMENSION_RULE_ID, htonl(rule->id));
 
-	kznl_build_dispatcher_rule_entry_value(reqid, REQID);
-	kznl_build_dispatcher_rule_entry_string_ifname(ifname, IFACE);
-	kznl_build_dispatcher_rule_entry_value(ifgroup, IFGROUP);
-	kznl_build_dispatcher_rule_entry_value(proto, PROTO);
-	kznl_build_dispatcher_rule_entry_portrange(src_port, SRC_PORT);
-	kznl_build_dispatcher_rule_entry_portrange(dst_port, DST_PORT);
-	kznl_build_dispatcher_rule_entry_in_subnet(src_in_subnet, SRC_IP);
-	kznl_build_dispatcher_rule_entry_in6_subnet(src_in6_subnet, SRC_IP6);
-	kznl_build_dispatcher_rule_entry_string(src_zone, SRC_ZONE);
-	kznl_build_dispatcher_rule_entry_in_subnet(dst_in_subnet, DST_IP);
-	kznl_build_dispatcher_rule_entry_in6_subnet(dst_in6_subnet, DST_IP6);
-	kznl_build_dispatcher_rule_entry_string_ifname(dst_ifname, DST_IFACE);
-	kznl_build_dispatcher_rule_entry_value(dst_ifgroup, DST_IFGROUP);
-	kznl_build_dispatcher_rule_entry_string(dst_zone, DST_ZONE);
+#define CALL_kznl_build_dispatcher_rule_entry(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
+	kznl_build_dispatcher_rule_entry_##NL_TYPE(DIM_NAME, NL_ATTR_NAME)
+
+	KZORP_DIM_LIST(CALL_kznl_build_dispatcher_rule_entry, ;);
+
+#undef CALL_kznl_build_dispatcher_rule_entry
 
 	return genlmsg_end(skb, hdr);
 
@@ -3092,10 +3084,6 @@ nla_put_failure:
 	genlmsg_cancel(skb, hdr);
 	return -1;
 }
-
-#define kznl_build_dispatcher_rule_dimension(dim_name, attr_name)	\
-	if (rule->num_##dim_name > 0)					\
-		NLA_PUT_BE32(skb, KZNL_ATTR_N_DIMENSION_##attr_name, htonl(rule->num_##dim_name));
 
 static int
 kznl_build_dispatcher_add_rule(struct sk_buff *skb, u_int32_t pid, u_int32_t seq,
@@ -3117,20 +3105,13 @@ kznl_build_dispatcher_add_rule(struct sk_buff *skb, u_int32_t pid, u_int32_t seq
 	if (kznl_dump_name(skb, KZNL_ATTR_N_DIMENSION_RULE_SERVICE, rule->service->name) < 0)
 		goto nla_put_failure;
 
-	kznl_build_dispatcher_rule_dimension(reqid, REQID);
-	kznl_build_dispatcher_rule_dimension(ifname, IFACE);
-	kznl_build_dispatcher_rule_dimension(ifgroup, IFGROUP);
-	kznl_build_dispatcher_rule_dimension(proto, PROTO);
-	kznl_build_dispatcher_rule_dimension(src_port, SRC_PORT);
-	kznl_build_dispatcher_rule_dimension(dst_port, DST_PORT);
-	kznl_build_dispatcher_rule_dimension(src_in_subnet, SRC_IP);
-	kznl_build_dispatcher_rule_dimension(src_in6_subnet, SRC_IP6);
-	kznl_build_dispatcher_rule_dimension(src_zone, SRC_ZONE);
-	kznl_build_dispatcher_rule_dimension(dst_in_subnet, DST_IP);
-	kznl_build_dispatcher_rule_dimension(dst_in6_subnet, DST_IP6);
-	kznl_build_dispatcher_rule_dimension(dst_ifname, DST_IFACE);
-	kznl_build_dispatcher_rule_dimension(dst_ifgroup, DST_IFGROUP);
-	kznl_build_dispatcher_rule_dimension(dst_zone, DST_ZONE);
+#define KZNL_BUILD_DISPATCHER_RULE_DIMENSION(DIM_NAME, NL_ATTR_NAME, ...)	\
+	if (rule->num_##DIM_NAME > 0)	\
+		NLA_PUT_BE32(skb, KZNL_ATTR_N_DIMENSION_##NL_ATTR_NAME, htonl(rule->num_##DIM_NAME))
+
+	KZORP_DIM_LIST(KZNL_BUILD_DISPATCHER_RULE_DIMENSION, ;);
+
+#undef KZNL_BUILD_DISPATCHER_RULE_DIMENSION
 
 	return genlmsg_end(skb, hdr);
 
@@ -3206,23 +3187,12 @@ kznl_build_dispatcher(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int fla
 			*rule_entry_idx = 1;
 		}
 
-#define UPDATE_MAX_ENTRY_NUM(dim_name) \
-	max_entry_num = max(max_entry_num, rule->num_##dim_name)
+#define UPDATE_MAX_ENTRY_NUM(DIM_NAME, ...) \
+	max_entry_num = max(max_entry_num, rule->num_##DIM_NAME)
 
-		UPDATE_MAX_ENTRY_NUM(reqid);
-		UPDATE_MAX_ENTRY_NUM(ifname);
-		UPDATE_MAX_ENTRY_NUM(ifgroup);
-		UPDATE_MAX_ENTRY_NUM(proto);
-		UPDATE_MAX_ENTRY_NUM(src_port);
-		UPDATE_MAX_ENTRY_NUM(dst_port);
-		UPDATE_MAX_ENTRY_NUM(src_in_subnet);
-		UPDATE_MAX_ENTRY_NUM(src_in6_subnet);
-		UPDATE_MAX_ENTRY_NUM(src_zone);
-		UPDATE_MAX_ENTRY_NUM(dst_in_subnet);
-		UPDATE_MAX_ENTRY_NUM(dst_in6_subnet);
-		UPDATE_MAX_ENTRY_NUM(dst_ifname);
-		UPDATE_MAX_ENTRY_NUM(dst_ifgroup);
-		UPDATE_MAX_ENTRY_NUM(dst_zone);
+	KZORP_DIM_LIST(UPDATE_MAX_ENTRY_NUM, ;);
+
+#undef UPDATE_MAX_ENTRY_NUM
 
 		for (; (*rule_entry_idx) <= max_entry_num; ++(*rule_entry_idx)) {
 			kz_debug("rule_entry_idx=%ld", *rule_entry_idx);

@@ -1002,53 +1002,15 @@ kz_rule_lookup_cursor_next_rule(struct kz_rule_lookup_cursor *cursor)
 	return cursor->rule;
 }
 
-typedef struct
-{
-	u_int32_t num;
-	struct kz_in6_subnet data[];
-} in6_subnet_dim_lookup_data;
+#define DEFINE_LOOKUP_DATA_TYPE(DIM_NAME, _, __, ___, LOOKUP_TYPE, ...) \
+	typedef struct { \
+		u_int32_t num; \
+		LOOKUP_TYPE data[]; \
+	} DIM_NAME##_dim_lookup_data
 
-typedef struct
-{
-	u_int32_t num;
-	struct kz_in_subnet data[];
-} in_subnet_dim_lookup_data;
+KZORP_DIM_LIST(DEFINE_LOOKUP_DATA_TYPE, ;);
 
-typedef struct
-{
-	u_int32_t num;
-	ifname_t data[];
-} ifname_dim_lookup_data;
-
-typedef struct
-{
-	u_int32_t num;
-	u_int32_t data[];
-} ifgroup_dim_lookup_data;
-
-typedef struct
-{
-	u_int32_t num;
-	struct kz_port_range data[];
-} port_dim_lookup_data;
-
-typedef struct
-{
-	u_int32_t num;
-	struct zone_lookup_t data[];
-} zone_dim_lookup_data;
-
-typedef struct
-{
-	u_int32_t num;
-	u_int8_t data[];
-} proto_dim_lookup_data;
-
-typedef struct
-{
-	u_int32_t num;
-	u_int32_t data[];
-} reqid_dim_lookup_data;
+#undef DEF_LOOKUP_DATA_TYPE
 
 #define SIZEOF_STRUCT_MEMBER(STRUCT, MEMBER) (sizeof((STRUCT *)0)->MEMBER)
 #define PAD(value, n) (((value - 1) | (n-1)) + 1)
@@ -1062,20 +1024,11 @@ typedef struct
  * Order must be the same as the order in which dimensions are fetched from
  * lookup data. */
 enum KZORP_DIMENSIONS {
-	KZORP_DIM_reqid,
-	KZORP_DIM_ifname,
-	KZORP_DIM_ifgroup,
-	KZORP_DIM_proto,
-	KZORP_DIM_src_port,
-	KZORP_DIM_dst_port,
-	KZORP_DIM_src_in_subnet,
-	KZORP_DIM_src_in6_subnet,
-	KZORP_DIM_src_zone,
-	KZORP_DIM_dst_in_subnet,
-	KZORP_DIM_dst_in6_subnet,
-	KZORP_DIM_dst_zone,
-	KZORP_DIM_dst_ifname,
-	KZORP_DIM_dst_ifgroup
+#define KZORP_DIM_ENUM(DIM_NAME, ...) KZORP_DIM_##DIM_NAME
+
+	KZORP_DIM_LIST(KZORP_DIM_ENUM, KZORP_COMMA_SEPARATOR)
+
+#undef KZORP_DIM_ENUM
 };
 
 #define GENERATE_DIM(map, name) \
@@ -1091,45 +1044,17 @@ enum KZORP_DIMENSIONS {
 		} \
 	} while (0);
 
-#define GENERATE_DIM2(map, prefix, name) \
-	do { \
-		if (!!rule->num_##prefix##_##name) { \
-			int i; \
-			name##_dim_lookup_data *d = pos; \
-			pos += LOOKUP_DATA_SIZE(name, rule->num_##prefix##_##name); \
-			map = map | (1 << KZORP_DIM_##prefix##_##name); \
-			d->num = rule->num_##prefix##_##name; \
-			for (i = 0; i < d->num; ++i) \
-				d->data[i] = rule->prefix##_##name[i]; \
-		} \
-	} while (0);
-
 KZ_PROTECTED size_t
 kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * const rule)
 {
 	size_t rule_size = sizeof(struct kz_rule_lookup_data);
 
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(in_subnet, rule->num_src_in_subnet);
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(in_subnet, rule->num_dst_in_subnet);
+#define CALL_LOOKUP_DATA_SIZE_OPTIONAL(DIM_NAME, ...) \
+	(LOOKUP_DATA_SIZE_OPTIONAL(DIM_NAME, rule->num_##DIM_NAME))
 
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(in6_subnet, rule->num_src_in6_subnet);
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(in6_subnet, rule->num_dst_in6_subnet);
+	rule_size += KZORP_DIM_LIST(CALL_LOOKUP_DATA_SIZE_OPTIONAL, +);
 
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(ifname, rule->num_ifname);
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(ifname, rule->num_dst_ifname);
-
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(ifgroup, rule->num_ifgroup);
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(ifgroup, rule->num_dst_ifgroup);
-
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(port, rule->num_src_port);
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(port, rule->num_dst_port);
-
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(zone, rule->num_src_zone);
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(zone, rule->num_dst_zone);
-
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(proto, rule->num_proto);
-
-	rule_size += LOOKUP_DATA_SIZE_OPTIONAL(reqid, rule->num_reqid);
+#undef CALL_LOOKUP_DATA_SIZE_OPTIONAL
 
 	return PAD(rule_size, 8);
 }
@@ -1160,15 +1085,15 @@ kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const
 	GENERATE_DIM(map, ifgroup);
 	GENERATE_DIM(map, proto);
 
-	GENERATE_DIM2(map, src, port);
-	GENERATE_DIM2(map, dst, port);
-	GENERATE_DIM2(map, src, in_subnet);
-	GENERATE_DIM2(map, src, in6_subnet);
+	GENERATE_DIM(map, src_port);
+	GENERATE_DIM(map, dst_port);
+	GENERATE_DIM(map, src_in_subnet);
+	GENERATE_DIM(map, src_in6_subnet);
 
 	if (!!rule->num_src_zone) {
 		int i;
-		zone_dim_lookup_data *d = pos;
-		pos += LOOKUP_DATA_SIZE(zone, rule->num_src_zone);
+		src_zone_dim_lookup_data *d = pos;
+		pos += LOOKUP_DATA_SIZE(src_zone, rule->num_src_zone);
 		map = map | (1 << KZORP_DIM_src_zone);
 		d->num = rule->num_src_zone;
 		for (i = 0; i < d->num; ++i)
@@ -1178,13 +1103,13 @@ kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const
 		}
 	}
 
-	GENERATE_DIM2(map, dst, in_subnet);
-	GENERATE_DIM2(map, dst, in6_subnet);
+	GENERATE_DIM(map, dst_in_subnet);
+	GENERATE_DIM(map, dst_in6_subnet);
 
 	if (!!rule->num_dst_zone) {
 		int i;
-		zone_dim_lookup_data *d = pos;
-		pos += LOOKUP_DATA_SIZE(zone, rule->num_dst_zone);
+		dst_zone_dim_lookup_data *d = pos;
+		pos += LOOKUP_DATA_SIZE(dst_zone, rule->num_dst_zone);
 		map = map | (1 << KZORP_DIM_dst_zone);
 		d->num = rule->num_dst_zone;
 		for (i = 0; i < d->num; ++i)
@@ -1204,7 +1129,7 @@ kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const
 			memcpy(d->data[i], rule->dst_ifname[i], IFNAMSIZ);
 	}
 
-	GENERATE_DIM2(map, dst, ifgroup);
+	GENERATE_DIM(map, dst_ifgroup);
 
 	pos = (void*)PAD((int64_t)pos, 8);
 	current_rule->dimension_map = map;
@@ -1249,34 +1174,31 @@ kz_generate_lookup_data(struct kz_head_d *dispatchers)
 	}
 }
 
-#define RULE_LOOKUP_GET_TYPE(dimension_name, dimension_type, out_num, out_data) \
+#define RULE_LOOKUP_GET_TYPE(dimension_name, out_num, out_data) \
 	do { \
 		int dimension_bit = 1 << KZORP_DIM_##dimension_name; \
 		*out_num = 0; \
 		*out_data = NULL; \
 		if ((cursor->rule->dimension_map & dimension_bit)) \
 		{ \
-			dimension_type##_dim_lookup_data *s = (void*)cursor->rule + cursor_pos; \
+			dimension_name##_dim_lookup_data *s = (void*)cursor->rule + cursor_pos; \
 			*out_num = s->num; \
 			*out_data = s->data; \
-			cursor_pos += LOOKUP_DATA_SIZE(dimension_type, s->num); \
+			cursor_pos += LOOKUP_DATA_SIZE(dimension_name, s->num); \
 		} \
 	} while (0);
 
 /* Assumes a cursor, a num_NAME and a data_NAME variable */
-#define RULE_FETCH_DIM(name) RULE_LOOKUP_GET_TYPE(name, name, &num_##name, &data_##name)
-#define RULE_FETCH_DIM_PREFIXED(prefix, type) RULE_LOOKUP_GET_TYPE(prefix##_##type, type, &num_##prefix##_##type, &data_##prefix##_##type)
+#define RULE_FETCH_DIM(name) RULE_LOOKUP_GET_TYPE(name, &num_##name, &data_##name)
 
-#define EVAL_DIM_LOOKUP_TYPED(NAME, TYPE) \
+#define EVAL_DIM_LOOKUP(NAME) \
 	do { \
 		u_int32_t num_##NAME; \
 		void *data_##NAME; \
-                RULE_LOOKUP_GET_TYPE(NAME, TYPE, &num_##NAME, &data_##NAME); \
+                RULE_LOOKUP_GET_TYPE(NAME, &num_##NAME, &data_##NAME); \
 		dim_res = num_##NAME ? kz_ndim_eval_rule_##NAME(num_##NAME, data_##NAME, NAME) : 0; \
 		EVAL_DIM_RES(NAME); \
 	} while (0);
-
-#define EVAL_DIM_LOOKUP(NAME) EVAL_DIM_LOOKUP_TYPED(NAME, NAME)
 
 KZ_PROTECTED int64_t
 kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
@@ -1321,8 +1243,8 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 	}
 
 	EVAL_DIM_LOOKUP(proto);
-	EVAL_DIM_LOOKUP_TYPED(src_port, port);
-	EVAL_DIM_LOOKUP_TYPED(dst_port, port);
+	EVAL_DIM_LOOKUP(src_port);
+	EVAL_DIM_LOOKUP(dst_port);
 
 	{
 	/* source address */
@@ -1330,9 +1252,9 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 		struct kz_in_subnet *data_src_in_subnet;
 		struct kz_in6_subnet *data_src_in6_subnet;
 		struct zone_lookup_t *data_src_zone;
-		RULE_FETCH_DIM_PREFIXED(src, in_subnet);
-		RULE_FETCH_DIM_PREFIXED(src, in6_subnet);
-		RULE_FETCH_DIM_PREFIXED(src, zone);
+		RULE_FETCH_DIM(src_in_subnet);
+		RULE_FETCH_DIM(src_in6_subnet);
+		RULE_FETCH_DIM(src_zone);
 
 		dim_res = kz_ndim_eval_rule_address(num_src_in_subnet, data_src_in_subnet,
 						     num_src_in6_subnet, data_src_in6_subnet,
@@ -1349,11 +1271,11 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 		struct zone_lookup_t *data_dst_zone;
 		ifname_t *data_dst_ifname;
 		u_int32_t *data_dst_ifgroup;
-		RULE_FETCH_DIM_PREFIXED(dst, in_subnet);
-		RULE_FETCH_DIM_PREFIXED(dst, in6_subnet);
-		RULE_FETCH_DIM_PREFIXED(dst, zone);
-		RULE_FETCH_DIM_PREFIXED(dst, ifname);
-		RULE_FETCH_DIM_PREFIXED(dst, ifgroup);
+		RULE_FETCH_DIM(dst_in_subnet);
+		RULE_FETCH_DIM(dst_in6_subnet);
+		RULE_FETCH_DIM(dst_zone);
+		RULE_FETCH_DIM(dst_ifname);
+		RULE_FETCH_DIM(dst_ifgroup);
 
 		dim_res = kz_ndim_eval_rule_dst(num_dst_in_subnet, data_dst_in_subnet,
 						 num_dst_in6_subnet, data_dst_in6_subnet,

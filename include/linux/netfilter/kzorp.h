@@ -24,6 +24,8 @@
 #include <linux/if.h>
 #include <linux/netdevice.h>
 
+#include <net/netfilter/kzorp_internal.h>
+
 #define KZ_MAJOR_VERSION  4
 #define KZ_COMPAT_VERSION 1
 
@@ -164,46 +166,13 @@ struct kz_in6_subnet {
 struct kz_dispatcher_n_dimension_rule_entry_params {
 	u_int32_t rule_id;
 
-	bool has_src_in_subnet;
-	struct kz_in_subnet src_in_subnet;
+#define DECLARE_RULE_ENTRY_PARAM(DIM_NAME, _, TYPE, ...) \
+	bool has_##DIM_NAME; \
+	TYPE DIM_NAME
 
-	bool has_dst_in_subnet;
-	struct kz_in_subnet dst_in_subnet;
+	KZORP_DIM_LIST(DECLARE_RULE_ENTRY_PARAM, ;);
 
-	bool has_src_in6_subnet;
-	struct kz_in6_subnet src_in6_subnet;
-
-	bool has_dst_in6_subnet;
-	struct kz_in6_subnet dst_in6_subnet;
-
-	bool has_ifname;
-	ifname_t ifname;
-
-	bool has_ifgroup;
-	u_int32_t ifgroup;
-
-	bool has_src_port;
-	struct kz_port_range src_port;
-
-	bool has_dst_port;
-	struct kz_port_range dst_port;
-
-	bool has_src_zone;
-	struct kz_zone *src_zone;
-	bool has_dst_zone;
-	struct kz_zone *dst_zone;
-
-	bool has_proto;
-	u_int8_t proto;
-
-	bool has_dst_ifname;
-	ifname_t dst_ifname;
-
-	bool has_dst_ifgroup;
-	u_int32_t dst_ifgroup;
-
-	bool has_reqid;
-	u_int32_t reqid;
+#undef DECLARE_RULE_ENTRY_PARAM
 };
 
 struct kz_dispatcher_n_dimension_rule {
@@ -212,61 +181,14 @@ struct kz_dispatcher_n_dimension_rule {
 	struct kz_service *service;
 	struct kz_dispatcher *dispatcher;
 
-	u_int32_t alloc_reqid;
-	u_int32_t num_reqid;
-	u_int32_t *reqid;
+#define DECLARE_RULE_ENTRY(DIM_NAME, _, TYPE, ...) \
+	u_int32_t alloc_##DIM_NAME; \
+	u_int32_t num_##DIM_NAME; \
+	TYPE *DIM_NAME
 
-	u_int32_t alloc_ifname;
-	u_int32_t num_ifname;
-	ifname_t *ifname;
+	KZORP_DIM_LIST(DECLARE_RULE_ENTRY, ;);
 
-	u_int32_t alloc_ifgroup;
-	u_int32_t num_ifgroup;
-	u_int32_t *ifgroup;
-
-	u_int32_t alloc_proto;
-	u_int32_t num_proto;
-	u_int8_t *proto;
-
-	u_int32_t alloc_src_port;
-	u_int32_t num_src_port;
-	struct kz_port_range *src_port;
-
-	u_int32_t alloc_dst_port;
-	u_int32_t num_dst_port;
-	struct kz_port_range *dst_port;
-
-	u_int32_t alloc_src_in_subnet;
-	u_int32_t num_src_in_subnet;
-	struct kz_in_subnet *src_in_subnet;
-
-	u_int32_t alloc_src_in6_subnet;
-	u_int32_t num_src_in6_subnet;
-	struct kz_in6_subnet *src_in6_subnet;
-
-	u_int32_t alloc_src_zone;
-	u_int32_t num_src_zone;
-	struct kz_zone **src_zone;
-
-	u_int32_t alloc_dst_in_subnet;
-	u_int32_t num_dst_in_subnet;
-	struct kz_in_subnet *dst_in_subnet;
-
-	u_int32_t alloc_dst_in6_subnet;
-	u_int32_t num_dst_in6_subnet;
-	struct kz_in6_subnet *dst_in6_subnet;
-
-	u_int32_t alloc_dst_ifname;
-	u_int32_t num_dst_ifname;
-	ifname_t *dst_ifname;
-
-	u_int32_t alloc_dst_ifgroup;
-	u_int32_t num_dst_ifgroup;
-	u_int32_t *dst_ifgroup;
-
-	u_int32_t alloc_dst_zone;
-	u_int32_t num_dst_zone;
-	struct kz_zone **dst_zone;
+#undef DECLARE_RULE_ENTRY
 };
 
 struct kz_reqids {
