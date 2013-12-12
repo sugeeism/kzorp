@@ -539,10 +539,13 @@ static inline void
 kz_session_log(const char *msg,
 	       const char *svc_name,
 	       const u8 l3proto, const u8 l4proto,
-	       const char *client_zone_name, const char *server_zone_name,
+	       const struct kz_zone *client_zone, const struct kz_zone *server_zone,
 	       const struct sk_buff *skb,
 	       const __be16 src_port, const __be16 dst_port)
 {
+	const char *client_zone_name = (client_zone && client_zone->name) ? client_zone->name : kz_log_null;
+	const char *server_zone_name = (server_zone && server_zone->name) ? server_zone->name : kz_log_null;
+
 	if (kz_log_ratelimit()) {
 		char _buf[L4PROTOCOL_STRING_SIZE];
 
@@ -556,8 +559,8 @@ kz_session_log(const char *msg,
 						 "client_address='%pI4:%u', "
 						 "server_address='%pI4:%u', protocol='%s'\n",
 						 svc_name, msg, svc_name,
-						 client_zone_name ? client_zone_name : kz_log_null,
-						 server_zone_name ? server_zone_name : kz_log_null,
+						 client_zone_name,
+						 server_zone_name,
 						 &iph->saddr, ntohs(src_port),
 						 &iph->daddr, ntohs(dst_port),
 						 l4proto_as_string(l4proto, _buf));
@@ -568,8 +571,8 @@ kz_session_log(const char *msg,
 						 "client_address='%pI4:%u', "
 						 "server_address='%pI4:%u', protocol='%s'\n",
 						 msg,
-						 client_zone_name ? client_zone_name : kz_log_null,
-						 server_zone_name ? server_zone_name : kz_log_null,
+						 client_zone_name,
+						 server_zone_name,
 						 &iph->saddr, ntohs(src_port),
 						 &iph->daddr, ntohs(dst_port),
 						 l4proto_as_string(l4proto, _buf));
@@ -584,8 +587,8 @@ kz_session_log(const char *msg,
 						 "client_address='%pI6:%u', "
 						 "server_address='%pI6:%u', protocol='%s'\n",
 						 svc_name, msg, svc_name,
-						 client_zone_name ? client_zone_name : kz_log_null,
-						 server_zone_name ? server_zone_name : kz_log_null,
+						 client_zone_name,
+						 server_zone_name,
 						 &iph->saddr, ntohs(src_port),
 						 &iph->daddr, ntohs(dst_port),
 						 l4proto_as_string(l4proto, _buf));
@@ -595,8 +598,8 @@ kz_session_log(const char *msg,
 						 "client_address='%pI6:%u', "
 						 "server_address='%pI6:%u', protocol='%s'\n",
 						 msg,
-						 client_zone_name ? client_zone_name : kz_log_null,
-						 server_zone_name ? server_zone_name : kz_log_null,
+						 client_zone_name,
+						 server_zone_name,
 						 &iph->saddr, ntohs(src_port),
 						 &iph->daddr, ntohs(dst_port),
 						 l4proto_as_string(l4proto, _buf));
@@ -870,9 +873,7 @@ process_denied_session(unsigned int hooknum, struct sk_buff *skb,
 
 	if (svc->flags & KZF_SERVICE_LOGGING) {
 		kz_session_log("Rejecting session", svc->name, l3proto, l4proto,
-			       kzorp->czone ? kzorp->czone->name : NULL,
-			       kzorp->szone ? kzorp->szone->name : NULL,
-			       skb, sport, dport);
+			       kzorp->czone, kzorp->szone, skb, sport, dport);
 	}
 
 	switch (l3proto) {
@@ -1029,7 +1030,7 @@ kz_prerouting_verdict(struct sk_buff *skb,
 					verdict = NF_DROP;
 
 					kz_session_log("Proxy service found for non TCP/UDP traffic, dropping packet",
-						       NULL, l3proto, l4proto, czone->name, szone->name, skb, sport, dport);
+						       NULL, l3proto, l4proto, czone, szone, skb, sport, dport);
 				} else
 					verdict = process_proxy_session(NF_INET_PRE_ROUTING, skb, in,
 									l3proto, l4proto, sport, dport,
@@ -1062,7 +1063,7 @@ kz_prerouting_verdict(struct sk_buff *skb,
 				} else  {
 				if (kz_log_ratelimit()) {
 					kz_session_log("No applicable service found for this client & server zone, dropping packet",
-						       NULL, l3proto, l4proto, czone->name, szone->name, skb, sport, dport);
+						       NULL, l3proto, l4proto, czone, szone, skb, sport, dport);
 				}
 			}
 
