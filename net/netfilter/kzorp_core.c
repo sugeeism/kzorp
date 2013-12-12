@@ -385,9 +385,10 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 		const struct ipv6hdr * const iph = ipv6_hdr(skb);
 		int thoff;
 		u8 tproto = iph->nexthdr;
+		__be16 frag_offp;
 
 		/* find transport header */
-		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
+		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto, &frag_offp);
 		if (unlikely(thoff < 0))
 			goto done;
 
@@ -1823,7 +1824,7 @@ int __init kzorp_core_init(void)
 #endif
 
 #ifdef CONFIG_PROC_FS
-	proc = proc_net_fops_create(&init_net, "nf_kzorp", 0440, &kz_file_ops);
+	proc = proc_create("nf_kzorp", 0440, init_net.proc_net, &kz_file_ops);
 	if (!proc) {
 		res = -EINVAL;
 		goto cleanup_sysctl;
@@ -1845,7 +1846,7 @@ cleanup_sockopt:
 
 cleanup_proc:
 #ifdef CONFIG_PROC_FS
-	proc_net_remove(&init_net, "nf_kzorp");
+	remove_proc_entry("nf_kzorp", init_net.proc_net);
 #endif
 
 cleanup_sysctl:
@@ -1877,7 +1878,7 @@ static void __exit kzorp_core_fini(void)
 	kz_sockopt_cleanup();
 
 #ifdef CONFIG_PROC_FS
-	proc_net_remove(&init_net, "nf_kzorp");
+	remove_proc_entry("nf_kzorp", init_net.proc_net);
 #endif
 #ifdef CONFIG_SYSCTL
 	unregister_sysctl_table(kzorp_sysctl_header);

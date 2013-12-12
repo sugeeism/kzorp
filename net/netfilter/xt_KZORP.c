@@ -294,9 +294,10 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 	__be16 proxy_port = 0;
 	const struct in6_addr *proxy_addr = NULL;
 	struct sock *sk = NULL;
+	__be16 frag_offp;
 
 	/* find transport header */
-	thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
+	thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto, &frag_offp);
 	if (unlikely(thoff < 0)) {
 		kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6', dst='%pI6'\n",
 			 &iph->saddr, &iph->daddr);
@@ -1253,9 +1254,10 @@ kzorp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 		const struct ipv6hdr * const iph = ipv6_hdr(skb);
 		int thoff;
 		u8 tproto = iph->nexthdr;
+		__be16 frag_offp;
 
 		/* find transport header */
-		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
+		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto, &frag_offp);
 		if (unlikely(thoff < 0)) {
 			kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6', dst='%pI6'\n",
 				 &iph->saddr, &iph->daddr);

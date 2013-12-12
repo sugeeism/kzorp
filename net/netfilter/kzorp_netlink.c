@@ -807,7 +807,8 @@ kznl_dump_port(struct sk_buff *skb, unsigned int attr, __u16 port)
 	if (port == 0)
 		return -1;
 
-	NLA_PUT_BE16(skb, attr, htons(port));
+	if (nla_put_be16(skb, attr, htons(port)))
+		goto nla_put_failure;
 
 	return 0;
 
@@ -824,7 +825,8 @@ kznl_dump_port_range(struct sk_buff *skb, unsigned int attr,
 	r.from = htons(range->from);
 	r.to = htons(range->to);
 
-	NLA_PUT(skb, attr, sizeof(struct kza_port_range), &r);
+	if (nla_put(skb, attr, sizeof(struct kza_port_range), &r))
+		goto nla_put_failure;
 
 	return 0;
 
@@ -842,7 +844,8 @@ kznl_dump_in_subnet(struct sk_buff *skb, unsigned int attr,
 	a.addr.s_addr = addr->s_addr;
 	a.mask.s_addr = mask->s_addr;
 
-	NLA_PUT(skb, attr, sizeof(struct kz_in_subnet), &a);
+	if (nla_put(skb, attr, sizeof(struct kz_in_subnet), &a))
+		goto nla_put_failure;
 
 	return 0;
 
@@ -860,7 +863,8 @@ kznl_dump_in6_subnet(struct sk_buff *skb, unsigned int attr,
 	ipv6_addr_copy(&a.addr, addr);
 	ipv6_addr_copy(&a.mask, mask);
 
-	NLA_PUT(skb, attr, sizeof(struct kz_in6_subnet), &a);
+	if (nla_put(skb, attr, sizeof(struct kz_in6_subnet), &a))
+		goto nla_put_failure;
 
 	return 0;
 
@@ -938,7 +942,8 @@ static inline int
 kznl_dump_service_deny_method(struct sk_buff *skb, unsigned int attr,
 			      unsigned int method)
 {
-	NLA_PUT_U8(skb, attr, (method & 0xff));
+	if (nla_put_u8(skb, attr, (method & 0xff)))
+		goto nla_put_failure;
 	return 0;
 
 nla_put_failure:
@@ -1003,7 +1008,7 @@ kznl_recv_start(struct sk_buff *skb, struct genl_info *info)
 	LOCK_TRANSACTIONS();
 
 	/* look up pid in transactions */
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr != NULL) {
 		/* problem: we already have a transaction running with this PID as peer */
 		kz_err("transaction pending for this PID\n");
@@ -1014,7 +1019,7 @@ kznl_recv_start(struct sk_buff *skb, struct genl_info *info)
 	/* look up/create instance */
 	ins = kz_instance_lookup(ins_name);
 	if (ins == NULL) {
-		ins = kz_instance_create(ins_name, strlen(ins_name), info->snd_pid);
+		ins = kz_instance_create(ins_name, strlen(ins_name), info->snd_portid);
 		if (ins == NULL) {
 			kz_err("failed to create new instance\n");
 			res = -EINVAL;
@@ -1030,7 +1035,7 @@ kznl_recv_start(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	/* create transaction */
-	tr = transaction_create(info->snd_pid, ins->id, config_cookie);
+	tr = transaction_create(info->snd_portid, ins->id, config_cookie);
 	if (tr == NULL) {
 		kz_err("failed to create transaction\n");
 		res = -EINVAL;
@@ -1291,10 +1296,10 @@ kznl_recv_commit(struct sk_buff *skb, struct genl_info *info)
 
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
 		/* we have no transaction associated with this peer */
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -1319,10 +1324,10 @@ kznl_recv_setflag(struct sk_buff *skb, struct genl_info *info, unsigned int flag
 
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
 		/* we have no transaction associated with this peer */
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -1430,9 +1435,9 @@ kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
 	/* look up transaction */
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -1561,7 +1566,7 @@ restart:
 				continue;
 		}
 
-		if (kznl_build_zone(skb, NETLINK_CB(cb->skb).pid,
+		if (kznl_build_zone(skb, NETLINK_CB(cb->skb).portid,
 				   cb->nlh->nlmsg_seq, 0, i, cfg) < 0) {
 			/* zone dump failed, try to continue from here next time */
 			cb->args[0] = (long) i;
@@ -1625,7 +1630,7 @@ kznl_recv_get_zone(struct sk_buff *skb, struct genl_info *info)
 		goto error_unlock_zone;
 	}
 
-	if (kznl_build_zone(nskb, info->snd_pid,
+	if (kznl_build_zone(nskb, info->snd_portid,
 			    info->snd_seq, 0, zone, cfg) < 0) {
 		/* data did not fit in a single entry -- for now no support of continuation
 		   we could loop and multicast; we chose not to send the partial info */
@@ -1772,9 +1777,9 @@ kznl_recv_add_service(struct sk_buff *skb, struct genl_info *info)
 	/* look up transaction */
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -1864,9 +1869,9 @@ kznl_recv_add_service_nat(struct sk_buff *skb, struct genl_info *info, bool snat
 	/* look up transaction */
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
-		kz_err("no transaction found; pid='%u'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%u'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -1930,17 +1935,20 @@ kznl_build_service_add_nat(struct sk_buff *skb, netlink_port_t pid, u_int32_t se
 
 	if (kznl_dump_service_nat_entry(&nat, &entry->src) < 0)
 		goto nlmsg_failure;
-	NLA_PUT(skb, KZNL_ATTR_SERVICE_NAT_SRC, sizeof(nat), &nat);
+	if (nla_put(skb, KZNL_ATTR_SERVICE_NAT_SRC, sizeof(nat), &nat))
+		goto nla_put_failure;
 
 	if (entry->dst.min_ip != 0) {
 		if (kznl_dump_service_nat_entry(&nat, &entry->dst) < 0)
 			goto nlmsg_failure;
-		NLA_PUT(skb, KZNL_ATTR_SERVICE_NAT_DST, sizeof(nat), &nat);
+		if (nla_put(skb, KZNL_ATTR_SERVICE_NAT_DST, sizeof(nat), &nat))
+			goto nla_put_failure;
 	}
 
 	if (kznl_dump_service_nat_entry(&nat, &entry->map) < 0)
 		goto nlmsg_failure;
-	NLA_PUT(skb, KZNL_ATTR_SERVICE_NAT_MAP, sizeof(nat), &nat);
+	if (nla_put(skb, KZNL_ATTR_SERVICE_NAT_MAP, sizeof(nat), &nat))
+		goto nla_put_failure;
 
 	return genlmsg_end(skb, hdr);
 
@@ -1964,7 +1972,8 @@ kznl_build_service_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, i
 
 	params.type = svc->type;
 	params.flags = htonl(svc->flags & KZF_SERVICE_PUBLIC_FLAGS);
-	NLA_PUT(skb, KZNL_ATTR_SERVICE_PARAMS, sizeof(params), &params);
+	if (nla_put(skb, KZNL_ATTR_SERVICE_PARAMS, sizeof(params), &params))
+		goto nla_put_failure;
 
 	if (kznl_dump_name(skb, KZNL_ATTR_SERVICE_NAME, svc->name) < 0)
 		goto nla_put_failure;
@@ -2002,7 +2011,8 @@ kznl_build_service_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, i
 	}
 
 	cnt.count = htonl(atomic_read(&svc->session_cnt));
-	NLA_PUT(skb, KZNL_ATTR_SERVICE_SESSION_CNT, sizeof(cnt), &cnt);
+	if (nla_put(skb, KZNL_ATTR_SERVICE_SESSION_CNT, sizeof(cnt), &cnt))
+		goto nla_put_failure;
 
 	return genlmsg_end(skb, hdr);
 
@@ -2099,7 +2109,7 @@ restart:
 				continue;
 		}
 
-		if (kznl_build_service(skb, NETLINK_CB(cb->skb).pid,
+		if (kznl_build_service(skb, NETLINK_CB(cb->skb).portid,
 				       cb->nlh->nlmsg_seq, NLM_F_MULTI, i) < 0) {
 			/* service dump failed, try to continue from here next time */
 			cb->args[SERVICE_DUMP_CURRENT_SERVICE] = (long) i;
@@ -2160,7 +2170,7 @@ kznl_recv_get_service(struct sk_buff *skb, struct genl_info *info)
 		goto error_unlock_svc;
 	}
 
-	if (kznl_build_service(nskb, info->snd_pid,
+	if (kznl_build_service(nskb, info->snd_portid,
 			       info->snd_seq, 0, svc) < 0) {
 		kz_err("failed to create service messages\n");
 		res = -ENOMEM;
@@ -2227,9 +2237,9 @@ kznl_recv_add_dispatcher(struct sk_buff *skb, struct genl_info *info)
 	/* look up transaction */
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -2407,9 +2417,9 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 	/* look up transaction */
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -2663,9 +2673,9 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 	/* look up transaction */
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -2840,9 +2850,9 @@ kznl_recv_add_bind(struct sk_buff *skb, struct genl_info *info)
 	/* look up transaction */
 	LOCK_TRANSACTIONS();
 
-	tr = transaction_lookup(info->snd_pid);
+	tr = transaction_lookup(info->snd_portid);
 	if (tr == NULL) {
-		kz_err("no transaction found; pid='%d'\n", info->snd_pid);
+		kz_err("no transaction found; pid='%d'\n", info->snd_portid);
 		res = -ENOENT;
 		goto error_unlock_tr;
 	}
@@ -2850,7 +2860,7 @@ kznl_recv_add_bind(struct sk_buff *skb, struct genl_info *info)
 	res = kznl_parse_bind_alloc(info->attrs, tr->instance_id, &instance, &bind);
 	if (res < 0)
 		goto error_unlock_tr;
-	bind->peer_pid = info->snd_pid;
+	bind->peer_pid = info->snd_portid;
 
 	found_bind = kz_bind_lookup_instance(instance, bind);
 	if (found_bind && !(found_bind->peer_pid == bind->peer_pid && (tr->flags & KZF_TRANSACTION_FLUSH_BIND))) {
@@ -2895,8 +2905,10 @@ kznl_dump_bind(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, int flags
 
 	kz_bind_debug(bind, "dump bind");
 
-	NLA_PUT_U8(skb, KZNL_ATTR_BIND_PROTO, bind->proto);
-	NLA_PUT_BE16(skb, KZNL_ATTR_BIND_PORT, htons(bind->port));
+	if (nla_put_u8(skb, KZNL_ATTR_BIND_PROTO, bind->proto))
+		goto nla_put_failure;
+	if (nla_put_be16(skb, KZNL_ATTR_BIND_PORT, htons(bind->port)))
+		goto nla_put_failure;
 
 	if (kznl_dump_name(skb, KZNL_ATTR_INSTANCE_NAME, instance->name) < 0)
 		goto nla_put_failure;
@@ -2995,7 +3007,7 @@ kznl_dump_binds(struct sk_buff *skb, struct netlink_callback *cb)
 
 	instance = (const struct kz_instance **) &cb->args[BIND_DUMP_ARG_INSTANCE];
 	bind = (const struct kz_bind **) &cb->args[BIND_DUMP_ARG_BIND];
-	if (kznl_build_instance_bind(skb, NETLINK_CB(cb->skb).pid,
+	if (kznl_build_instance_bind(skb, NETLINK_CB(cb->skb).portid,
 				     cb->nlh->nlmsg_seq, NLM_F_MULTI,
 				     instance, bind) >= 0)
 		cb->args[BIND_DUMP_ARG_STATE] = BIND_DUMP_STATE_LAST_CALL;
@@ -3007,16 +3019,19 @@ kznl_dump_binds(struct sk_buff *skb, struct netlink_callback *cb)
 #define kznl_build_dispatcher_rule_entry_value(dim_name, attr_name)	\
 	if (rule->num_##dim_name > entry_num) {				\
 		if (sizeof(rule->dim_name[entry_num]) == 1) {		\
-			NLA_PUT_U8(skb, KZNL_ATTR_N_DIMENSION_##attr_name, \
-				   rule->dim_name[entry_num]);		\
+			if (nla_put_u8(skb, KZNL_ATTR_N_DIMENSION_##attr_name, \
+				       rule->dim_name[entry_num]))		\
+				goto nla_put_failure;			   \
 		}							\
 		else if (sizeof(rule->dim_name[entry_num]) == 2) {	\
-			NLA_PUT_BE16(skb, KZNL_ATTR_N_DIMENSION_##attr_name, \
-				     htons(rule->dim_name[entry_num]));	\
+			if (nla_put_be16(skb, KZNL_ATTR_N_DIMENSION_##attr_name, \
+				     htons(rule->dim_name[entry_num])))	 \
+				goto nla_put_failure;			   \
 		}							\
 		else if (sizeof(rule->dim_name[entry_num]) == 4) {	\
-			NLA_PUT_BE32(skb, KZNL_ATTR_N_DIMENSION_##attr_name, \
-				     htonl(rule->dim_name[entry_num]));	\
+			if (nla_put_be32(skb, KZNL_ATTR_N_DIMENSION_##attr_name, \
+				     htonl(rule->dim_name[entry_num])))	 \
+				goto nla_put_failure;			   \
 		}							\
 		else {							\
 			BUG();						\
@@ -3069,7 +3084,8 @@ kznl_build_dispatcher_add_rule_entry(struct sk_buff *skb, u_int32_t pid, u_int32
 	if (kznl_dump_name(skb, KZNL_ATTR_DISPATCHER_NAME, dpt->name) < 0)
 		goto nla_put_failure;
 
-	NLA_PUT_BE32(skb, KZNL_ATTR_N_DIMENSION_RULE_ID, htonl(rule->id));
+	if (nla_put_be32(skb, KZNL_ATTR_N_DIMENSION_RULE_ID, htonl(rule->id)))
+		goto nla_put_failure;
 
 #define CALL_kznl_build_dispatcher_rule_entry(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
 	kznl_build_dispatcher_rule_entry_##NL_TYPE(DIM_NAME, NL_ATTR_NAME)
@@ -3100,14 +3116,16 @@ kznl_build_dispatcher_add_rule(struct sk_buff *skb, u_int32_t pid, u_int32_t seq
 	if (kznl_dump_name(skb, KZNL_ATTR_DISPATCHER_NAME, dpt->name) < 0)
 		goto nla_put_failure;
 
-	NLA_PUT_BE32(skb, KZNL_ATTR_N_DIMENSION_RULE_ID, htonl(rule->id));
+	if (nla_put_be32(skb, KZNL_ATTR_N_DIMENSION_RULE_ID, htonl(rule->id)))
+		goto nla_put_failure;
 
 	if (kznl_dump_name(skb, KZNL_ATTR_N_DIMENSION_RULE_SERVICE, rule->service->name) < 0)
 		goto nla_put_failure;
 
 #define KZNL_BUILD_DISPATCHER_RULE_DIMENSION(DIM_NAME, NL_ATTR_NAME, ...)	\
 	if (rule->num_##DIM_NAME > 0)	\
-		NLA_PUT_BE32(skb, KZNL_ATTR_N_DIMENSION_##NL_ATTR_NAME, htonl(rule->num_##DIM_NAME))
+		if (nla_put_be32(skb, KZNL_ATTR_N_DIMENSION_##NL_ATTR_NAME, htonl(rule->num_##DIM_NAME))) \
+			goto nla_put_failure;
 
 	KZORP_DIM_LIST(KZNL_BUILD_DISPATCHER_RULE_DIMENSION, ;);
 
@@ -3133,7 +3151,8 @@ kznl_build_dispatcher_add(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int
 		goto nla_put_failure;
 
 	n_dimension.num_rules = htonl(dpt->num_rule);
-	NLA_PUT(skb, KZNL_ATTR_DISPATCHER_N_DIMENSION_PARAMS, sizeof(n_dimension), &n_dimension);
+	if (nla_put(skb, KZNL_ATTR_DISPATCHER_N_DIMENSION_PARAMS, sizeof(n_dimension), &n_dimension))
+		goto nla_put_failure;
 
 	return genlmsg_end(skb, hdr);
 
@@ -3284,7 +3303,7 @@ restart:
 				continue;
 		}
 
-		if (kznl_build_dispatcher(skb, NETLINK_CB(cb->skb).pid,
+		if (kznl_build_dispatcher(skb, NETLINK_CB(cb->skb).portid,
 					  cb->nlh->nlmsg_seq, NLM_F_MULTI, i,
 					  &cb->args[DISPATCHER_DUMP_ARG_SUBPART],
 					  &cb->args[DISPATCHER_DUMP_ARG_RULE_ENTRY_SUBPART]) < 0) {
@@ -3362,7 +3381,7 @@ kznl_recv_get_dispatcher(struct sk_buff *skb, struct genl_info *info)
 			goto error_unlock_dpt;
 		}
 
-		ret = kznl_build_dispatcher(nskb, info->snd_pid,
+		ret = kznl_build_dispatcher(nskb, info->snd_portid,
 					    info->snd_seq, 0,
 					    dpt, &dpt_item_idx, &rule_entry_idx);
 		netlink_return = genlmsg_reply(nskb, info);
@@ -3496,7 +3515,7 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 	local_bh_enable();
 	rcu_read_unlock();
 
-	if (kznl_build_query_resp(nskb, info->snd_pid,
+	if (kznl_build_query_resp(nskb, info->snd_portid,
 				  info->snd_seq, 0,
 				  KZNL_MSG_QUERY_REPLY,
 				  dispatcher, client_zone, server_zone,
@@ -3527,8 +3546,10 @@ kznl_build_get_version_resp(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, i
 	if (!hdr)
 		goto nla_put_failure;
 
-	NLA_PUT_U8(skb, KZNL_ATTR_MAJOR_VERSION, KZ_MAJOR_VERSION);
-	NLA_PUT_U8(skb, KZNL_ATTR_COMPAT_VERSION, KZ_COMPAT_VERSION);
+	if (nla_put_u8(skb, KZNL_ATTR_MAJOR_VERSION, KZ_MAJOR_VERSION))
+		goto nla_put_failure;
+	if (nla_put_u8(skb, KZNL_ATTR_COMPAT_VERSION, KZ_COMPAT_VERSION))
+		goto nla_put_failure;
 
 	return genlmsg_end(skb, hdr);
 
@@ -3551,7 +3572,7 @@ kznl_recv_get_version(struct sk_buff *skb, struct genl_info *info)
 		goto error;
 	}
 
-	if (kznl_build_get_version_resp(nskb, info->snd_pid, info->snd_seq, 0,
+	if (kznl_build_get_version_resp(nskb, info->snd_portid, info->snd_seq, 0,
 					KZNL_MSG_GET_VERSION) < 0) {
 		res = -ENOMEM;
 		goto error;
@@ -3577,14 +3598,14 @@ kznl_netlink_event(struct notifier_block *n, unsigned long event, void *v)
 
 	if (event == NETLINK_URELEASE &&
 	    notify->protocol == NETLINK_GENERIC &&
-	    notify->pid != 0) {
+	    notify->portid != 0) {
 		kz_debug("netlink release event received, pid='%d'\n",
-			 notify->pid);
+			 notify->portid);
 
 		/* remove pending transaction */
 		LOCK_TRANSACTIONS();
 
-		tr = transaction_lookup(notify->pid);
+		tr = transaction_lookup(notify->portid);
 		if (tr != NULL) {
 			kz_debug("transaction found, removing\n");
 
@@ -3607,7 +3628,7 @@ kznl_netlink_event(struct notifier_block *n, unsigned long event, void *v)
 			} else {
 				kz_debug("cleaning up instance; id='%d'\n", instance->id);
 			}
-			kz_instance_remove_bind(instance, notify->pid, NULL);
+			kz_instance_remove_bind(instance, notify->portid, NULL);
 		}
 
 		UNLOCK_TRANSACTIONS();
