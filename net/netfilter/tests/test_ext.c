@@ -71,7 +71,6 @@ new_ct()
 static void
 test_init(void)
 {
-
 	g_assert(0 == kz_extension_init());
 	checkhash(0,"init");
 	kz_extension_cleanup();
