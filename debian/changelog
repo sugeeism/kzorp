@@ -1,3 +1,9 @@
+kzorp (0.1.2) quantal; urgency=low
+
+  * Fixed debian package build
+
+ -- Árpád Magosányi <mag@balabit.hu>  Sun, 15 Dec 2013 15:34:18 +0100
+
 kzorp (0.1.1) quantal; urgency=low
 
   * Builds for all known ubuntu kernels >= 3.2.0-23-generic 
