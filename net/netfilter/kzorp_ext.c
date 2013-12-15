@@ -15,21 +15,15 @@
 #include <net/netfilter/nf_conntrack_zones.h>
 #include <linux/netfilter/kzorp.h>
 
-#ifdef KZ_USERSPACE
-
-void *malloc(size_t size);
-void free(void *ptr);
-int printf(const char *format, ...);
-
-
-#define kzfree(p) free(p)
-#define kzalloc(s,d) malloc(s)
-
+#ifndef KZ_USERSPACE
+	#define PRIVATE static
+#else
+	#define	PRIVATE
 #endif
 
-static unsigned int kz_hash_shift = 4;
-static unsigned int kz_hash_size;
-static struct hlist_nulls_head *kz_hash;
+PRIVATE unsigned int kz_hash_shift = 4;
+PRIVATE unsigned int kz_hash_size;
+PRIVATE struct hlist_nulls_head *kz_hash;
 
 unsigned const int kz_hash_rnd = 0x9e370001UL;	//golden ratio prime
 
@@ -49,17 +43,16 @@ hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 		       tuple->dst.protonum));
 }
 
-static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
-{
-	int i;
-
-	for (i = 0; i < IP_CT_DIR_MAX; i++) {
-		hlist_nulls_del_rcu(&(kz->tuplehash[i].hnnode));
-	}
-	kzfree(kz);
+struct nf_conntrack_kzorp * kz_get_kzorp_from_node(struct hlist_nulls_node *p) {
+	struct nf_conntrack_kzorp *kz;
+	kz = container_of(p,
+			  struct nf_conntrack_kzorp,
+			  tuplehash[((struct nf_conntrack_tuple_hash *)p)->tuple.dst.dir].hnnode);
+	return kz;
 }
 
-struct nf_conntrack_kzorp *kz_extension_find(struct nf_conn *ct)
+struct nf_conntrack_kzorp *
+kz_extension_find(struct nf_conn *ct)
 {
 	struct hlist_nulls_node *n;
 	struct nf_conntrack_tuple_hash *h;
@@ -71,20 +64,23 @@ struct nf_conntrack_kzorp *kz_extension_find(struct nf_conn *ct)
 
 	hlist_nulls_for_each_entry_rcu(h, n, &kz_hash[bucket], hnnode) {
 		if (nf_ct_tuple_equal(&(th->tuple), &h->tuple)) {
-			struct nf_conntrack_kzorp *kz =
-			    container_of((struct nf_conntrack_tuple_hash *)
-					 h,
-					 struct nf_conntrack_kzorp,
-					 tuplehash[((struct
-						     nf_conntrack_tuple_hash
-						     *) h)->tuple.dst.dir].
-					 hnnode);
+			struct nf_conntrack_kzorp *kz = kz_get_kzorp_from_node(h);
 			if (kz->ct_zone == zone) {
 				return kz;
 			}
 		}
 	}
 	return NULL;
+}
+
+static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
+{
+	int i;
+
+	for (i = 0; i < IP_CT_DIR_MAX; i++) {
+		hlist_nulls_del_rcu(&(kz->tuplehash[i].hnnode));
+	}
+	kzfree(kz);
 }
 
 static void kz_extension_timer(unsigned long ctp)
@@ -101,22 +97,33 @@ static void kz_extension_timer(unsigned long ctp)
 	(*oldtimer) (ctp);
 }
 
-struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
+PRIVATE void kz_extension_fill_one(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct,int direction)
+{
+	struct nf_conntrack_tuple_hash *th = &(kzorp->tuplehash[direction]);
+	unsigned int bucket = hash_conntrack_raw( &(th->tuple), nf_ct_zone(ct)) >> (32 - kz_hash_shift);
+	hlist_nulls_add_head(&(th->hnnode), &kz_hash[bucket]);
+}
+
+PRIVATE void kz_extension_fill(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct)
 {
 	int i;
-	struct nf_conntrack_kzorp *kzorp;
-	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
+	for (i = 0; i < IP_CT_DIR_MAX; i++) {
+		kz_extension_fill_one(kzorp,ct,i);
+	}
+}
+
+PRIVATE void kz_extension_copy_tuplehash(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct)
+{
 	memcpy(&(kzorp->tuplehash), &(ct->tuplehash),
 	       IP_CT_DIR_MAX * sizeof(struct nf_conntrack_tuple_hash));
-	for (i = 0; i < IP_CT_DIR_MAX; i++) {
-		struct nf_conntrack_tuple_hash *th =
-		    &(kzorp->tuplehash[i]);
-		unsigned int bucket =
-		    hash_conntrack_raw(&(th->tuple),
-				       nf_ct_zone(ct)) >> (32 -
-							   kz_hash_shift);
-		hlist_nulls_add_head(&(th->hnnode), &kz_hash[bucket]);
-	}
+}
+
+struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
+{
+	struct nf_conntrack_kzorp *kzorp;
+	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
+	kz_extension_copy_tuplehash(kzorp,ct);
+	kz_extension_fill(kzorp,ct);
 	kzorp->timerfunc_save = ct->timeout.function;
 	ct->timeout.function = kz_extension_timer;
 	kzorp->ct_zone = nf_ct_zone(ct);
@@ -152,10 +159,7 @@ static void kz_extension_dealloc_by_tuplehash(struct hlist_nulls_node *p)
 	 */
 
 	struct nf_conntrack_kzorp *kz;
-	kz = container_of((struct nf_conntrack_tuple_hash *) p,
-			  struct nf_conntrack_kzorp,
-			  tuplehash[((struct nf_conntrack_tuple_hash *)
-				     p)->tuple.dst.dir].hnnode);
+	kz = kz_get_kzorp_from_node(p);
 	kz_extension_dealloc(kz);
 }
 
