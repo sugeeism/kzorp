@@ -1,5 +1,5 @@
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-3.5.0-32-generic python
+  - sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-3.5.0-32-generic python dh-autoreconf
 script:
   - debuild -i -us -uc -b
