@@ -14,7 +14,6 @@
  *   - FIX transparent vs. non-transparent dispatcher lookups bug #21578 (specification needed before fix)
  */
 
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/net.h>
@@ -1431,7 +1430,21 @@ zone_ipv4_unhash(struct kz_zone *z)
 		hlist_del(&z->hlist);
 }
 
-struct kz_zone *
+#ifdef SHINY_NEW_HLIST_FOR_EACH
+static __always_inline struct kz_zone *
+kz_find_entry_for_ipv4_zone_in_luzone_hash(const struct hlist_head *hash, const u_int32_t p)
+{
+	struct kz_zone *i;
+	hlist_for_each_entry(i, hash, hlist) {
+		if (zone_ipv4_cmp(i, p)) {
+			kz_debug("found zone; name='%s'\n", i->name);
+			return i;
+		}
+	}
+	return NULL;
+}
+#else
+static __always_inline struct kz_zone *
 kz_find_entry_for_ipv4_zone_in_luzone_hash(const struct hlist_head *hash, const u_int32_t p)
 {
 	struct kz_zone *i;
@@ -1444,6 +1457,7 @@ kz_find_entry_for_ipv4_zone_in_luzone_hash(const struct hlist_head *hash, const 
 	}
 	return NULL;
 }
+#endif
 
 struct kz_zone *
 kz_head_zone_ipv4_lookup(const struct kz_head_z *h, const struct in_addr * const addr)

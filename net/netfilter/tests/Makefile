@@ -39,7 +39,13 @@ realclean:
 	rm -rf arch scripts include arch kernel
 
 # Test kzorp module:
-FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement -include test_mocks.h
+FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement
+ifeq ($(wildcard $(srctree)/include/linux/version.h),) 
+FLAGS += -include $(srctree)/include/generated/uapi/linux/version.h
+else
+FLAGS += -include $(srctree)/include/linux/version.h
+endif
+FLAGS += -include test_mocks.h
 CFLAGS = $(FLAGS) -D__KERNEL__ -DKBUILD_MODNAME=\"\" -O2 -fno-strict-aliasing -pipe -g -Wno-pointer-sign
 CFLAGS += $(DEPENDENT_FLAGS)
 CFLAGS += -I../../../include
@@ -49,7 +55,6 @@ else
   CFLAGS += -include $(srctree)/include/linux/kconfig.h
 endif
 CFLAGS += -I ../include -I$(srctree)/include -I$(srctree)/arch/$(hdr-arch)/include -I$(srctree)/arch/$(hdr-arch)/include/generated
-CFLAGS += -I include
 KBUILD_CFLAGS += $(FLAGS)
 
 perf_measure.o: CFLAGS = -O2 -pipe -g
