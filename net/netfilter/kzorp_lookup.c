@@ -1080,7 +1080,7 @@ KZ_PROTECTED void
 kz_generate_lookup_data(struct kz_head_d *dispatchers)
 {
 	struct kz_dispatcher *dispatcher;
-	struct kz_rule_lookup_data *lookup_data, *current_rule, *prev_rule = NULL;
+	struct kz_rule_lookup_data *lookup_data, *current_rule;
 	void *pos;
 	u_int32_t rules_data_size = 0;
 
@@ -1099,7 +1099,6 @@ kz_generate_lookup_data(struct kz_head_d *dispatchers)
 		list_for_each_entry(dispatcher, &dispatchers->head, list) {
 			unsigned int rule_idx;
 			for (rule_idx = 0; rule_idx < dispatcher->num_rule; rule_idx++) {
-				prev_rule = current_rule;
 				current_rule = kz_generate_lookup_data_rule(&dispatcher->rule[rule_idx], pos);
 				pos += current_rule->bytes_to_next;
 			}
