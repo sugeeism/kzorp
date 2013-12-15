@@ -1,5 +1,5 @@
-kzorp (0.1.0-2) quantal; urgency=low
+kzorp (0.1.1) quantal; urgency=low
 
-  * Initial release 
+  * Builds for all known ubuntu kernels >= 3.2.0-23-generic 
 
- -- Magosányi Árpád <mag@balabit.hu>  Sun, 08 Dec 2013 15:20:17 +0100
+ -- Árpád Magosányi <mag@balabit.hu>  Sun, 15 Dec 2013 12:46:35 +0100
