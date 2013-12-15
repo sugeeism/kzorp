@@ -1,10 +1,6 @@
-linux-headers-2.6.32-21-generic
-linux-headers-2.6.32-21-preempt
-linux-headers-2.6.32-21-server
 linux-headers-3.2.0-23-generic
 linux-headers-3.2.0-23-virtual
 linux-headers-3.2.0-4-amd64
-linux-headers-3.2.0-4-common
 linux-headers-3.5.0-17-generic
 linux-headers-3.5.0-17-lowlatency
 linux-headers-3.5.0-18-generic
@@ -71,5 +67,11 @@ linux-headers-3.8.0-32-lowlatency
 linux-headers-3.8.0-33-generic
 linux-headers-3.8.0-33-lowlatency
 linux-headers-3.8.0-34-generic
-linux-headers-3.8.0-34-lowlatency
 linux-headers-lbm-3.5.0-40-generic
+linux-headers-3.11.0-12-generic
+linux-headers-3.11.0-11-lowlatency
+linux-headers-3.4.0-1-goldfish
+linux-headers-3.11.0-13-generic
+linux-headers-3.11.0-14-generic
+linux-headers-3.11.0-13-lowlatency
+linux-headers-3.11.0-14-lowlatency

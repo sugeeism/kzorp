@@ -17,6 +17,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
+#define _LINUX_SLUB_DEF_H
+#include <linux/types.h>
+
+
+void *kmalloc(size_t size, gfp_t flags);
+void *kmalloc_node(size_t size, gfp_t flags, int node);
+void *__kmalloc(size_t size, gfp_t flags);
+void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
+
 #include <linux/netfilter/kzorp.h>
 #include <net/netfilter/kzorp_lookup_internal.h>
 
@@ -28,6 +38,7 @@ void free(void *ptr);
 int printf(const char *format, ...);
 void abort(void);
 int atoi(const char *nptr);
+
 
 // glib/gtestutils.h would redefine some types including time.h:
 #define _TIME_H

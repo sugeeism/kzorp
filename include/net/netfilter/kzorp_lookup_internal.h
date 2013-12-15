@@ -85,11 +85,6 @@ kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * 
 KZ_PROTECTED struct kz_rule_lookup_data *
 kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const rule, void *buf);
 
-KZ_PROTECTED inline unsigned int
-mask_to_size_v4(const struct in_addr * const mask);
-
-KZ_PROTECTED inline unsigned int
-mask_to_size_v6(const struct in6_addr * const mask);
 /**
  * struct kz_percpu_env - per-CPU work area for the n-dimensional lookup algorithms
  * @max_result_size: the maximal size of the result set to return
@@ -121,14 +116,68 @@ kz_ndim_eval(
   struct kz_percpu_env *lenv
 );
 
-KZ_PROTECTED inline void
-mark_zone_path(unsigned long *mask, const struct kz_zone *zone);
 
-KZ_PROTECTED inline unsigned int
-mask_to_size_v4(const struct in_addr * const mask);
+/**
+ * mark_zone_path - mark all reachable zone IDs starting from a given zone
+ * @mask: the bitfield to mark zones in
+ * @zone: the zone to start with
+ *
+ * Starting with @zone and iterating up on the admin_parent chain this
+ * function sets bits in @mask to 1 for all accessible zones.
+ */
+static __always_inline void
+mark_zone_path(unsigned long *mask, const struct kz_zone *zone)
+{
+	while (zone != NULL) {
+		set_bit(zone->index, mask);
+		zone = zone->admin_parent;
+	}
+}
 
-KZ_PROTECTED inline unsigned int
-mask_to_size_v6(const struct in6_addr * const mask);
+/**
+ * mask_to_size_v4 - given a 32 bit IPv4 subnet mask return how many leading 1 bits are set
+ * @mask: IPv4 subnet mask
+ *
+ * Returns: the number of leading '1' bits in @mask
+ */
+static __always_inline unsigned int
+mask_to_size_v4(const struct in_addr * const mask)
+{
+	if (mask == 0U)
+		return 0;
+	else
+		return 32 - fls(ntohl(~mask->s_addr));
+}
+
+/**
+ * mask_to_size_v6 - given a 128 bit IPv6 subnet mask return how many leading 1 bits are set
+ * @mask: IPv6 subnet mask
+ *
+ * Returns: the number of leading '1' bits in @mask
+ */
+static __always_inline unsigned int
+mask_to_size_v6(const struct in6_addr * const mask)
+{
+	unsigned int i;
+
+	if (mask->s6_addr32[0] == 0U &&
+	    mask->s6_addr32[1] == 0U &&
+	    mask->s6_addr32[2] == 0U &&
+	    mask->s6_addr32[3] == 0U)
+		return 0;
+
+	for (i = 0; i < 4; i++) {
+		u_int32_t m = mask->s6_addr32[i];
+		if (m == 0xffffffff)
+			continue;
+		if (m == 0)
+			return i * 32;
+
+		return i * 32 + 32 - fls(ntohl(~m));
+	}
+
+	return 128;
+}
 
 KZ_PROTECTED void
 kz_generate_lookup_data(struct kz_head_d *dispatchers);

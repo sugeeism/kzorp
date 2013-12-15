@@ -16,6 +16,8 @@
  * Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include "test.h"
+#include <strings.h>
+#include <generated/autoconf.h>
 
 #define MUST_NOT_CALL (printf("Must not call %s.\n", __func__), abort())
 
@@ -26,6 +28,7 @@ int printk(const char *fmt, ...)
 }
 
 // linux/slab.h:
+
 void kfree(const void *mem)
 {
 	MUST_NOT_CALL;
@@ -44,12 +47,25 @@ void in6_dev_finish_destroy(int idev)
 int nr_cpu_ids = 0;
 
 // linux/slub_def.h:
+/*
+void *kmalloc(size_t size, gfp_t flags)
+{
+	return __kmalloc(size,flags);
+}
+*/
 void *__kmalloc(size_t size, gfp_t flags)
 {
-	MUST_NOT_CALL;
-	return 0;
+	void * ret;
+	ret =  malloc(size);
+	//printf("allocating %zu bytes at %p\n",size,ret);
+	if(flags |__GFP_ZERO) {
+		//printf("zeroing it\n");
+		bzero(ret,size);
+	}
+	return ret;
 }
 
+/*
 #ifndef SLUB_PAGE_SHIFT
 #define SLUB_PAGE_SHIFT 128
 
@@ -57,23 +73,13 @@ struct cache_sizes malloc_sizes[1];
 #endif
 struct kmem_cache *kmalloc_caches[SLUB_PAGE_SHIFT] = { };
 
-#ifdef _LINUX_SLUB_DEF_H
-void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags,
-			     size_t size)
-{
-	MUST_NOT_CALL;
-	return 0;
-};
-#endif
-#ifdef _LINUX_SLAB_DEF_H
 void *kmem_cache_alloc_trace(size_t size, struct kmem_cache *cachep,
 			     gfp_t flags)
 {
 	MUST_NOT_CALL;
 	return 0;
 };
-#endif
-
+*/
 
 // arch/x86/include/asm/percpu.h:
 unsigned long this_cpu_off = 0;
@@ -138,6 +144,7 @@ void warn_slowpath_null(const char *file, const int line)
 }
 
 // net/netfilter/kzorp-lookup.c:
+/*
 inline struct kz_lookup_ipv6_node *ipv6_node_new(void)
 {
 	return calloc(1, sizeof(struct kz_lookup_ipv6_node));
@@ -147,16 +154,9 @@ inline void ipv6_node_free(struct kz_lookup_ipv6_node *n)
 {
 	free(n);
 }
+*/
 
 unsigned kz_zone_index = 0;
-
-/*
-void *kzalloc(size_t size, gfp_t flags)
-{
-	void *p = malloc(size);
-	memset(p,0,size);
-}
-*/
 
 void kzfree(const void *p)
 {
@@ -164,3 +164,14 @@ void kzfree(const void *p)
 }
 
 unsigned int nf_conntrack_hash_rnd = 0xdeadb33f;
+
+#ifdef CONFIG_PREEMPT
+void __rcu_read_lock(void) { }
+
+void __rcu_read_unlock(void) { }
+
+asmlinkage void preempt_schedule(void) { }
+
+unsigned long kernel_stack;
+
+#endif

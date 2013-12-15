@@ -112,51 +112,6 @@ cleanup:
  * Utility functions
  ***********************************************************/
 
-/**
- * mask_to_size_v4 - given a 32 bit IPv4 subnet mask return how many leading 1 bits are set
- * @mask: IPv4 subnet mask
- *
- * Returns: the number of leading '1' bits in @mask
- */
-KZ_PROTECTED inline unsigned int
-mask_to_size_v4(const struct in_addr * const mask)
-{
-	if (mask == 0U)
-		return 0;
-	else
-		return 32 - fls(ntohl(~mask->s_addr));
-}
-
-/**
- * mask_to_size_v6 - given a 128 bit IPv6 subnet mask return how many leading 1 bits are set
- * @mask: IPv6 subnet mask
- *
- * Returns: the number of leading '1' bits in @mask
- */
-KZ_PROTECTED inline unsigned int
-mask_to_size_v6(const struct in6_addr * const mask)
-{
-	unsigned int i;
-
-	if (mask->s6_addr32[0] == 0U &&
-	    mask->s6_addr32[1] == 0U &&
-	    mask->s6_addr32[2] == 0U &&
-	    mask->s6_addr32[3] == 0U)
-		return 0;
-
-	for (i = 0; i < 4; i++) {
-		u_int32_t m = mask->s6_addr32[i];
-		if (m == 0xffffffff)
-			continue;
-		if (m == 0)
-			return i * 32;
-
-		return i * 32 + 32 - fls(ntohl(~m));
-	}
-
-	return 128;
-}
-
 /* Return 1 if the destination address is local on the interface. */
 static inline int
 match_iface_local(const struct net_device * in, u_int8_t proto, const union nf_inet_addr *addr)
@@ -494,23 +449,6 @@ EXPORT_SYMBOL_GPL(kz_head_dispatcher_destroy);
 /***********************************************************
  * Helper functions for weighted zone checks
  ***********************************************************/
-
-/**
- * mark_zone_path - mark all reachable zone IDs starting from a given zone
- * @mask: the bitfield to mark zones in
- * @zone: the zone to start with
- *
- * Starting with @zone and iterating up on the admin_parent chain this
- * function sets bits in @mask to 1 for all accessible zones.
- */
-KZ_PROTECTED inline void
-mark_zone_path(unsigned long *mask, const struct kz_zone *zone)
-{
-	while (zone != NULL) {
-		set_bit(zone->index, mask);
-		zone = zone->admin_parent;
-	}
-}
 
 /**
  * unmark_zone_path - clear reachable marking for all reachable zone IDs
@@ -1494,6 +1432,20 @@ zone_ipv4_unhash(struct kz_zone *z)
 }
 
 struct kz_zone *
+kz_find_entry_for_ipv4_zone_in_luzone_hash(const struct hlist_head *hash, const u_int32_t p)
+{
+	struct kz_zone *i;
+	struct hlist_node *n;
+	hlist_for_each_entry(i, n, hash, hlist) {
+		if (zone_ipv4_cmp(i, p)) {
+			kz_debug("found zone; name='%s'\n", i->name);
+			return i;
+		}
+	}
+	return NULL;
+}
+
+struct kz_zone *
 kz_head_zone_ipv4_lookup(const struct kz_head_z *h, const struct in_addr * const addr)
 {
 	int o;
@@ -1503,18 +1455,13 @@ kz_head_zone_ipv4_lookup(const struct kz_head_z *h, const struct in_addr * const
 
         ip = ntohl(addr->s_addr);
 	for (o = 32, m = 0xffffffff; o >= 0; o--, m <<= 1) {
-		struct kz_zone *i;
-		struct hlist_node *n;
 		const u_int32_t p = ip & m;
 		const unsigned int v = zone_ipv4_hash_fn(p);
 
 		if (!hlist_empty(&h->luzone.hash[o][v])) {
-			hlist_for_each_entry(i, n, &h->luzone.hash[o][v], hlist) {
-				if (zone_ipv4_cmp(i, p)) {
-					kz_debug("found zone; name='%s'\n", i->name);
-					return i;
-				}
-			}
+			struct kz_zone *i = kz_find_entry_for_ipv4_zone_in_luzone_hash(&h->luzone.hash[o][v],p);
+			if(NULL != i)
+				return i;
 		}
 	}
 
