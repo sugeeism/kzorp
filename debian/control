@@ -2,13 +2,13 @@ Source: kzorp
 Section: net
 Priority: extra
 Maintainer: Magosányi Árpád <mag@balabit.hu>
-Build-Depends: debhelper (>= 8.0.0), autotools-dev, dkms (>= 1.95), linux-headers-3.5.0-32-generic
-Standards-Version: 3.9.3
+Build-Depends: debhelper (>= 8.0.0), autotools-dev, dkms (>= 1.95), linux-headers-3.5.0-32-generic, python
+Standards-Version: 3.9.4
 Homepage: https://github.com/balabit/kzorp/
 
 Package: kzorp
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, python-support (>= 0.90), kzorp-dkms
+Depends: ${misc:Depends}, python-all (>= 2.6.6-3), python-support (>= 0.90), kzorp-dkms, python
 Description: mixed packet filter/application level gateway 
  Kzorp is a open source set of mechanisms to implement mixed
  packet filter/application level gateway functionality on Linux.
@@ -16,7 +16,7 @@ Description: mixed packet filter/application level gateway
 
 Package: kzorp-dkms
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, dkms (>= 1.95)
+Depends: ${misc:Depends}, dkms (>= 1.95)
 Description: mixed packet filter/application level gateway, kernel module
  Kzorp is a open source set of mechanisms to implement mixed
  packet filter/application level gateway functionality on Linux.

@@ -18,8 +18,8 @@ export DH_OPTIONS
 
 
 %:
-	dh $@  --with autotools-dev --with dkms
+	dh $@  --with autotools-dev --with dkms --with python2
 
 build:
 	autoreconf -i
-	dh $@  --with autotools-dev --with dkms
+	dh $@  --with autotools-dev --with dkms --with python2
