@@ -28,7 +28,6 @@
 
 #include <net/netfilter/kzorp_compat.h>
 #include <net/netfilter/kzorp_internal.h>
-#include <linux/version.h>
 
 #define KZ_MAJOR_VERSION  4
 #define KZ_COMPAT_VERSION 1

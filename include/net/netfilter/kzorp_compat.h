@@ -1,7 +1,10 @@
 #ifndef _KZORP_COMPAT_H
 #define _KZORP_COMPAT_H
 
+#ifndef KZ_USERSPACE
 #include <linux/version.h>
+#endif
+
 #include <net/genetlink.h>
 #include <linux/netlink.h>
 
@@ -82,6 +85,10 @@ get_notifier(struct netlink_notify * notifier) {
 	#ifdef CONFIG_KZORP_PROC_FS
 		#define CONFIG_KZORP_PROC_FS CONFIG_KZORP_PROC_FS
 	#endif
+#endif
+
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0) )
+#define SHINY_NEW_HLIST_FOR_EACH 1
 #endif
 
 #ifndef NLA_PUT
