@@ -23,3 +23,7 @@ export DH_OPTIONS
 build:
 	autoreconf -i
 	dh $@  --with autotools-dev --with dkms --with python2
+
+binary-arch:
+	autoreconf -i
+	dh $@  --with autotools-dev --with dkms --with python2
