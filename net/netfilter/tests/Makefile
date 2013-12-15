@@ -8,9 +8,11 @@ commontree = /lib/modules/$(KVERSION)/source
 kzorp_tests: test_check perf
 	echo done
 
+ext: test_ext
+	gtester --verbose test_ext
 
 test_check: test_ext test_ndim_eval test_ipv6_radix 
-	@for i in $^ ; do gtester --keep-going --verbose $$i ; done
+	set -e;for i in $^ ; do gtester --verbose $$i ; done
 
 perf: test_kzorp_lookup
 	@echo "Running test (use '--dump' to output test data)..."
@@ -37,7 +39,7 @@ realclean:
 	rm -rf arch scripts include arch kernel
 
 # Test kzorp module:
-FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement
+FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement -include test_mocks.h
 CFLAGS = $(FLAGS) -D__KERNEL__ -DKBUILD_MODNAME=\"\" -O2 -fno-strict-aliasing -pipe -g -Wno-pointer-sign
 CFLAGS += $(DEPENDENT_FLAGS)
 CFLAGS += -I../../../include

@@ -4,7 +4,7 @@ for j in `cat buildversions`
 do
   i=`echo $j |sed 's/linux-headers-//'`
   make clean >/dev/null 2>&1 
-  if make KVERSION=$i notest >/dev/null 2>&1 
+  if make KVERSION=$i check >/dev/null 2>&1 
   then
     echo $i:yes
   else
