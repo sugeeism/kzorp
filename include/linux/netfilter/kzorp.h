@@ -519,24 +519,6 @@ int kz_log_ratelimit(void);
  * Conntrack structure extension
  ***********************************************************/
 
-extern struct nf_conntrack_kzorp *nfct_kz(const struct nf_conn *ct);
-
-/* handle kzorp extension in conntrack record
-   an earlier version had the kzorp structure directly in nf_conn
-   we changed that to use the extension API and add only on request
-   this makes it possible to actually run without kzorp, and carry
-   ne weight. 
-   The downside is that extensions can not be added after certain point
-   (basicly, it must happen at the start of a session, not at second
-    or a further packet...). 
-   If the kzorp extension can't be added, we still can do zone/svc
-   lookup on the fly -- only losing the cache. 
-   The other thing we lose is the session id assignment.
-   
-   So a proper ruleset that wants to use those facilities shall make
-   sure to have have the first packet meet KZORP related lookup.
-   
-*/
 
 /* returns consolidated kzorp lookup info; caches it in ct, and uses 
    the cache if valid;
@@ -591,6 +573,24 @@ extern int kz_extension_init(void);
 extern void kz_extension_cleanup(void);
 extern void kz_extension_fini(void);
 extern struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct);
+/* handle kzorp extension in conntrack record
+   an earlier version had the kzorp structure directly in nf_conn
+   we changed that to use the extension API and add only on request
+   this makes it possible to use kzorp as a dkms module.
+
+   FIXME: check/test the below sentences
+   The downside is that extensions can not be added after certain point
+   (basicly, it must happen at the start of a session, not at second
+    or a further packet...). 
+   If the kzorp extension can't be added, we still can do zone/svc
+   lookup on the fly -- only losing the cache. 
+   The other thing we lose is the session id assignment.
+   
+   So a proper ruleset that wants to use those facilities shall make
+   sure to have have the first packet meet KZORP related lookup.
+   
+*/
+
 extern struct nf_conntrack_kzorp *kz_extension_find(struct nf_conn *ct);
 
 /***********************************************************

@@ -43,11 +43,11 @@ hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 		       tuple->dst.protonum));
 }
 
-struct nf_conntrack_kzorp * kz_get_kzorp_from_node(struct hlist_nulls_node *p) {
+struct nf_conntrack_kzorp * kz_get_kzorp_from_node(struct nf_conntrack_tuple_hash *p) {
 	struct nf_conntrack_kzorp *kz;
-	kz = container_of(p,
+	kz = container_of((struct hlist_nulls_node *)p,
 			  struct nf_conntrack_kzorp,
-			  tuplehash[((struct nf_conntrack_tuple_hash *)p)->tuple.dst.dir].hnnode);
+			  tuplehash[p->tuple.dst.dir].hnnode);
 	return kz;
 }
 
@@ -150,7 +150,7 @@ int kz_extension_init(void)
 	return 0;
 }
 
-static void kz_extension_dealloc_by_tuplehash(struct hlist_nulls_node *p)
+static void kz_extension_dealloc_by_tuplehash(struct nf_conntrack_tuple_hash *p)
 {
 	/*
 	 * find the kzorp corresponding to the tuplehash
@@ -167,11 +167,11 @@ static void kz_extension_dealloc_by_tuplehash(struct hlist_nulls_node *p)
 static void clean_hash(void)
 {
 	int i;
-	struct hlist_nulls_node *p;
+	struct nf_conntrack_tuple_hash *p;
 
 	for (i = 0; i < kz_hash_size; i++) {
 		while (!hlist_nulls_empty(&kz_hash[i])) {
-			p = kz_hash[i].first;
+			p = (struct nf_conntrack_tuple_hash *) kz_hash[i].first;
 			kz_extension_dealloc_by_tuplehash(p);
 		}
 	}

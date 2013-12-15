@@ -88,7 +88,7 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 	h = nf_conntrack_find_get(sock_net(sk), NF_CT_DEFAULT_ZONE, &tuple);
 	if (h) {
 		struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
-		struct nf_conntrack_kzorp *kzorp = nfct_kz(ct);
+		struct nf_conntrack_kzorp *kzorp = kz_extension_find(ct);
 		u_int64_t cookie;
 		int res = 0;
 
