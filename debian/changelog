@@ -1,3 +1,9 @@
+kzorp (0.1.3ubuntu5) quantal; urgency=low
+
+  * i386 should build now 
+
+ -- Árpád Magosányi <mag@balabit.hu>  Mon, 16 Dec 2013 22:18:50 +0100
+
 kzorp (0.1.3ubuntu4) quantal; urgency=low
 
   * mocking out sl*b based memory allocators in tests on i386
