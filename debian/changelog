@@ -1,3 +1,9 @@
+kzorp (0.1.3ubuntu3) quantal; urgency=low
+
+  * changed test harness to do correct mocking on i386 
+
+ -- Árpád Magosányi <mag@balabit.hu>  Mon, 16 Dec 2013 15:19:30 +0100
+
 kzorp (0.1.3ubuntu2) quantal; urgency=low
 
   *  glib dev build dependency

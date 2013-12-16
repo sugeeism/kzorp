@@ -24,8 +24,12 @@
 #define __bitwise__
 
 #include <linux/compiler.h>
-
+#ifdef __x86_64__
 typedef unsigned long size_t;
+#else
+typedef unsigned int size_t;
+#endif
+#define _SIZE_T
 typedef unsigned __bitwise__ gfp_t;
 
 struct kmem_cache {
@@ -38,6 +42,7 @@ static __always_inline void *kmalloc(size_t size, gfp_t flags) {
 	return __kmalloc(size,flags);
 }
 void *kmalloc_node(size_t size, gfp_t flags, int node);
+
 void *__kmalloc(size_t size, gfp_t flags);
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
 
