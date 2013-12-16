@@ -20,6 +20,8 @@
 
 #define _LINUX_SLUB_DEF_H
 #define _LINUX_SLAB_DEF_H
+#define CONFIG_SLOB 1
+#define _LINUX_SLUB_DEF_H
 
 #define __bitwise__
 
