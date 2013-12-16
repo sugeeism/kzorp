@@ -1,4 +1,4 @@
-KVERSION ?= 3.5.0-32-generic
+KVERSION ?= 3.5.0-17-generic
 KERNELRELEASE ?= $(KVERSION)
 EXTRA_CFLAGS       = -I$(src)/../../include
 

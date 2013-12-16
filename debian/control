@@ -2,7 +2,7 @@ Source: kzorp
 Section: net
 Priority: extra
 Maintainer: Magosányi Árpád <mag@balabit.hu>
-Build-Depends: debhelper (>= 8.0.0), autotools-dev, dkms (>= 1.95), linux-headers-3.5.0-32-generic, python, dh-autoreconf, libglib2.0-dev
+Build-Depends: debhelper (>= 8.0.0), autotools-dev, dkms (>= 1.95), linux-headers-3.5.0-17-generic, python, dh-autoreconf, libglib2.0-dev
 Standards-Version: 3.9.4
 Homepage: https://github.com/balabit/kzorp/
 
