@@ -22,6 +22,7 @@
 #define MUST_NOT_CALL (printf("Must not call %s.\n", __func__), abort())
 
 // linux/kernel.h:
+asmlinkage __printf(1, 2) __cold
 int printk(const char *fmt, ...)
 {
 	return 0;
