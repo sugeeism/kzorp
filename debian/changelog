@@ -1,3 +1,9 @@
+kzorp (0.1.3ubuntu4) quantal; urgency=low
+
+  * mocking out sl*b based memory allocators in tests on i386
+
+ -- Árpád Magosányi <mag@balabit.hu>  Mon, 16 Dec 2013 15:55:02 +0100
+
 kzorp (0.1.3ubuntu3) quantal; urgency=low
 
   * changed test harness to do correct mocking on i386 
