@@ -24,6 +24,9 @@ build:
 	autoreconf -i
 	dh $@  --with autotools-dev --with dkms --with python2
 
-binary-arch:
+build-arch:
 	autoreconf -i
+	dh $@  --with autotools-dev --with dkms --with python2
+
+binary-arch: build
 	dh $@  --with autotools-dev --with dkms --with python2
