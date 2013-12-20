@@ -2,8 +2,9 @@ before_install:
 - sudo apt-add-repository -y "deb http://ppa.launchpad.net/mag-magwas/zorp/ubuntu
   quantal main"
 - sudo apt-get update -qq
-- sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-3.5.0-32-generic
+- sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-3.5.0-17-generic,
   python dh-autoreconf
+- uname -a
 script:
 - debuild -i -us -uc -b
 - git clone https://github.com/magwas/zorp.git -b identity ../identity
