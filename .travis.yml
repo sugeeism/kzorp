@@ -1,15 +1,8 @@
 before_install:
-- sudo apt-add-repository -y "deb http://ppa.launchpad.net/mag-magwas/zorp/ubuntu
-  quantal main"
-- sudo apt-get update -qq
 - sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-generic
   python dh-autoreconf
-- uname -a
-- dpkg -l 'linux-headers*'
 script:
-- debuild -i -us -uc -b
-- git clone https://github.com/magwas/zorp.git -b identity ../identity
-- ../identity/buildForLaunchpad
+- debuild -i -us -uc -b && sudo apt-get -y install linux-image-generic linux-image-generic python-all python-support libglib2.0-dev && sudo dpkg -i ../*.deb && git clone https://github.com/magwas/zorp.git -b identity ../identity && ../identity/buildForLaunchpad
 env:
   global:
     secure: CH8P2tBMvBTfAvEa8twb3CF90VLD3FjT6vPCRUt0hAdHv4FTzwsas9VUNUWFFp+LqC3Pr2ehoJdi98WtA9IxXaV14zgbGCCksZXQPwp3P4bIAjXBVglgj4elLJd2RGTMBZ10z2/LRZ+ozECEEQ9s80QDcGYvZ1ZO7wtJXNai21U=
