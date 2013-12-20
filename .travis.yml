@@ -1,11 +1,13 @@
 before_install:
-  - sudo apt-add-repository -y "deb http://ppa.launchpad.net/mag-magwas/zorp/ubuntu quantal main"
-  - sudo apt-get update -qq
-  - sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-3.5.0-32-generic python dh-autoreconf
+- sudo apt-add-repository -y "deb http://ppa.launchpad.net/mag-magwas/zorp/ubuntu
+  quantal main"
+- sudo apt-get update -qq
+- sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-3.5.0-32-generic
+  python dh-autoreconf
 script:
-  - debuild -i -us -uc -b
-  - git clone https://github.com/magwas/zorp.git -b identity ../identity
-  - ../identity/buildForLaunchpad
+- debuild -i -us -uc -b
+- git clone https://github.com/magwas/zorp.git -b identity ../identity
+- ../identity/buildForLaunchpad
 env:
   global:
-    secure: XwErEg7IDcwaUF40zMYimruxZNTKPpb7Gz/qCk7Ejwssyns4N/4F9yLqY6JEYI1jPY5QAm5m6/HnHjbC3hfiIaOsKEANCeqL4zNbKCOzg+Sa9bU0/HRoH1soAf2SGJi4o3hnTCbKJ7jTH+HIiqWpcSaQs+xiOWn290dDtZX8x1Y=
+    secure: CH8P2tBMvBTfAvEa8twb3CF90VLD3FjT6vPCRUt0hAdHv4FTzwsas9VUNUWFFp+LqC3Pr2ehoJdi98WtA9IxXaV14zgbGCCksZXQPwp3P4bIAjXBVglgj4elLJd2RGTMBZ10z2/LRZ+ozECEEQ9s80QDcGYvZ1ZO7wtJXNai21U=
