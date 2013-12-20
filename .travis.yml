@@ -4,8 +4,8 @@ before_install:
   - sudo apt-get install debhelper autotools-dev devscripts dkms linux-headers-3.5.0-32-generic python dh-autoreconf
 script:
   - debuild -i -us -uc -b
-  - git clone https://github.com/magwas/zorp.git -b identity identity
-  - identity/buildForLaunchpad
+  - git clone https://github.com/magwas/zorp.git -b identity ../identity
+  - ../identity/buildForLaunchpad
 env:
   global:
     secure: XwErEg7IDcwaUF40zMYimruxZNTKPpb7Gz/qCk7Ejwssyns4N/4F9yLqY6JEYI1jPY5QAm5m6/HnHjbC3hfiIaOsKEANCeqL4zNbKCOzg+Sa9bU0/HRoH1soAf2SGJi4o3hnTCbKJ7jTH+HIiqWpcSaQs+xiOWn290dDtZX8x1Y=
