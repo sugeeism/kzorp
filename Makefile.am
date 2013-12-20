@@ -1,4 +1,4 @@
-SUBDIRS = pylib net/netfilter
+SUBDIRS = pylib 
 
 kprefix = $(prefix)/src/kzorp-$(PACKAGE_VERSION)
 
@@ -46,6 +46,7 @@ ksrctest_DATA = net/netfilter/tests/100000rules_policy.py\
                 net/netfilter/tests/test_kzorp_lookup.c\
                 net/netfilter/tests/test_kzorp_sockopt.py\
                 net/netfilter/tests/test_mocks.c\
+                net/netfilter/tests/test_mocks.h\
                 net/netfilter/tests/test_ndim_eval.c
 
 

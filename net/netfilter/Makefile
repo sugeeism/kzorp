@@ -8,12 +8,12 @@ obj-m += xt_KZORP.o
 obj-m += xt_service.o
 obj-m += xt_zone.o
 
-all: xt_KZORP.ko
+all: testing xt_KZORP.ko
 	echo "done"
 
 notest: xt_KZORP.ko
 
-xt_KZORP.ko:
+xt_KZORP.ko: testing
 	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
 
 clean_kzorp_deb:
