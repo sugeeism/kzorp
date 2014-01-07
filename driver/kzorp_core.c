@@ -1109,63 +1109,54 @@ error:
 	return res;
 }
 
-#define kz_dispatcher_append_rule_entry_value(entry_name)		\
-	if (rule_entry_params->has_##entry_name) {			\
-		if (rule->num_##entry_name + 1 > rule->alloc_##entry_name) { \
-			kz_err("each " #entry_name " has already been added to the rule; alloc_" #entry_name "='%d'", \
-			       rule->num_##entry_name);			\
-			res = -ENOMEM;					\
-			goto error;					\
-		}							\
-		rule->entry_name[rule->num_##entry_name] = rule_entry_params->entry_name; \
+#define kz_object_entry_check_alloc(object_name, entry_name)		\
+	if (object_name->num_##entry_name + 1 > object_name->alloc_##entry_name) { \
+		kz_err("each " #entry_name " has already been added to the " #object_name "; alloc_" #entry_name "='%d'", \
+		       object_name->num_##entry_name);			\
+		res = -ENOMEM;					\
+		goto error;					\
+	}							\
+
+#define kz_object_entry_append_value(object_name, entry_name)		\
+	if (object_name->has_##entry_name) {			\
+		kz_object_entry_check_alloc(rule, entry_name)           \
+		rule->entry_name[rule->num_##entry_name] = object_name->entry_name; \
 	}
 
-#define kz_dispatcher_append_rule_entry_portrange(entry_name)		\
-	if (rule_entry_params->has_##entry_name) {			\
-		if (rule->num_##entry_name + 1 > rule->alloc_##entry_name) { \
-			kz_err("each " #entry_name " has already been added to the rule; alloc_" #entry_name "='%d'", \
-			       rule->num_##entry_name);			\
-			res = -ENOMEM;					\
-			goto error;					\
-		}							\
-		rule->entry_name[rule->num_##entry_name].from = rule_entry_params->entry_name.from; \
-		rule->entry_name[rule->num_##entry_name].to = rule_entry_params->entry_name.to; \
+#define kz_object_entry_append_portrange(object_name, entry_name)		\
+	if (object_name->has_##entry_name) {			\
+		kz_object_entry_check_alloc(rule, entry_name)           \
+		rule->entry_name[rule->num_##entry_name].from = object_name->entry_name.from; \
+		rule->entry_name[rule->num_##entry_name].to = object_name->entry_name.to; \
 	}
 
-#define kz_dispatcher_append_rule_entry_subnet(entry_name)		\
-	if (rule_entry_params->has_##entry_name) {			\
-		if (rule->num_##entry_name + 1 > rule->alloc_##entry_name) { \
-			kz_err("each " #entry_name " has already been added to the rule; alloc_" #entry_name "='%d'", \
-			       rule->num_##entry_name);			\
-			res = -ENOMEM;					\
-			goto error;					\
-		}							\
-		rule->entry_name[rule->num_##entry_name].addr = rule_entry_params->entry_name.addr; \
-		rule->entry_name[rule->num_##entry_name].mask = rule_entry_params->entry_name.mask; \
+#define kz_object_entry_append_subnet(object_name, entry_name)		\
+	if (object_name->has_##entry_name) {			\
+		kz_object_entry_check_alloc(rule, entry_name)           \
+		rule->entry_name[rule->num_##entry_name].addr = object_name->entry_name.addr; \
+		rule->entry_name[rule->num_##entry_name].mask = object_name->entry_name.mask; \
 	}
 
-#define kz_dispatcher_append_rule_entry_in_subnet(entry_name)		\
-	kz_dispatcher_append_rule_entry_subnet(entry_name)
-#define kz_dispatcher_append_rule_entry_in6_subnet(entry_name)		\
-	kz_dispatcher_append_rule_entry_subnet(entry_name)
+#define kz_object_entry_append_in_subnet(object_name, entry_name)		\
+	kz_object_entry_append_subnet(object_name, entry_name)
+#define kz_object_entry_append_in6_subnet(object_name, entry_name)		\
+	kz_object_entry_append_subnet(object_name, entry_name)
 
-#define kz_dispatcher_append_rule_entry_ifname(entry_name) \
-	if (rule_entry_params->has_##entry_name) { \
-		if (rule->num_##entry_name + 1 > rule->alloc_##entry_name) { \
-			kz_err("each " #entry_name " has already been added to the rule; alloc_" #entry_name "='%d'", \
-			       rule->num_##entry_name); \
-			res = -ENOMEM; \
-			goto error; \
-		} \
-		memcpy(rule->entry_name[rule->num_##entry_name], rule_entry_params->entry_name, IFNAMSIZ); \
+#define kz_object_entry_append_ifname(object_name, entry_name) \
+	if (object_name->has_##entry_name) { \
+		kz_object_entry_check_alloc(rule, entry_name)           \
+		memcpy(rule->entry_name[rule->num_##entry_name], object_name->entry_name, IFNAMSIZ); \
 	}
 
-#define kz_dispatcher_append_rule_entry_string(entry_name)		\
-	kz_dispatcher_append_rule_entry_value(entry_name)
+#define kz_object_entry_append_string(object_name, entry_name)		\
+	kz_object_entry_append_value(object_name, entry_name)
+
+#define kz_object_entry_num_inc(object_name, entry_name) \
+		object_name->num_##entry_name++;
 
 #define kz_dispatcher_inc_rule_entry_num(entry_name) \
 	if (rule_entry_params->has_##entry_name) { \
-		rule->num_##entry_name++; \
+		kz_object_entry_num_inc(rule, entry_name) \
 	}
 
 int
@@ -1176,7 +1167,7 @@ kz_dispatcher_add_rule_entry(struct kz_dispatcher_n_dimension_rule *rule,
 	struct kz_zone *zone;
 
 #define CALL_kz_dispatcher_append_rule_entry(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
-	kz_dispatcher_append_rule_entry_##NL_TYPE(DIM_NAME)
+	kz_object_entry_append_##NL_TYPE(rule_entry_params, DIM_NAME)
 
 	KZORP_DIM_LIST(CALL_kz_dispatcher_append_rule_entry, ;);
 
