@@ -572,6 +572,27 @@ const struct nf_conntrack_kzorp * nfct_kzorp_cached_lookup_rcu(
 EXPORT_SYMBOL_GPL(nfct_kzorp_cached_lookup_rcu);
 
 /***********************************************************
+ * Common macros
+ ***********************************************************/
+
+#define kz_alloc_entry(entry_name, dst_name, src_name, error_label) \
+	if (src_name->alloc_##entry_name) { \
+		dst_name->entry_name = kzalloc(sizeof(*dst_name->entry_name) * src_name->alloc_##entry_name, GFP_KERNEL); \
+		if (dst_name->entry_name == NULL) { \
+			res = -ENOMEM; \
+			goto error_label; \
+		} \
+	} else { \
+		dst_name->entry_name = NULL; \
+	} \
+	dst_name->alloc_##entry_name = src_name->alloc_##entry_name;
+
+#define kz_clone_entry(entry_name, dst_name, src_name) \
+	dst_name->num_##entry_name = src_name->num_##entry_name; \
+	memcpy(dst_name->entry_name, src_name->entry_name, \
+	       dst_name->alloc_##entry_name * sizeof(*dst_name->entry_name));
+
+/***********************************************************
  * Zones
  ***********************************************************/
 
@@ -1048,18 +1069,6 @@ kz_dispatcher_lookup_name(const struct kz_config *cfg, const char *name)
 	return NULL;
 }
 
-#define kz_alloc_rule_dimension(dim_name, dst_name, src_name, error_label) \
-	if (src_name->alloc_##dim_name) { \
-		dst_name->dim_name = kzalloc(sizeof(*dst_name->dim_name) * src_name->alloc_##dim_name, GFP_KERNEL); \
-		if (dst_name->dim_name == NULL) { \
-			res = -ENOMEM; \
-			goto error_label; \
-		} \
-	} else { \
-		dst_name->dim_name = NULL; \
-	} \
-	dst_name->alloc_##dim_name = src_name->alloc_##dim_name;
-
 int
 kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
 		       const struct kz_dispatcher_n_dimension_rule * const rule_params)
@@ -1092,7 +1101,7 @@ kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
 	rule->dispatcher = d;
 
 #define CALL_kz_alloc_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
-	kz_alloc_rule_dimension(DIM_NAME, rule, rule_params, error_free_dimensions)
+	kz_alloc_entry(DIM_NAME, rule, rule_params, error_free_dimensions)
 
 	KZORP_DIM_LIST(CALL_kz_alloc_rule_dimension, ;);
 
@@ -1230,12 +1239,6 @@ kz_rule_relink_zones(struct kz_dispatcher_n_dimension_rule *r, const struct list
 	kz_rule_arr_relink_zones(&r->num_dst_zone, r->dst_zone, zonelist);
 }
 
-#define kz_clone_rule_dimension(dim_name, dst_name, src_name) \
-	dst_name->num_##dim_name = src_name->num_##dim_name; \
-	memcpy(dst_name->dim_name, src_name->dim_name, \
-	       dst_name->alloc_##dim_name * sizeof(*dst_name->dim_name))
-
-
 int
 kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
 	     const struct kz_dispatcher_n_dimension_rule * const src)
@@ -1248,16 +1251,16 @@ kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
 	dst->dispatcher = NULL;
 
 #define CALL_kz_alloc_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
-	kz_alloc_rule_dimension(DIM_NAME, dst, src, error)
+	kz_alloc_entry(DIM_NAME, dst, src, error)
 
 	KZORP_DIM_LIST(CALL_kz_alloc_rule_dimension, ;);
 
 #undef CALL_kz_alloc_rule_dimension
 
 #define CALL_kz_clone_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
-	kz_clone_rule_dimension(DIM_NAME, dst, src)
+	kz_clone_entry(DIM_NAME, dst, src)
 
-	KZORP_DIM_LIST(CALL_kz_clone_rule_dimension, ;);
+	KZORP_DIM_LIST(CALL_kz_clone_rule_dimension, ;)
 
 #undef CALL_kz_clone_rule_dimension
 

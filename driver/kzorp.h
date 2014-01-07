@@ -183,18 +183,21 @@ struct kz_dispatcher_n_dimension_rule_entry_params {
 #undef DECLARE_RULE_ENTRY_PARAM
 };
 
+#define DECLARE_PARAM_ENTRY(DIM_NAME, DIM_TYPE) \
+	u_int32_t alloc_##DIM_NAME; \
+	u_int32_t num_##DIM_NAME; \
+	DIM_TYPE *DIM_NAME;
+
 struct kz_dispatcher_n_dimension_rule {
 	u_int32_t id;
 
 	struct kz_service *service;
 	struct kz_dispatcher *dispatcher;
 
-#define DECLARE_RULE_ENTRY(DIM_NAME, _, TYPE, ...) \
-	u_int32_t alloc_##DIM_NAME; \
-	u_int32_t num_##DIM_NAME; \
-	TYPE *DIM_NAME
+#define DECLARE_RULE_ENTRY(DIM_NAME, _, DIM_TYPE, ...) \
+	DECLARE_PARAM_ENTRY(DIM_NAME, DIM_TYPE)
 
-	KZORP_DIM_LIST(DECLARE_RULE_ENTRY, ;);
+	KZORP_DIM_LIST(DECLARE_RULE_ENTRY, ;)
 
 #undef DECLARE_RULE_ENTRY
 };
