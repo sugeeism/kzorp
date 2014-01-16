@@ -3758,9 +3758,9 @@ error:
 
 static int
 kznl_build_query_resp(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
-		      enum kznl_msg_types msg, struct kz_dispatcher *dispatcher,
-		      struct kz_zone *client_zone,
-		      struct kz_zone *server_zone, struct kz_service *service)
+		      enum kznl_msg_types msg, const struct kz_dispatcher *dispatcher,
+		      const struct kz_zone *client_zone, const struct kz_zone *server_zone,
+		      const struct kz_service *service)
 {
 	void *hdr;
 
