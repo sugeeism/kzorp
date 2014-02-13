@@ -27,6 +27,7 @@ import os
 import pwd
 
 import time
+import prctl
 
 import Zorp.Zorp as Zorp
 import Zorp.KZorp as KZorp
@@ -63,6 +64,22 @@ class DynamicZoneHandler():
                              "Hostname cannot be resolved; name='%s', zone='%s'" %
                              (hostname, zone.name))
 
+    def _acquire_caps(self):
+        #aquire the CAP_NET_ADMIN capability
+        try:
+            prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, True))
+        except OSError, e:
+            Zorp.log(None, Zorp.CORE_ERROR, 1, "Unable to acquire NET_ADMIN capability; error='%s'" % (e))
+            raise e
+
+    def _drop_caps(self):
+        #drop the CAP_NET_ADMIN capability
+        try:
+            prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, False))
+        except OSError, e:
+            Zorp.log(None, Zorp.CORE_ERROR, 1, "Unable to drop NET_ADMIN capability; error='%s'" % (e))
+            raise e
+
     def _create_add_zone_messages_from_zone(self, zone, num_of_hostname_subnets = 0):
         subnet_num = len(zone.subnets) + num_of_hostname_subnets
         pname = zone.admin_parent.name if zone.admin_parent else None
@@ -90,6 +107,7 @@ class DynamicZoneHandler():
         """
         Download static zones to kernel and flush the exiting ones.
         """
+        self._acquire_caps()
 
         try:
             self.kzorp_handle.exchange(kznl.KZorpStartTransactionMessage(kznl.KZ_INSTANCE_GLOBAL))
@@ -103,6 +121,8 @@ class DynamicZoneHandler():
             Zorp.log(None, Zorp.CORE_ERROR, 6,
                      "Error occured while downloading zones to kernel; error='%s'" % (e.detail))
             raise e
+        finally:
+            self._drop_caps()
 
     def __create_add_zone_subnet_messages(self, zone, ipv4_addresses, ipv6_addresses):
         add_zone_subnet_messages = []
@@ -137,6 +157,8 @@ class DynamicZoneHandler():
             delete_zone_messages[zone_name] = kznl.KZorpDeleteZoneMessage(zone_name)
             add_zone_messages[zone_name] = self._create_add_zone_messages_from_zone(Zone.lookup_by_name(zone_name), len(messages))
 
+        self._acquire_caps()
+
         try:
             KZorp.startTransaction(self.kzorp_handle, kznl.KZ_INSTANCE_GLOBAL)
             KZorp.exchangeMessages(self.kzorp_handle, delete_zone_messages.values())
@@ -146,6 +168,9 @@ class DynamicZoneHandler():
             KZorp.commitTransaction(self.kzorp_handle)
         except kznl.NetlinkException:
             raise
+        finally:
+            self._drop_caps()
+
 
     def setup(self):
         self.setup_static_zones()
@@ -180,6 +205,16 @@ class ConfigurationHandler():
     def setup(self):
         self._import_policy()
 
+class KeeperDaemonContext(daemon.DaemonContext):
+    def open(self):
+        #inherit capabilities with user change
+        try:
+            prctl.set_keepcaps(True)
+        except OSError, e:
+            Zorp.log(None, Zorp.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+            raise e
+        super(KeeperDaemonContext, self).open()
+
 class Daemon():
     min_sleep_in_sec = 60
 
@@ -192,11 +227,11 @@ class Daemon():
         zorp_gid = grp.getgrnam(group).gr_gid
 
         import signal
-        self.context = daemon.DaemonContext(
+        self.context = KeeperDaemonContext(
             working_directory='/etc/zorp',
             umask=0o002,
-            #uid=zorp_uid,
-            #gid=zorp_gid,
+            uid=zorp_uid,
+            gid=zorp_gid,
             pidfile=PIDLockFile('/var/run/zorp/kzorpd.pid'),
             signal_map={
                          signal.SIGHUP: self.sighup_handler,
@@ -260,6 +295,12 @@ class Daemon():
         from Zorp.Common import BaseZone
         self.zone_handler = DynamicZoneHandler(BaseZone.zones.values(), self.dnscache)
         self.zone_handler.setup()
+        # drop capabilities
+        try:
+            prctl.set_caps((prctl.ALL_CAPS, prctl.CAP_EFFECTIVE, False))
+        except OSError, e:
+            Zorp.log(None, Zorp.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+            raise e
 
     def do_main(self):
         self.setup()
@@ -288,9 +329,6 @@ class Daemon():
                          "Cache lookup failed, sleep minimum expiration; sleep_sec='%d'" %
                          (sleep_sec, ))
             time.sleep(sleep_sec)
-
-    def __exit__(self):
-        Zorp.log(None, Zorp.CORE_INFO, 1, "KZorpd shutting down...")
 
 def run(foreground, log_verbosity, user, group):
     DAEMON = Daemon(user, group)
