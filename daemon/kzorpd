@@ -28,6 +28,7 @@ import pwd
 
 import time
 import prctl
+import traceback
 
 import Zorp.Zorp as Zorp
 import Zorp.KZorp as KZorp
@@ -303,7 +304,10 @@ class Daemon():
             raise e
 
     def do_main(self):
-        self.setup()
+        try:
+            self.setup()
+        except BaseException, e:
+            Zorp.log(None, Zorp.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
 
         while True:
             now = time.time()
@@ -328,6 +332,9 @@ class Daemon():
                 Zorp.log(None, Zorp.CORE_DEBUG, 6,
                          "Cache lookup failed, sleep minimum expiration; sleep_sec='%d'" %
                          (sleep_sec, ))
+            except BaseException, e:
+                sleep_sec = self.min_sleep_in_sec
+                Zorp.log(None, Zorp.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
             time.sleep(sleep_sec)
 
 def run(foreground, log_verbosity, user, group):
