@@ -53,6 +53,7 @@ Depends: ${python:Depends},
          ${misc:Depends},
          python-daemon,
          python-prctl,
+         python-radix,
          python-zorp-common (= ${Source-Version})
 Description: Python bindings for kzorp.
  Zorp is a new generation firewall. It is essentially a transparent proxy
