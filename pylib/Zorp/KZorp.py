@@ -23,14 +23,13 @@ import Globals
 import random, time, socket, errno, functools
 import kzorp.kzorp_netlink
 from Zorp import *
-from Zone import Zone
 
 def exchangeMessage(h, payload):
     try:
         for reply in h.talk(payload):
             pass
     except kzorp.netlink.NetlinkException as e:
-        raise kzorp.netlink.NetlinkException, "Error while talking to kernel; result='%s'" % (e.what())
+        raise kzorp.netlink.NetlinkException, "Error while talking to kernel; result='%s'" % (e.what)
 
 def exchangeMessages(h, messages):
     for payload in messages:
@@ -62,28 +61,6 @@ def downloadServices(h):
     for service in Globals.services.values():
         messages = service.buildKZorpMessage()
         exchangeMessages(h, messages)
-
-def downloadZones(h):
-    def walkZones(messages, zone, children):
-        messages.extend(zone.buildKZorpMessage())
-        for child in children.get(zone.name, []):
-            walkZones(messages, child, children)
-
-    # download zones
-    exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushZonesMessage())
-
-    # build children hash
-    children = {}
-    for zone in Zone.zones.values():
-        if zone.admin_parent:
-            children.setdefault(zone.admin_parent.name, []).append(zone)
-
-    for zone in Zone.zones.values():
-        if not zone.admin_parent:
-            # tree root
-            messages = []
-            walkZones(messages, zone, children)
-            exchangeMessages(h, messages)
 
 def downloadDispatchers(h):
     exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushDispatchersMessage())
@@ -145,7 +122,6 @@ def downloadKZorpConfig(instance_name, is_master):
     try:
         if is_master:
             downloadServices(h)
-            downloadZones(h)
             downloadDispatchers(h)
         downloadBindAddresses(h)
         commitTransaction(h)
