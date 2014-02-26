@@ -29,6 +29,7 @@ import pwd
 import time
 import prctl
 import traceback
+import radix
 
 import Zorp.Zorp as Zorp
 import Zorp.KZorp as KZorp
@@ -194,16 +195,22 @@ class ConfigurationHandler():
 
         import imp
         import os
-        policy_file = policy_files.pop()
-        module_name = os.path.splitext(os.path.basename(policy_file))[0]
-        fp, pathname, description = imp.find_module(module_name, [os.path.dirname(policy_file), ])
-        try:
-            imp.load_module(module_name, fp, pathname, description)
-        finally:
-            if fp:
-                fp.close()
+
+        for policy_file in policy_files:
+            module_name = os.path.splitext(os.path.basename(policy_file))[0]
+            fp, pathname, description = imp.find_module(module_name, [os.path.dirname(policy_file), ])
+            try:
+                imp.load_module(module_name, fp, pathname, description)
+            finally:
+                if fp:
+                    fp.close()
 
     def setup(self):
+        self._import_policy()
+
+    def reload(self):
+        Zone.zones = {}
+        Zone.zone_subnet_tree = radix.Radix()
         self._import_policy()
 
 class KeeperDaemonContext(daemon.DaemonContext):
@@ -257,7 +264,7 @@ class Daemon():
     def sighup_handler(self, sig_num, frame):
         Zorp.log(None, Zorp.CORE_INFO, 1, "Received SIGHUP, reloading configuration")
         try:
-            self.zone_handler.setup()
+            self.reload()
         except BaseException, e:
             Zorp.log(None, Zorp.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
 
@@ -302,6 +309,13 @@ class Daemon():
         except OSError, e:
             Zorp.log(None, Zorp.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
             raise e
+
+    def reload(self):
+        self.dnscache = ResolverCache.ResolverCache(ResolverCache.DNSResolver())
+        self.conf_handler.reload()
+        from Zorp.Common import BaseZone
+        self.zone_handler = DynamicZoneHandler(Zone.zones.values(), self.dnscache)
+        self.zone_handler.setup()
 
     def do_main(self):
         try:
