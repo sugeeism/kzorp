@@ -49,7 +49,7 @@ class DynamicZoneHandler():
 
     def setup_dns_cache(self):
         """
-        Fills up the DNS cache with host found in zones in policy.py
+        Fills up the DNS cache with host found in zones.py
         """
 
         for zone in self.zones:
@@ -183,30 +183,29 @@ class ConfigurationHandler():
     def __init__(self):
         self.instances_conf = InstancesConf()
 
-    def _import_policy(self):
-        policy_files = set()
+    def _import_zones(self):
+        import os
+        policy_dirs = set()
 
         for instance in self.instances_conf:
-            policy_files.add(instance.zorp_process.args.policy)
-        if len(policy_files) > 1:
-            raise ValueError('Different policy files found in instances.conf; policy_files=%s' % policy_files)
-        if len(policy_files) == 0:
+            policy_dirs.add(os.path.dirname(instance.zorp_process.args.policy))
+        if len(policy_dirs) > 1:
+            raise ValueError('Different directories of policy files found in instances.conf; policy_dirs=%s' % policy_dirs)
+        if len(policy_dirs) == 0:
             raise ValueError("No instances defined; instances_conf='%s'" % self.instances_conf.instances_conf_path)
 
         import imp
-        import os
-
-        for policy_file in policy_files:
-            module_name = os.path.splitext(os.path.basename(policy_file))[0]
-            fp, pathname, description = imp.find_module(module_name, [os.path.dirname(policy_file), ])
-            try:
-                imp.load_module(module_name, fp, pathname, description)
-            finally:
-                if fp:
-                    fp.close()
+        policy_dir = policy_dirs.pop()
+        policy_module_name = 'zones'
+        fp, pathname, description = imp.find_module(policy_module_name, [policy_dir, ])
+        try:
+            imp.load_module(policy_module_name, fp, pathname, description)
+        finally:
+            if fp:
+                fp.close()
 
     def setup(self):
-        self._import_policy()
+        self._import_zones()
 
     def reload(self):
         Zone.zones = {}
