@@ -299,7 +299,7 @@ class Daemon():
     def setup(self):
         self.conf_handler.setup()
 
-        from Zorp.Common import BaseZone
+        from Zorp.Base import BaseZone
         self.zone_handler = DynamicZoneHandler(BaseZone.zones.values(), self.dnscache)
         self.zone_handler.setup()
         # drop capabilities
@@ -312,7 +312,7 @@ class Daemon():
     def reload(self):
         self.dnscache = ResolverCache.ResolverCache(ResolverCache.DNSResolver())
         self.conf_handler.reload()
-        from Zorp.Common import BaseZone
+        from Zorp.Base import BaseZone
         self.zone_handler = DynamicZoneHandler(Zone.zones.values(), self.dnscache)
         self.zone_handler.setup()
 
