@@ -143,13 +143,13 @@ class DynamicZoneHandler():
     def setup_dynamic_zones(self):
         add_zone_subnet_messages = {}
         for zone in self.zones:
+            if len(zone.hostnames) > 0:
+                add_zone_subnet_messages[zone.name] = self._create_add_zone_subnet_messages_from_zone(zone)
+
             for hostname in zone.hostnames:
                 try:
                     ipv4_addresses, ipv6_addresses = self.dnscache.lookupHostname(hostname)
-                    if add_zone_subnet_messages.has_key(zone.name):
-                        add_zone_subnet_messages[zone.name] += self.__create_add_zone_subnet_messages(zone, ipv4_addresses, ipv6_addresses)
-                    else:
-                        add_zone_subnet_messages[zone.name] = self.__create_add_zone_subnet_messages(zone, ipv4_addresses, ipv6_addresses)
+                    add_zone_subnet_messages[zone.name] += self.__create_add_zone_subnet_messages(zone, ipv4_addresses, ipv6_addresses)
                 except KeyError:
                     pass
 
