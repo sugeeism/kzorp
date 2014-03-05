@@ -197,10 +197,10 @@ class ConfigurationHandler():
         import imp
         policy_dir = policy_dirs.pop()
         policy_module_name = 'zones'
-        fp, pathname, description = imp.find_module(policy_module_name, [policy_dir, ])
         try:
+            fp, pathname, description = imp.find_module(policy_module_name, [policy_dir, ])
             imp.load_module(policy_module_name, fp, pathname, description)
-        finally:
+        finally ImportError:
             if fp:
                 fp.close()
 
