@@ -349,6 +349,7 @@ class Daemon():
                 sleep_sec = self.min_sleep_in_sec
                 Zorp.log(None, Zorp.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
             time.sleep(sleep_sec)
+            self.zone_handler.setup_dynamic_zones()
 
 def run(foreground, log_verbosity, user, group):
     DAEMON = Daemon(user, group)
