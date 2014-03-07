@@ -210,7 +210,7 @@ class ConfigurationHandler():
     def reload(self):
         Zone.zones = {}
         Zone.zone_subnet_tree = radix.Radix()
-        self._import_policy()
+        self._import_zones()
 
 class KeeperDaemonContext(daemon.DaemonContext):
     def open(self):
