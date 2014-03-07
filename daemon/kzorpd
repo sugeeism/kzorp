@@ -200,7 +200,10 @@ class ConfigurationHandler():
         try:
             fp, pathname, description = imp.find_module(policy_module_name, [policy_dir, ])
             imp.load_module(policy_module_name, fp, pathname, description)
-        finally ImportError:
+        except ImportError, e:
+            fp = None
+            Common.log(None, Common.CORE_INFO, 1, "Unable to import zones.py; error='%s'" % (e))
+        finally:
             if fp:
                 fp.close()
 
