@@ -1297,6 +1297,8 @@ class KZorpMessageFactory(object):
         raise NetlinkException, "Netlink message command not supported: command='%d'" % (command)
 
 import netlink
+import random, time
+import kzorp_netlink
 class Handle(netlink.Handle):
     def __init__(self):
         super(Handle, self).__init__('kzorp')
@@ -1315,3 +1317,33 @@ class Handle(netlink.Handle):
             return replies[0]
         else:
             raise NetlinkException, "Netlink message has more than one reply: command='%d'" % (msg.command)
+
+def exchangeMessage(h, payload):
+    try:
+        for reply in h.talk(payload):
+            pass
+    except NetlinkException as e:
+        raise NetlinkException, "Error while talking to kernel; result='%s'" % (e.what)
+
+def exchangeMessages(h, messages):
+    for payload in messages:
+        exchangeMessage(h, payload)
+
+def startTransaction(h, instance_name):
+    tries = 7
+    wait = 0.1
+    while tries > 0:
+        try:
+            exchangeMessage(h, kzorp_netlink.KZorpStartTransactionMessage(instance_name))
+        except:
+            tries = tries - 1
+            if tries == 0:
+                raise
+            wait = 2 * wait
+            time.sleep(wait * random.random())
+            continue
+
+        break
+
+def commitTransaction(h):
+    exchangeMessage(h, kzorp_netlink.KZorpCommitTransactionMessage())

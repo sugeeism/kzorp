@@ -32,7 +32,6 @@ import traceback
 import radix
 
 import Zorp.Common as Common
-import Zorp.KZorp as KZorp
 import Zorp.ResolverCache as ResolverCache
 
 import kzorp.kzorp_netlink as kznl
@@ -162,12 +161,12 @@ class DynamicZoneHandler():
         self._acquire_caps()
 
         try:
-            KZorp.startTransaction(self.kzorp_handle, kznl.KZ_INSTANCE_GLOBAL)
-            KZorp.exchangeMessages(self.kzorp_handle, delete_zone_messages.values())
-            KZorp.exchangeMessages(self.kzorp_handle, add_zone_messages.values())
+            kznl.startTransaction(self.kzorp_handle, kznl.KZ_INSTANCE_GLOBAL)
+            kznl.exchangeMessages(self.kzorp_handle, delete_zone_messages.values())
+            kznl.exchangeMessages(self.kzorp_handle, add_zone_messages.values())
             for m in itertools.chain(*add_zone_subnet_messages.values()):
-                KZorp.exchangeMessage(self.kzorp_handle, m)
-            KZorp.commitTransaction(self.kzorp_handle)
+                kznl.exchangeMessage(self.kzorp_handle, m)
+            kznl.commitTransaction(self.kzorp_handle)
         except kznl.NetlinkException:
             raise
         finally:
