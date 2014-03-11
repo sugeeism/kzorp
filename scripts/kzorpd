@@ -186,8 +186,13 @@ class ConfigurationHandler():
         import os
         policy_dirs = set()
 
-        for instance in self.instances_conf:
-            policy_dirs.add(os.path.dirname(instance.zorp_process.args.policy))
+        try:
+            for instance in self.instances_conf:
+                policy_dirs.add(os.path.dirname(instance.zorp_process.args.policy))
+        except IOError, e:
+            Common.log(None, Common.CORE_INFO, 1, "Unable to open instances.conf; error='%s'" % (e))
+            return
+
         if len(policy_dirs) > 1:
             raise ValueError('Different directories of policy files found in instances.conf; policy_dirs=%s' % policy_dirs)
         if len(policy_dirs) == 0:
@@ -212,7 +217,7 @@ class ConfigurationHandler():
     def reload(self):
         Zone.zones = {}
         Zone.zone_subnet_tree = radix.Radix()
-        self._import_zones()
+        self.setup()
 
 class KeeperDaemonContext(daemon.DaemonContext):
     def open(self):
@@ -319,10 +324,7 @@ class Daemon():
         self.zone_handler.setup()
 
     def do_main(self):
-        try:
-            self.setup()
-        except BaseException, e:
-            Common.log(None, Common.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
+        self.setup()
 
         while True:
             now = time.time()
@@ -351,7 +353,8 @@ class Daemon():
                 sleep_sec = self.min_sleep_in_sec
                 Common.log(None, Common.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
             time.sleep(sleep_sec)
-            self.zone_handler.setup_dynamic_zones()
+            if self.zone_handler is not None:
+                self.zone_handler.setup_dynamic_zones()
 
 def run(foreground, log_verbosity, user, group):
     DAEMON = Daemon(user, group)
