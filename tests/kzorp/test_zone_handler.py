@@ -5,8 +5,6 @@ import unittest
 import socket
 import radix
 
-from Zorp.DynamicZoneHandler import DynamicZoneHandler
-
 from Zorp.Base import BaseZone
 from Zorp.Zone import Zone
 import kzorp.messages
@@ -23,7 +21,7 @@ class TestDynamicZoneHandler(unittest.TestCase):
 
 class TestSetupZones(TestDynamicZoneHandler):
     def __check_initially_added_zones(self, zone_names_in_order=[], zone_subnets=[]):
-        zone_handler = DynamicZoneHandler(BaseZone.zones.values(), None)
+        zone_handler = kzorp.messages.ZoneUpdateMessageCreator(BaseZone.zones.values(), None)
         messages = zone_handler.create_zone_static_address_initialization_messages()
 
         add_zone_messages = filter(lambda msg: msg.command == kzorp.messages.KZNL_MSG_ADD_ZONE, messages)
@@ -129,7 +127,7 @@ class TestUpdateZones(TestDynamicZoneHandler):
 
     def __check_zone_update_messages(self, updatable_hostname, updatable_zones):
         updatable_zone_names = set(updatable_zones.keys())
-        zone_handler = DynamicZoneHandler(BaseZone.zones.values(), MyResolverCache())
+        zone_handler = kzorp.messages.ZoneUpdateMessageCreator(BaseZone.zones.values(), MyResolverCache())
         messages = zone_handler.create_zone_update_messages(updatable_hostname)
 
         delete_zone_messages = filter(lambda msg: msg.command == kzorp.messages.KZNL_MSG_DELETE_ZONE, messages)
