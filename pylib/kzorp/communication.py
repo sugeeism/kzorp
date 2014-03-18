@@ -1,15 +1,16 @@
 import netlink
 import random, time
-import messages
+import messages as kzorp_messages
+import Zorp.Common
 
 class Handle(netlink.Handle):
     def __init__(self):
         super(Handle, self).__init__('kzorp')
 
-    def dump(self, message, factory=messages.KZorpMessageFactory):
+    def dump(self, message, factory=kzorp_messages.KZorpMessageFactory):
         return super(Handle, self).talk(message, True, factory)
 
-    def exchange(self, message, factory=messages.KZorpMessageFactory):
+    def exchange(self, message, factory=kzorp_messages.KZorpMessageFactory):
         replies = []
         for reply in self.talk(message, False, factory):
             replies.append(reply)
@@ -37,7 +38,7 @@ def startTransaction(h, instance_name):
     wait = 0.1
     while tries > 0:
         try:
-            exchangeMessage(h, messages.KZorpStartTransactionMessage(instance_name))
+            exchangeMessage(h, kzorp_messages.KZorpStartTransactionMessage(instance_name))
         except:
             tries = tries - 1
             if tries == 0:
@@ -49,4 +50,49 @@ def startTransaction(h, instance_name):
         break
 
 def commitTransaction(h):
-    exchangeMessage(h, messages.KZorpCommitTransactionMessage())
+    exchangeMessage(h, kzorp_messages.KZorpCommitTransactionMessage())
+
+
+class Adapter(object):
+    def __init__(self):
+        self.kzorp_handle = Handle()
+
+    def __enter__(self):
+        self.__acquire_caps()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.__drop_caps()
+
+    def __acquire_caps(self):
+        """ aquire the CAP_NET_ADMIN capability """
+        import prctl
+
+        try:
+            prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, True))
+        except OSError, e:
+            Zorp.Common.log(None, Zorp.Common.CORE_ERROR, 1, "Unable to acquire NET_ADMIN capability; error='%s'" % (e))
+            raise e
+
+    def __drop_caps(self):
+        """ drop the CAP_NET_ADMIN capability """
+        import prctl
+
+        try:
+            prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, False))
+        except OSError, e:
+            Zorp.Common.log(None, Zorp.Common.CORE_ERROR, 1, "Unable to drop NET_ADMIN capability; error='%s'" % (e))
+            raise e
+
+    def send_messages_in_transaction(self, messages):
+        try:
+            startTransaction(self.kzorp_handle, kzorp_messages.KZ_INSTANCE_GLOBAL)
+
+            for message in messages:
+                self.kzorp_handle.exchange(message)
+
+            commitTransaction(self.kzorp_handle)
+        except netlink.NetlinkException as e:
+            Zorp.Common.log(None, Zorp.Common.CORE_ERROR, 6,
+                       "Error occured while downloading zones to kernel; error='%s'" % (e.detail))
+            raise e
