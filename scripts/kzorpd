@@ -34,18 +34,42 @@ import Zorp.Common as Common
 import Zorp.ResolverCache as ResolverCache
 
 import kzorp.communication
+import kzorp.messages
 
 from Zorp.Zone import Zone
 from Zorp.InstancesConf import InstancesConf
 from zorpctl.ZorpctlConf import ZorpctlConfig
 
-from Zorp.DynamicZoneHandler import DynamicZoneHandler, ZoneDownload
-
-
 # CUTTED ZONEDOWNLOADER
 
-
 # CUTTED DINZONEHANDLER
+
+
+
+class ZoneDownload(kzorp.communication.Adapter):
+
+    def __init__(self):
+        super(ZoneDownload, self).__init__()
+
+    def initial(self, messages):
+        self.send_messages_in_transaction([kzorp.messages.KZorpFlushZonesMessage(), ] + messages)
+
+    def update(self, messages):
+        self.send_messages_in_transaction(messages)
+
+class DynamicZoneHandler(kzorp.messages.ZoneUpdateMessageCreator):
+
+    def __init__(self, zones, dnscache):
+        super(DynamicZoneHandler, self).__init__(zones, dnscache)
+
+    def setup(self):
+        with ZoneDownload() as zone_download:
+            messages = self.create_zone_static_address_initialization_messages()
+            zone_download.initial(messages)
+        self.setup_dns_cache()
+        with ZoneDownload() as zone_download:
+            messages = self.create_zone_dynamic_address_initialization_messages()
+            zone_download.update(messages)
 
 class ConfigurationHandler():
     def __init__(self):
