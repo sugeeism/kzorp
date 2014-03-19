@@ -85,7 +85,7 @@ def downloadStaticZones(zones):
 def downloadKZorpConfig(instance_name, is_master):
 
     random.seed()
-    h = kkzorp.communication.Handle()
+    h = kzorp.communication.Handle()
 
     # start transaction
     kzorp.communication.startTransaction(h, instance_name)
