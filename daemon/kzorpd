@@ -97,6 +97,7 @@ class ConfigurationHandler():
         except ImportError, e:
             fp = None
             Common.log(None, Common.CORE_INFO, 1, "Unable to import zones.py; error='%s'" % (e))
+            raise e
         finally:
             if fp:
                 fp.close()
@@ -197,12 +198,18 @@ class Daemon():
             os.chown(pidfiledir, owner_uid, group_uid)
             os.chmod(pidfiledir, mode_oct)
 
-    def setup(self):
-        self.conf_handler.setup()
-
+    def reinitialize_zone_handler(self):
         from Zorp.Base import BaseZone
         self.zone_handler = DynamicZoneHandler(BaseZone.zones.values(), self.dnscache)
         self.zone_handler.setup()
+
+    def setup(self):
+        try:
+            self.conf_handler.setup()
+            self.reinitialize_zone_handler()
+        except ImportError, e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
+
         # drop capabilities
         try:
             prctl.set_caps((prctl.ALL_CAPS, prctl.CAP_EFFECTIVE, False))
@@ -212,10 +219,11 @@ class Daemon():
 
     def reload(self):
         self.dnscache = ResolverCache.ResolverCache(ResolverCache.DNSResolver())
-        self.conf_handler.reload()
-        from Zorp.Base import BaseZone
-        self.zone_handler = DynamicZoneHandler(Zone.zones.values(), self.dnscache)
-        self.zone_handler.setup()
+        try:
+            self.conf_handler.reload()
+            self.reinitialize_zone_handler()
+        except ImportError, e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
 
     def do_main(self):
         expired_hostname = None
