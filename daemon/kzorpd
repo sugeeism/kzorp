@@ -80,8 +80,10 @@ class ConfigurationHandler():
             for instance in self.instances_conf:
                 policy_dirs.add(os.path.dirname(instance.zorp_process.args.policy))
         except IOError, e:
-            Common.log(None, Common.CORE_INFO, 1, "Unable to open instances.conf; error='%s'" % (e))
-            return
+            zorpctlconf = ZorpctlConfig.Instance()
+            configdir = zorpctlconf['ZORP_CONFIGDIR']
+            Common.log(None, Common.CORE_INFO, 1, "Unable to open instances.conf, falling back to configuration dir; error='%s', fallback='%s'" % (e, configdir))
+            policy_dirs.add(configdir)
 
         if len(policy_dirs) > 1:
             raise ValueError('Different directories of policy files found in instances.conf; policy_dirs=%s' % policy_dirs)
