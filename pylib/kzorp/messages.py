@@ -95,7 +95,7 @@ KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE       = 54
 KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE    = 55
 KZNL_ATTR_ZONE_SUBNET                   = 56
 KZNL_ATTR_ZONE_SUBNET_NUM               = 57
-KZNL_ATTR_ZONE_IP                       = 58
+KZNL_ATTR_ZONE_LOOKUP_PARAM_IP          = 58
 KZNL_ATTR_MAX                           = 59
 
 # list of attributes in an N dimension rule

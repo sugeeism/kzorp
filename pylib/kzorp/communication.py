@@ -84,6 +84,9 @@ class Adapter(object):
             Zorp.Common.log(None, Zorp.Common.CORE_ERROR, 1, "Unable to drop NET_ADMIN capability; error='%s'" % (e))
             raise e
 
+    def send_message(self, message):
+        return self.kzorp_handle.exchange(message)
+
     def send_messages_in_transaction(self, messages):
         try:
             startTransaction(self.kzorp_handle, kzorp_messages.KZ_INSTANCE_GLOBAL)
