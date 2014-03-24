@@ -78,20 +78,23 @@ class ConfigurationHandler():
     def _import_zones(self):
         import os
         policy_dirs = set()
+        zorpctlconf = ZorpctlConfig.Instance()
 
         try:
             for instance in self.instances_conf:
                 policy_dirs.add(os.path.dirname(instance.zorp_process.args.policy))
         except IOError, e:
-            zorpctlconf = ZorpctlConfig.Instance()
-            configdir = zorpctlconf['ZORP_CONFIGDIR']
+            configdir = zorpctlconf['ZORP_SYSCONFDIR']
             Common.log(None, Common.CORE_INFO, 1, "Unable to open instances.conf, falling back to configuration dir; error='%s', fallback='%s'" % (e, configdir))
             policy_dirs.add(configdir)
 
         if len(policy_dirs) > 1:
             raise ValueError('Different directories of policy files found in instances.conf; policy_dirs=%s' % policy_dirs)
         if len(policy_dirs) == 0:
-            raise ValueError("No instances defined; instances_conf='%s'" % self.instances_conf.instances_conf_path)
+            Common.log(None, Common.CORE_INFO, 1, "No instances defined; instances_conf='%s'" % self.instances_conf.instances_conf_path)
+            configdir = zorpctlconf['ZORP_SYSCONFDIR']
+            Common.log(None, Common.CORE_INFO, 1, "Falling back to configuration directory; fallback='%s'" % (configdir,))
+            policy_dirs.add(configdir)
 
         import imp
         policy_dir = policy_dirs.pop()
