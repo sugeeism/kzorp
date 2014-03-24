@@ -35,6 +35,7 @@ import Zorp.ResolverCache as ResolverCache
 
 import kzorp.communication
 import kzorp.messages
+from kzorp.netlink import NetlinkException
 
 from Zorp.Zone import Zone
 from Zorp.InstancesConf import InstancesConf
@@ -74,6 +75,7 @@ class DynamicZoneHandler(kzorp.messages.ZoneUpdateMessageCreator):
 class ConfigurationHandler():
     def __init__(self):
         self.instances_conf = InstancesConf()
+        self.init_state()
 
     def _import_zones(self):
         import os
@@ -89,7 +91,7 @@ class ConfigurationHandler():
             policy_dirs.add(configdir)
 
         if len(policy_dirs) > 1:
-            raise ValueError('Different directories of policy files found in instances.conf; policy_dirs=%s' % policy_dirs)
+            raise ImportError('Different directories of policy files found in instances.conf; policy_dirs=%s' % policy_dirs)
         if len(policy_dirs) == 0:
             Common.log(None, Common.CORE_INFO, 1, "No instances defined; instances_conf='%s'" % self.instances_conf.instances_conf_path)
             configdir = zorpctlconf['ZORP_SYSCONFDIR']
@@ -110,12 +112,24 @@ class ConfigurationHandler():
             if fp:
                 fp.close()
 
+    def init_state(self):
+        self.saved_zones = {}
+        self.saved_subnet_tree = radix.Radix()
+
+    def save_state(self):
+        self.saved_zones = Zone.zones
+        self.saved_subnet_tree = Zone.zone_subnet_tree
+
+    def restore_state(self):
+        Zone.zones = self.saved_zones
+        Zone.zone_subnet_tree = self.saved_subnet_tree
+
     def setup(self):
+        Zone.zones = {}
+        Zone.zone_subnet_tree = radix.Radix()
         self._import_zones()
 
     def reload(self):
-        Zone.zones = {}
-        Zone.zone_subnet_tree = radix.Radix()
         self.setup()
 
 class KeeperDaemonContext(daemon.DaemonContext):
@@ -207,16 +221,17 @@ class Daemon():
             os.chmod(pidfiledir, mode_oct)
 
     def reinitialize_zone_handler(self):
-        from Zorp.Base import BaseZone
-        self.zone_handler = DynamicZoneHandler(BaseZone.zones.values(), self.dnscache)
+        self.zone_handler = DynamicZoneHandler(Zone.zones.values(), self.dnscache)
         self.zone_handler.setup()
 
     def setup(self):
+        self.conf_handler.save_state()
         try:
             self.conf_handler.setup()
             self.reinitialize_zone_handler()
-        except ImportError, e:
+        except (ImportError, NetlinkException) as e:
             Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
+            self.conf_handler.restore_state()
 
         # drop capabilities
         try:
@@ -226,12 +241,16 @@ class Daemon():
             raise e
 
     def reload(self):
+        saved_dnscache = self.dnscache
+        self.conf_handler.save_state()
         self.dnscache = ResolverCache.ResolverCache(ResolverCache.DNSResolver())
         try:
             self.conf_handler.reload()
             self.reinitialize_zone_handler()
-        except ImportError, e:
+        except (ImportError, NetlinkException) as e:
             Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
+            self.conf_handler.restore_state()
+            self.dnscache = saved_dnscache
 
     def do_main(self):
         expired_hostname = None
