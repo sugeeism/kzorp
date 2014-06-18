@@ -1,4 +1,4 @@
-SUBDIRS = pylib 
+SUBDIRS = pylib scripts
 
 kprefix = $(prefix)/src/kzorp-$(PACKAGE_VERSION)
 
