@@ -17,6 +17,7 @@ AC_SUBST(KZORP_PYTHON_DIR)
 
 AC_CONFIG_FILES([
 Makefile
+scripts/Makefile
 pylib/Makefile
 pylib/kzorp/Makefile
 net/netfilter/dkms.conf
