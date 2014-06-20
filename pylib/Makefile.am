@@ -1,1 +1,1 @@
-SUBDIRS = kzorp
+SUBDIRS = kzorp Zorp

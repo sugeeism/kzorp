@@ -11,15 +11,18 @@ AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
 KZORP_PYTHON_DIR="${pythondir}/kzorp"
+ZORP_PYTHON_DIR="${pythondir}/Zorp"
 
 AC_SUBST([PYTHON])
 AC_SUBST(KZORP_PYTHON_DIR)
+AC_SUBST(ZORP_PYTHON_DIR)
 
 AC_CONFIG_FILES([
 Makefile
 scripts/Makefile
 pylib/Makefile
 pylib/kzorp/Makefile
+pylib/Zorp/Makefile
 net/netfilter/dkms.conf
 ])
 AC_OUTPUT
