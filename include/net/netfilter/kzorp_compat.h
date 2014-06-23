@@ -2,8 +2,13 @@
 #define _KZORP_COMPAT_H
 
 #ifndef KZ_USERSPACE
+#include <linux/kernel.h>
+#ifdef _UAPI_LINUX_KERNEL_H
+#include <generated/uapi/linux/version.h>
+#else
 #include <linux/version.h>
-#endif
+#endif /* _UAPI_LINUX_KERNEL_H */
+#endif /* KZ_USERSPACE */
 
 #include <net/genetlink.h>
 #include <linux/netlink.h>
