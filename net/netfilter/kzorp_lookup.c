@@ -2085,13 +2085,17 @@ EXPORT_SYMBOL_GPL(kz_instance_bind_lookup_v6);
 /* FIXME: this is _heavily_ dependent on TCP and UDP port numbers
  * being mapped to the same offset in the ip_nat_range structure */
 static inline int
-nat_in_range(const struct nf_nat_range *r,
+nat_in_range(const NAT_RANGE_TYPE *r,
 	 const __be32 addr, const __be16 port,
 	 const u_int8_t proto)
 {
 	/* log messages: the IP addresses are in host-endian format due to usage of "<" and ">" relations */
 	kz_debug("comparing range; flags='%x', start_ip='%pI4', end_ip='%pI4', start_port='%u', end_port='%u'\n",
-		 r->flags, &r->min_ip, &r->max_ip, ntohs(r->min.udp.port), ntohs(r->max.udp.port));
+		 r->flags,
+	         kz_nat_range_get_min_ip(r),
+	         kz_nat_range_get_max_ip(r),
+	         ntohs(*kz_nat_range_get_min_port(r)),
+	         ntohs(*kz_nat_range_get_max_port(r)));
 	kz_debug("with packet; proto='%d', ip='%pI4', port='%u'\n",
 		 proto, &addr, ntohs(port));
 
@@ -2099,14 +2103,14 @@ nat_in_range(const struct nf_nat_range *r,
 		return 0;
 
 	if (r->flags & IP_NAT_RANGE_MAP_IPS) {
-		if ((r->min_ip && ntohl(addr) < ntohl(r->min_ip)) ||
-		    (r->max_ip && ntohl(addr) > ntohl(r->max_ip)))
+		if ((*kz_nat_range_get_min_ip(r) && ntohl(addr) < ntohl(*kz_nat_range_get_min_ip(r))) ||
+		    (*kz_nat_range_get_max_ip(r) && ntohl(addr) > ntohl(*kz_nat_range_get_max_ip(r))))
 			return 0;
 	}
 
 	if (r->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
-		if ((r->min.udp.port && ntohs(port) < ntohs(r->min.udp.port)) ||
-		    (r->max.udp.port && ntohs(port) > ntohs(r->max.udp.port)))
+		if ((*kz_nat_range_get_min_port(r) && ntohs(port) < ntohs(*kz_nat_range_get_min_port(r))) ||
+		    (*kz_nat_range_get_max_port(r) && ntohs(port) > ntohs(*kz_nat_range_get_max_port(r))))
 			return 0;
 	}
 
@@ -2115,7 +2119,7 @@ nat_in_range(const struct nf_nat_range *r,
 	return 1;
 }
 
-const struct nf_nat_range *
+const NAT_RANGE_TYPE *
 kz_service_nat_lookup(const struct list_head * const head,
 		      const __be32 saddr, const __be32 daddr,
 		      const __be16 sport, const __be16 dport,
@@ -2130,7 +2134,8 @@ kz_service_nat_lookup(const struct list_head * const head,
 		/* source range _must_ match, destination either matches or
 		 * the destination range is empty in the rule */
 		if (nat_in_range(&i->src, saddr, sport, proto) &&
-		    (((i->dst.min_ip == 0) && (i->dst.max_ip == 0)) || nat_in_range(&i->dst, daddr, dport, proto))) {
+		    (((*kz_nat_range_get_min_ip(&i->dst) == 0) && (*kz_nat_range_get_max_ip(&i->dst) == 0)) ||
+		    nat_in_range(&i->dst, daddr, dport, proto))) {
 			return &i->map;
 		}
 	}

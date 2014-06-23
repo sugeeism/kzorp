@@ -236,9 +236,9 @@ struct kz_dispatcher {
 
 struct kz_service_nat_entry {
 	struct list_head list;
-	struct nf_nat_range src;
-	struct nf_nat_range dst;
-	struct nf_nat_range map;
+	NAT_RANGE_TYPE src;
+	NAT_RANGE_TYPE dst;
+	NAT_RANGE_TYPE map;
 };
 
 struct kz_service_info_fwd {
@@ -463,8 +463,8 @@ extern void kz_service_destroy(struct kz_service *service);
 extern struct kz_service *__kz_service_lookup_name(const struct list_head * const head,
 						   const char *name);
 extern struct kz_service *kz_service_lookup_name(const struct kz_config *cfg, const char *name);
-extern int kz_service_add_nat_entry(struct list_head *head, struct nf_nat_range *src,
-				    struct nf_nat_range *dst, struct nf_nat_range *map);
+extern int kz_service_add_nat_entry(struct list_head *head, NAT_RANGE_TYPE *src,
+				    NAT_RANGE_TYPE *dst, NAT_RANGE_TYPE *map);
 extern struct kz_service *kz_service_clone(const struct kz_service * const o);
 extern int kz_service_lock(struct kz_service * const service);
 extern void kz_service_unlock(struct kz_service * const service);
@@ -609,7 +609,7 @@ extern int kz_head_zone_build(struct kz_head_z *h);
 extern void kz_head_zone_destroy(struct kz_head_z *h);
 extern struct kz_zone *kz_head_zone_ipv4_lookup(const struct kz_head_z *h, const struct in_addr * const addr);
 
-extern const struct nf_nat_range *kz_service_nat_lookup(const struct list_head * const head,
+extern const NAT_RANGE_TYPE *kz_service_nat_lookup(const struct list_head * const head,
 						    const __be32 saddr, const __be32 daddr,
 						    const __be16 sport, const __be16 dport,
 						    const u_int8_t proto);
