@@ -638,7 +638,7 @@ error:
 }
 
 static inline int
-kznl_parse_service_nat_params(const struct nlattr *attr, struct nf_nat_range *range)
+kznl_parse_service_nat_params(const struct nlattr *attr, NAT_RANGE_TYPE *range)
 {
 	const struct kza_service_nat_params *a = nla_data(attr);
 	u_int32_t flags = ntohl(a->flags);
@@ -651,10 +651,10 @@ kznl_parse_service_nat_params(const struct nlattr *attr, struct nf_nat_range *ra
 	if (flags & KZF_SERVICE_NAT_MAP_PROTO_SPECIFIC)
 		range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
 
-	range->min_ip = a->min_ip;
-	range->max_ip = a->max_ip;
-	range->min.udp.port = a->min_port;
-	range->max.udp.port = a->max_port;
+	kz_nat_range_set_min_ip(range, a->min_ip);
+	kz_nat_range_set_max_ip(range, a->max_ip);
+	kz_nat_range_set_min_port(range, a->min_port);
+	kz_nat_range_set_max_port(range, a->max_port);
 
 	return 0;
 }
@@ -952,7 +952,7 @@ nla_put_failure:
 }
 
 static inline int
-kznl_dump_service_nat_entry(struct kza_service_nat_params *a, struct nf_nat_range *range)
+kznl_dump_service_nat_entry(struct kza_service_nat_params *a, NAT_RANGE_TYPE *range)
 {
 	if (range->flags & IP_NAT_RANGE_MAP_IPS)
 		a->flags |= KZF_SERVICE_NAT_MAP_IPS;
@@ -960,10 +960,10 @@ kznl_dump_service_nat_entry(struct kza_service_nat_params *a, struct nf_nat_rang
 		a->flags |= KZF_SERVICE_NAT_MAP_PROTO_SPECIFIC;
 
 	a->flags = htons(a->flags);
-	a->min_ip = range->min_ip;
-	a->max_ip = range->max_ip;
-	a->min_port = range->min.udp.port;
-	a->max_port = range->max.udp.port;
+	a->min_ip = *kz_nat_range_get_min_ip(range);
+	a->max_ip = *kz_nat_range_get_max_ip(range);
+	a->min_port = *kz_nat_range_get_min_port(range);
+	a->max_port = *kz_nat_range_get_max_port(range);
 
 	return 0;
 }
@@ -1828,7 +1828,7 @@ kznl_recv_add_service_nat(struct sk_buff *skb, struct genl_info *info, bool snat
 	struct kz_service *svc;
 	struct kz_transaction *tr;
 	char *service_name = NULL;
-	struct nf_nat_range src, dst, map;
+	NAT_RANGE_TYPE src, dst, map;
 
 	if (!info->attrs[KZNL_ATTR_SERVICE_NAME] || !info->attrs[KZNL_ATTR_SERVICE_NAT_SRC] ||
 	    !info->attrs[KZNL_ATTR_SERVICE_NAT_MAP]) {
@@ -1939,7 +1939,7 @@ kznl_build_service_add_nat(struct sk_buff *skb, netlink_port_t pid, u_int32_t se
 	if (nla_put(skb, KZNL_ATTR_SERVICE_NAT_SRC, sizeof(nat), &nat))
 		goto nla_put_failure;
 
-	if (entry->dst.min_ip != 0) {
+	if (*kz_nat_range_get_min_ip(&entry->dst) != 0) {
 		if (kznl_dump_service_nat_entry(&nat, &entry->dst) < 0)
 			goto nlmsg_failure;
 		if (nla_put(skb, KZNL_ATTR_SERVICE_NAT_DST, sizeof(nat), &nat))
