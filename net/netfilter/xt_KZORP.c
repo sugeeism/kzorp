@@ -416,8 +416,8 @@ process_forwarded_session(unsigned int hooknum, struct sk_buff *skb,
 			  struct kz_service *svc)
 {
 	unsigned int verdict = NF_ACCEPT;
-	const struct NAT_RANGE_TYPE *map;
-	struct nf_nat_range fakemap;
+	const NAT_RANGE_TYPE *map;
+	NAT_RANGE_TYPE fakemap;
 	__be32 raddr;
 	__be16 rport;
 	const struct list_head *head = NULL;
@@ -465,8 +465,10 @@ process_forwarded_session(unsigned int hooknum, struct sk_buff *skb,
 					/* PFService with DirectedRouter, we have to DNAT to
 					 * the specified address */
 					fakemap.flags = IP_NAT_RANGE_MAP_IPS | IP_NAT_RANGE_PROTO_SPECIFIED;
-					fakemap.min_ip = fakemap.max_ip = raddr;
-					fakemap.min.udp.port = fakemap.max.udp.port = rport;
+					kz_nat_range_set_min_ip(&fakemap, raddr);
+					kz_nat_range_set_max_ip(&fakemap, raddr);
+					kz_nat_range_set_min_port(&fakemap, rport);
+					kz_nat_range_set_max_port(&fakemap, rport);
 					map = &fakemap;
 					kz_debug("setting up destination NAT for DirectedRouter; new_dst='%pI4:%u'\n",
 						 &raddr, ntohs(rport));
@@ -475,9 +477,10 @@ process_forwarded_session(unsigned int hooknum, struct sk_buff *skb,
 				/* DNAT entry with no specified destination port */
 				if (!(map->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
 					fakemap.flags = IP_NAT_RANGE_MAP_IPS | IP_NAT_RANGE_PROTO_SPECIFIED;
-					fakemap.min_ip = map->min_ip;
-					fakemap.max_ip = map->max_ip;
-					fakemap.min.udp.port = fakemap.max.udp.port = rport;
+					kz_nat_range_set_min_ip(&fakemap, *kz_nat_range_get_min_ip(map));
+					kz_nat_range_set_max_ip(&fakemap, *kz_nat_range_get_max_ip(map));
+					kz_nat_range_set_min_port(&fakemap, rport);
+					kz_nat_range_set_max_port(&fakemap, rport);
 					map = &fakemap;
 				}
 			}
@@ -488,12 +491,15 @@ process_forwarded_session(unsigned int hooknum, struct sk_buff *skb,
 
 			/* mapping found */
 			kz_debug("NAT rule found; hooknum='%d', min_ip='%pI4', max_ip='%pI4', min_port='%u', max_port='%u'\n",
-				 hooknum, &map->min_ip, &map->max_ip,
-				 ntohs(map->min.udp.port), ntohs(map->max.udp.port));
+				 hooknum,
+				 kz_nat_range_get_min_ip(map),
+				 kz_nat_range_get_max_ip(map),
+				 ntohs(*kz_nat_range_get_min_port(map)),
+				 ntohs(*kz_nat_range_get_max_port(map)));
 
 			if (hooknum == NF_INET_PRE_ROUTING) {
 				/* XXX: Assumed: map->min_ip == map->max_ip */
-				fzone = kz_zone_lookup(cfg, ntohl(map->min_ip));
+				fzone = kz_zone_lookup(cfg, ntohl(*kz_nat_range_get_min_ip(map)));
 
 				kz_debug("re-lookup zone after NAT; old_zone='%s', new_zone='%s'\n",
 					 *szone ? (*szone)->name : kz_log_null,
@@ -515,7 +521,7 @@ process_forwarded_session(unsigned int hooknum, struct sk_buff *skb,
 			if ((hooknum == NF_INET_POST_ROUTING) &&
 			    !(svc->flags & KZF_SERVICE_FORGE_ADDR)) {
 				struct rtable *rt;
-				struct nf_nat_range range;
+				NAT_RANGE_TYPE range;
 				__be32 laddr;
 
 				rt = skb_rtable(skb);
@@ -527,7 +533,8 @@ process_forwarded_session(unsigned int hooknum, struct sk_buff *skb,
 				}
 
 				range.flags = IP_NAT_RANGE_MAP_IPS;
-				range.min_ip = range.max_ip = laddr;
+				kz_nat_range_set_min_ip(&range, laddr);
+				kz_nat_range_set_max_ip(&range, laddr);
 
 				kz_debug("setting up implicit SNAT as FORGE_ADDR is off; new_src='%pI4'\n", &laddr);
 				verdict = nf_nat_setup_info(ct, &range, HOOK2MANIP(hooknum));

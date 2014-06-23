@@ -702,8 +702,8 @@ kz_service_lookup_name(const struct kz_config *cfg, const char *name)
 EXPORT_SYMBOL_GPL(kz_service_lookup_name);
 
 int
-kz_service_add_nat_entry(struct list_head *head, struct nf_nat_range *src,
-			 struct nf_nat_range *dst, struct nf_nat_range *map)
+kz_service_add_nat_entry(struct list_head *head, NAT_RANGE_TYPE *src,
+			 NAT_RANGE_TYPE *dst, NAT_RANGE_TYPE *map)
 {
 	struct kz_service_nat_entry *entry;
 
@@ -732,7 +732,7 @@ service_clone_nat_list(const struct list_head * const src, struct list_head *dst
 
 	list_for_each_entry(i, src, list) {
 		res = kz_service_add_nat_entry(dst, &i->src,
-					    i->dst.min_ip ? &i->dst : NULL,
+					    *kz_nat_range_get_min_ip(&i->dst) ? &i->dst : NULL,
 					    &i->map);
 		if (res < 0)
 			break;
