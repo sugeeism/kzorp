@@ -52,7 +52,7 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 		break;
 	case PF_INET6:
 		kz_debug("getting results; proto='%u', src='%pI6:%hu', dst='%pI6:%hu'\n", sk->sk_protocol,
-			 &inet6_sk(sk)->rcv_saddr, ntohs(inet_sk(sk)->inet_sport), &inet6_sk(sk)->daddr, ntohs(inet_sk(sk)->inet_dport));
+			 &inet6_sk(sk)->saddr, ntohs(inet_sk(sk)->inet_sport), inet6_sk(sk)->daddr_cache, ntohs(inet_sk(sk)->inet_dport));
 		break;
 	default:
 		BUG();
@@ -74,9 +74,9 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 		tuple.dst.protonum = sk->sk_protocol;
 		break;
 	case PF_INET6:
-		ipv6_addr_copy(&tuple.src.u3.in6, &inet6_sk(sk)->rcv_saddr);
+		ipv6_addr_copy(&tuple.src.u3.in6, &inet6_sk(sk)->saddr);
 		tuple.src.u.tcp.port = inet_sk(sk)->inet_sport;
-		ipv6_addr_copy(&tuple.dst.u3.in6, &inet6_sk(sk)->daddr);
+		ipv6_addr_copy(&tuple.dst.u3.in6, inet6_sk(sk)->daddr_cache);
 		tuple.dst.u.tcp.port = inet_sk(sk)->inet_dport;
 		tuple.src.l3num = AF_INET6;
 		tuple.dst.protonum = sk->sk_protocol;

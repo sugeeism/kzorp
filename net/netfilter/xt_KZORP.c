@@ -359,7 +359,7 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 		} else {
 			pr_debug("redirecting: proto %hhu %pI6:%hu -> %pI6:%hu, mark: %x\n",
 				 tproto, &iph->daddr, ntohs(hp->dest),
-				 &inet6_sk(sk)->rcv_saddr, inet_sk(sk)->inet_num, skb->mark);
+				 &inet6_sk(sk)->saddr, inet_sk(sk)->inet_num, skb->mark);
 		}
 
 		nf_tproxy_assign_sock(skb, sk);
