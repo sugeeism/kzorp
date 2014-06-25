@@ -44,8 +44,6 @@
 
 #include <linux/netfilter/kzorp.h>
 
-#include <net/netfilter/nf_tproxy_core.h>
-
 #ifdef CONFIG_BRIDGE_NETFILTER
 #include <linux/netfilter_bridge.h>
 #endif
