@@ -10,6 +10,13 @@
 #endif /* _UAPI_LINUX_KERNEL_H */
 #endif /* KZ_USERSPACE */
 
+#if ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 12, 0) )
+	#include <net/udp.h>
+	#include <net/netfilter/nf_tproxy_core.h>
+#else
+	#include <net/netfilter/kz_tproxy_core.h>
+#endif
+
 #include <net/genetlink.h>
 #include <linux/netlink.h>
 
