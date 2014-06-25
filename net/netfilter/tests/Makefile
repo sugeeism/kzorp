@@ -1,4 +1,3 @@
-
 KVERSION ?= $(shell uname -r)
 KERNELRELEASE ?= $(KVERSION)
 
@@ -9,14 +8,14 @@ kzorp_tests: test_check perf
 	echo done
 
 ext: test_ext
-	gtester --verbose test_ext
+	$(TESTER) --verbose test_ext
 
 test_check: test_ext test_ndim_eval test_ipv6_radix 
-	set -e;for i in $^ ; do gtester --verbose $$i ; done
+	set -e;for i in $^ ; do $(TESTER) --verbose $$i ; done
 
 perf: test_kzorp_lookup
 	@echo "Running test (use '--dump' to output test data)..."
-	@./$^ && echo "################\n$^: PASSED\n################"
+	@$(TESTER) ./$^ && echo "################\n$^: PASSED\n################"
 
 theclean: test_clean realclean
 	echo cleaned
@@ -41,8 +40,11 @@ realclean:
 # Test kzorp module:
 FLAGS = -DKZ_USERSPACE -Wno-declaration-after-statement
 ifeq ($(wildcard $(srctree)/include/linux/version.h),) 
+CC = echo
+TESTER = echo
 FLAGS += -include $(srctree)/include/generated/uapi/linux/version.h
 else
+TESTER = gtester
 FLAGS += -include $(srctree)/include/linux/version.h
 endif
 FLAGS += -include test_mocks.h
