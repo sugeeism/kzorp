@@ -1304,6 +1304,40 @@ kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 	return lenv->result_size = out_idx;
 }
 
+static void
+kz_ndim_lookup_set_result(struct kz_percpu_env *lenv,
+			  struct kz_dispatcher **dispatcher,
+			  struct kz_service **service) {
+	bool no_match = (lenv->result_size == 0);
+	bool exact_match = (lenv->result_size == 1);
+	if (no_match) {
+		*dispatcher = NULL;
+		*service = NULL;
+		kz_debug("evaluation performed; eval_result='no match'\n");
+	} else {
+		const char *eval_result;
+		size_t result_rule_idx;
+		if (exact_match) {
+			result_rule_idx = 0;
+			eval_result = "exact match";
+		} else {
+			size_t rule_idx;
+			result_rule_idx = 0;
+			for (rule_idx = 1; rule_idx < lenv->result_size; rule_idx++)
+				if (lenv->result_rules[rule_idx]->id < lenv->result_rules[result_rule_idx]->id)
+					result_rule_idx = rule_idx;
+			eval_result = "multiple match";
+		}
+		*service = lenv->result_rules[result_rule_idx]->service;
+		*dispatcher = lenv->result_rules[result_rule_idx]->dispatcher;
+		kz_debug("evaluation performed; eval_result='%s', rule_id='%u', service='%s, dispatcher='%s'\n",
+			 eval_result,
+			 lenv->result_rules[result_rule_idx]->id,
+			 (*service) ? (*service)->name : kz_log_null,
+			 (*dispatcher)->name);
+	}
+}
+
 /**
  * kz_ndim_lookup -- look up service for a session by evaluating n-dimensional rules
  * @iface: input interface
@@ -1329,7 +1363,6 @@ kz_ndim_lookup(const struct kz_config *cfg,
 	struct kz_percpu_env *lenv;
 	const struct kz_head_d * const d = &cfg->dispatchers;
 	struct kz_service *service = NULL;
-	u_int32_t num_results;
 
 	kz_debug("src_zone='%s', dst_zone='%s'\n",
 		 traffic_props->src_zone ? traffic_props->src_zone->name : kz_log_null,
@@ -1338,19 +1371,8 @@ kz_ndim_lookup(const struct kz_config *cfg,
 	preempt_disable();
 	lenv = __get_cpu_var(kz_percpu);
 
-	num_results = kz_ndim_eval(traffic_props, d, lenv);
-
-	kz_debug("num_results='%u'\n", num_results);
-
-	if (num_results == 1) {
-		service = lenv->result_rules[0]->service;
-		*dispatcher = lenv->result_rules[0]->dispatcher;
-
-		kz_debug("found service; dispatcher='%s', rule_id='%u', name='%s'\n",
-			 lenv->result_rules[0]->dispatcher->name,
-			 lenv->result_rules[0]->id,
-			 service ? service->name : kz_log_null);
-	}
+	kz_ndim_eval(traffic_props, d, lenv);
+	kz_ndim_lookup_set_result(lenv, dispatcher, &service);
 
 	preempt_enable();
 
