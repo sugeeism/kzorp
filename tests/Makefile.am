@@ -1,1 +1,1 @@
-SUBDIRS=communication
+SUBDIRS=communication query
