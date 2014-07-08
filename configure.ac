@@ -1,5 +1,5 @@
 AC_INIT([kzorp], m4_esyscmd([tr -d '\n' < VERSION]))
-AC_CONFIG_SRCDIR([net/netfilter/kzorp_core.c])
+AC_CONFIG_SRCDIR([driver/net/netfilter/kzorp_core.c])
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 AM_SILENT_RULES([yes])
 
@@ -26,6 +26,6 @@ pylib/Zorp/Makefile
 tests/Makefile
 tests/communication/Makefile
 tests/query/Makefile
-net/netfilter/dkms.conf
+driver/net/netfilter/dkms.conf
 ])
 AC_OUTPUT
