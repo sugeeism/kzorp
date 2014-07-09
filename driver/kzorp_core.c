@@ -1849,6 +1849,8 @@ static void __exit kzorp_core_fini(void)
 {
 	struct kz_instance *global;
 
+	kz_netlink_cleanup();
+
 	kz_sockopt_cleanup();
 
 #ifdef CONFIG_KZORP_PROC_FS
