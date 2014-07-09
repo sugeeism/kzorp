@@ -59,7 +59,27 @@ MODULE_NAMES = kzorp xt_KZORP xt_service xt_zone
 obj-m := kzorp.o xt_KZORP.o xt_service.o xt_zone.o
 kzorp-y := kzorp_core.o kzorp_lookup.o kzorp_sockopt.o kzorp_netlink.o kzorp_ext.o
 
-all: modules
+all: config_check modules
+
+config_check:
+	@if [ -z "$(CONFIG_NETFILTER_XT_TARGET_TPROXY)" ]; then \
+		echo; echo; \
+		echo "*** WARNING: This kernel lacks TPROXY Netfilter target."; \
+		echo "kZorp will not work properly."; \
+		echo; echo; \
+	fi
+	@if [ -z "$(CONFIG_NETFILTER_NETLINK)" ]; then \
+		echo; echo; \
+		echo "*** WARNING: This kernel lacks Netfilter netlink support."; \
+		echo "kZorp will not work properly."; \
+		echo; echo; \
+	fi
+	@if [ -z "$(CONFIG_X86_64)" ]; then \
+		echo; echo; \
+		echo "*** WARNING: This kernel compiled for non-x86 architecture"; \
+		echo "kZorp is officially tested only on x86-64 platforms."; \
+		echo; echo; \
+	fi
 
 modules:
 	$(MAKE) -C $(KBUILD) M=$(SRC_DIR)
@@ -68,7 +88,7 @@ clean:
 	rm -f *.o *.ko .*.cmd *.mod.c *.symvers modules.order *~ .\#*
 	rm -rf .tmp_versions
 
-install: modules
+install: config_check modules
 	@for module in $(MODULE_NAMES); do \
 		/sbin/modinfo $$module.ko | grep -q "^vermagic: *$(KVERS) " || \
 			{ echo "$$module" is not for Linux $(KVERS); exit 1; }; \
@@ -94,4 +114,4 @@ dist:
 		cp $$file $(distdir)/$$file || exit 1; \
 	done
 
-.PHONY: all modules clean install dist
+.PHONY: all modules clean install config_check dist
