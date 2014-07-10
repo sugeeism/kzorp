@@ -1,32 +1,52 @@
 #!/usr/bin/make -f
-# -*- makefile -*-
-# Sample debian/rules that uses debhelper.
-#
-# This file was originally written by Joey Hess and Craig Small.
-# As a special exception, when this file is copied by dh-make into a
-# dh-make output file, you may use that output file without restriction.
-# This special exception was added by Craig Small in version 0.37 of dh-make.
-#
-# Modified to make a template file for a multi-binary package with separated
-# build-arch and build-indep targets  by Bill Allombert 2001
+version := $(shell dpkg-parsechangelog | sed -n 's/^Version: *\([^-]\+\)/\1/p')
 
 # Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+export DH_VERBOSE=1
 
-# This has to be exported to make some magic below work.
-export DH_OPTIONS
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+    NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+    MAKEFLAGS += -j$(NUMJOBS)
+endif
 
+build: build-indep
+	dh_autoreconf -i
+	CFLAGS="-Iinclude" dh_auto_configure
 
-%:
-	dh $@  --with autotools-dev --with dkms --with python2
+build-indep: build-indep-stamp
+build-indep-stamp:
+	touch $@
 
-build:
-	autoreconf -i
-	dh $@  --with autotools-dev --with dkms --with python2
+clean:
+	dh_testdir
+	dh_testroot
 
-build-arch:
-	autoreconf -i
-	dh $@  --with autotools-dev --with dkms --with python2
+	dh_auto_clean
+	dh_autoreconf_clean
+	dh_clean build-indep-stamp debian/kzorp-dkms.dkms
 
-binary-arch: build
-	dh $@  --with autotools-dev --with dkms --with python2
+debian/kzorp-dkms.dkms: debian/kzorp-dkms.dkms.in
+	sed s/@VERSION@/$(version)/g $< > $@
+
+install-indep: build-indep debian/kzorp-dkms.dkms
+	dh_testdir
+	dh_testroot
+	dh_prep -i
+	dh_installdirs -i
+
+	mkdir -p usr/src/kzorp-$(version)
+
+	dh_install -pkzorp-dkms driver/Makefile usr/src/kzorp-$(version)/
+
+	dh_install -pkzorp-dkms driver/*.c usr/src/kzorp-$(version)/
+	dh_install -pkzorp-dkms driver/*.h usr/src/kzorp-$(version)/
+	dh_dkms -pkzorp-dkms
+
+	dh_auto_install --destdir=debian/python-kzorp -- -C pylib install
+	dh_auto_install --destdir=debian/kzorp -- -C scripts install
+
+binary-indep: build-indep install-indep
+	dh $@  --with autotools-dev
+
+binary: binary-indep
+.PHONY: build build-indep clean install install-indep binary-indep binary

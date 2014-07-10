@@ -24,5 +24,3 @@ Makefile.in
 /missing
 /stamp-h1
 /test-driver
-
-/net/netfilter/dkms.conf

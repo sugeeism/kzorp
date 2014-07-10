@@ -26,6 +26,5 @@ pylib/Zorp/Makefile
 tests/Makefile
 tests/communication/Makefile
 tests/query/Makefile
-driver/net/netfilter/dkms.conf
 ])
 AC_OUTPUT
