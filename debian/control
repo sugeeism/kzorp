@@ -27,7 +27,8 @@ Description: mixed packet filter/application level gateway
  Kzorp is used by Zorp, and anyone is welcome to use it with other gateways.
 
 Package: kzorp-dkms
-Architecture: any
+Architecture: all
+Section: kernel
 Depends: ${misc:Depends}, dkms (>= 1.95), libglib2.0-dev
 Description: mixed packet filter/application level gateway, kernel module
  Kzorp is a open source set of mechanisms to implement mixed
