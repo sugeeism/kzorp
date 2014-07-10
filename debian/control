@@ -24,8 +24,9 @@ Description: Python bindings for kzorp.
  .
  General python bindings for kzorp.
 
-Package: kzorp
-Architecture: any
+Package: kzorp-utils
+Architecture: all
+Section: kernel
 Depends: ${misc:Depends},
          python-all (>= 2.6.6-3),
          python-support (>= 0.90),
