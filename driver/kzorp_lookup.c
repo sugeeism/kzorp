@@ -33,9 +33,9 @@
 
 #include <asm/bitops.h>
 
-#include <linux/netfilter/kzorp.h>
+#include "kzorp.h"
 
-#include <net/netfilter/kzorp_lookup_internal.h>
+#include "kzorp_lookup_internal.h"
 
 static const char *const kz_log_null = "(NULL)";
 

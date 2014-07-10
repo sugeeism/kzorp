@@ -36,8 +36,8 @@
 #include <net/netfilter/nf_conntrack_helper.h>
 #include <net/netfilter/nf_conntrack_acct.h>
 
-#include <linux/netfilter/kzorp.h>
-#include <linux/netfilter/kzorp_netlink.h>
+#include "kzorp.h"
+#include "kzorp_netlink.h"
 
 static const char *const kz_log_null = "(NULL)";
 
