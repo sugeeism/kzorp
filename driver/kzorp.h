@@ -21,13 +21,13 @@
 #include <linux/in.h>
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_conntrack_extend.h>
-#include <linux/netfilter/kzorp_netlink.h>
+#include "kzorp_netlink.h"
 #include <net/xfrm.h>
 #include <linux/if.h>
 #include <linux/netdevice.h>
 
-#include <net/netfilter/kzorp_compat.h>
-#include <net/netfilter/kzorp_internal.h>
+#include "kzorp_compat.h"
+#include "kzorp_internal.h"
 
 #define KZ_MAJOR_VERSION  4
 #define KZ_COMPAT_VERSION 1
@@ -51,7 +51,7 @@ typedef __be32 netlink_port_t;
 struct nf_conntrack_kzorp {
 	unsigned int ct_zone;
 	struct nf_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
-	void (*timerfunc_save)(unsigned long);
+	void (*destroy_save)(struct nf_conn *ct);
 	unsigned long sid;
 	/*  "lookup data" from here to end */
 	kz_generation_t generation; /* config version */

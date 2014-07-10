@@ -14,7 +14,7 @@
 	#include <net/udp.h>
 	#include <net/netfilter/nf_tproxy_core.h>
 #else
-	#include <net/netfilter/kz_tproxy_core.h>
+	#include "kz_tproxy_core.h"
 #endif
 
 #include <net/genetlink.h>

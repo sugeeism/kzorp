@@ -13,7 +13,7 @@
 #ifndef _KZORP_SOCKOPT_H
 #define _KZORP_SOCKOPT_H
 
-#include <linux/netfilter/kzorp_netlink.h>
+#include "kzorp_netlink.h"
 
 #define SO_KZORP_RESULT 1678333
 

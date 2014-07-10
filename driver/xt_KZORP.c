@@ -33,7 +33,7 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter/xt_KZORP.h>
+#include "xt_KZORP.h"
 
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_core.h>
@@ -42,7 +42,7 @@
 
 #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
 
-#include <linux/netfilter/kzorp.h>
+#include "kzorp.h"
 
 #ifdef CONFIG_BRIDGE_NETFILTER
 #include <linux/netfilter_bridge.h>
