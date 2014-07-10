@@ -1,2 +1,0 @@
-#!/bin/bash
-ip netns exec zorpinternet /usr/lib/qemu-bridge-helper $*
