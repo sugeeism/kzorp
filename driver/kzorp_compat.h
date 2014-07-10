@@ -90,10 +90,16 @@ get_notifier(struct netlink_notify * notifier) {
 }
 
 #if ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 3, 0) )
+	#include <linux/netfilter_ipv4/nf_nat.h>
 	#define NAT_RANGE_TYPE struct nf_nat_range
 #endif
 #if ( ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) ) && ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0) ) )
+	#include <linux/netfilter/nf_nat.h>
 	#define NAT_RANGE_TYPE struct nf_nat_ipv4_range
+#endif
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0) )
+	#include <linux/netfilter/nf_nat.h>
+	#define NAT_RANGE_TYPE struct nf_nat_range
 #endif
 #if ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 0) )
         static inline const __be32 *kz_nat_range_get_min_ip(const NAT_RANGE_TYPE *r) { return &r->min_ip; }
@@ -106,7 +112,6 @@ get_notifier(struct netlink_notify * notifier) {
         static inline void kz_nat_range_set_max_port(NAT_RANGE_TYPE *r, __be16 max_port) { r->max.udp.port = max_port; }
 #endif
 #if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0) )
-	#define NAT_RANGE_TYPE struct nf_nat_range
         static inline const __be32 *kz_nat_range_get_min_ip(const NAT_RANGE_TYPE *r) { return &r->min_addr.ip; }
         static inline const __be32 *kz_nat_range_get_max_ip(const NAT_RANGE_TYPE *r) { return &r->max_addr.ip; }
         static inline const __be16 *kz_nat_range_get_min_port(const NAT_RANGE_TYPE *r) { return &r->min_proto.udp.port; }
