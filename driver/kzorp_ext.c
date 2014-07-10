@@ -12,6 +12,7 @@
 
 #include <linux/hash.h>
 #include <linux/bootmem.h>
+#include <net/netfilter/nf_conntrack_ecache.h>
 #include <net/netfilter/nf_conntrack_zones.h>
 #include "kzorp.h"
 
@@ -83,18 +84,14 @@ static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 	kzfree(kz);
 }
 
-static void kz_extension_timer(unsigned long ctp)
+static void kz_extension_destroy(struct nf_conn *ct)
 {
-	struct nf_conntrack_kzorp *kzorp =
-	    kz_extension_find((struct nf_conn *) ctp);
-	void (*oldtimer) (unsigned long);
+	struct nf_conntrack_kzorp *kzorp = kz_extension_find(ct);
 
-	BUG_ON(!kzorp);
-	oldtimer = kzorp->timerfunc_save;
-	BUG_ON(!oldtimer);
-	// not reinstating ct->timeout.function, we hope no one tries to call it once more.
+	if (kzorp == NULL)
+		return;
+
 	kz_extension_dealloc(kzorp);
-	(*oldtimer) (ctp);
 }
 
 PRIVATE void kz_extension_fill_one(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct,int direction)
@@ -121,34 +118,61 @@ PRIVATE void kz_extension_copy_tuplehash(struct nf_conntrack_kzorp *kzorp, struc
 struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
 {
 	struct nf_conntrack_kzorp *kzorp;
+
 	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
 	kz_extension_copy_tuplehash(kzorp,ct);
 	kz_extension_fill(kzorp,ct);
-	kzorp->timerfunc_save = ct->timeout.function;
-	ct->timeout.function = kz_extension_timer;
 	kzorp->ct_zone = nf_ct_zone(ct);
 	return kzorp;
 }
 
-int kz_extension_init(void)
+static int
+kz_extension_conntrack_event(unsigned int events, struct nf_ct_event *item)
 {
+	struct nf_conn *ct = item->ct;
 
-	int i;
-
-	kz_hash_size = 1 << kz_hash_shift;
-	kz_hash =
-	    kzalloc(kz_hash_size * sizeof(struct hlist_head *),
-		    GFP_KERNEL);
-	if (!kz_hash) {
-		return -1;
-	}
-
-	for (i = 0; i < kz_hash_size; i++) {
-		INIT_HLIST_NULLS_HEAD(&kz_hash[i], i);
+	if (events & (1 << IPCT_DESTROY)) {
+		kz_extension_destroy(ct);
 	}
 
 	return 0;
 }
+
+static struct nf_ct_event_notifier kz_extension_notifier = {
+	.fcn = kz_extension_conntrack_event,
+};
+
+static int __net_init kz_extension_net_init(struct net *net)
+{
+	int ret;
+
+	ret = nf_conntrack_register_notifier(net, &kz_extension_notifier);
+	if (ret < 0) {
+		kz_err("kz_extension_net_init: cannot register notifier.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+void kz_extension_net_exit(struct net *net)
+{
+	nf_conntrack_unregister_notifier(net, &kz_extension_notifier);
+}
+
+static void __net_exit kz_extension_net_exit_batch(struct list_head *net_exit_list)
+{
+	struct net *net;
+
+	list_for_each_entry(net, net_exit_list, exit_list)
+		kz_extension_net_exit(net);
+}
+
+static struct pernet_operations kz_extension_net_ops = {
+	.init           = kz_extension_net_init,
+	.exit_batch     = kz_extension_net_exit_batch,
+};
+
 
 static void kz_extension_dealloc_by_tuplehash(struct nf_conntrack_tuple_hash *p)
 {
@@ -178,6 +202,37 @@ static void clean_hash(void)
 	kzfree(kz_hash);
 }
 
+int kz_extension_init(void)
+{
+
+	int ret, i;
+
+	kz_hash_size = 1 << kz_hash_shift;
+	kz_hash =
+	    kzalloc(kz_hash_size * sizeof(struct hlist_head *),
+		    GFP_KERNEL);
+	if (!kz_hash) {
+		return -1;
+	}
+
+	for (i = 0; i < kz_hash_size; i++) {
+		INIT_HLIST_NULLS_HEAD(&kz_hash[i], i);
+	}
+
+        ret = register_pernet_subsys(&kz_extension_net_ops);
+	if (ret < 0) {
+		kz_err("kz_extension_init: cannot register pernet operations\n");
+		goto error_cleanup_hash;
+	}
+
+	return 0;
+
+error_cleanup_hash:
+	clean_hash();
+
+	return -1;
+}
+
 void kz_extension_cleanup(void)
 {
 	clean_hash();
@@ -185,5 +240,6 @@ void kz_extension_cleanup(void)
 
 void kz_extension_fini(void)
 {
+	unregister_pernet_subsys(&kz_extension_net_ops);
 	clean_hash();
 }

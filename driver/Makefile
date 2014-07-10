@@ -74,6 +74,12 @@ config_check:
 		echo "kZorp will not work properly."; \
 		echo; echo; \
 	fi
+	@if [ -z "$(CONFIG_NF_CONNTRACK_EVENTS)" ]; then \
+		echo; echo; \
+		echo "*** WARNING: This kernel lacks conntrack entry event support."; \
+		echo "kZorp will not work properly."; \
+		echo; echo; \
+	fi
 	@if [ -z "$(CONFIG_X86_64)" ]; then \
 		echo; echo; \
 		echo "*** WARNING: This kernel compiled for non-x86 architecture"; \
