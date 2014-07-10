@@ -12,6 +12,7 @@
 
 #include <linux/hash.h>
 #include <linux/bootmem.h>
+#include <net/netfilter/nf_conntrack_l4proto.h>
 #include <net/netfilter/nf_conntrack_zones.h>
 #include "kzorp.h"
 
@@ -83,18 +84,16 @@ static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 	kzfree(kz);
 }
 
-static void kz_extension_timer(unsigned long ctp)
+static void kz_extension_destroy(struct nf_conn *ct)
 {
-	struct nf_conntrack_kzorp *kzorp =
-	    kz_extension_find((struct nf_conn *) ctp);
-	void (*oldtimer) (unsigned long);
+	struct nf_conntrack_kzorp *kzorp = kz_extension_find(ct);
 
-	BUG_ON(!kzorp);
-	oldtimer = kzorp->timerfunc_save;
-	BUG_ON(!oldtimer);
-	// not reinstating ct->timeout.function, we hope no one tries to call it once more.
+	if (kzorp == NULL)
+		return;
+
 	kz_extension_dealloc(kzorp);
-	(*oldtimer) (ctp);
+	if (kzorp->destroy_save)
+		kzorp->destroy_save(ct);
 }
 
 PRIVATE void kz_extension_fill_one(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct,int direction)
@@ -121,11 +120,16 @@ PRIVATE void kz_extension_copy_tuplehash(struct nf_conntrack_kzorp *kzorp, struc
 struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
 {
 	struct nf_conntrack_kzorp *kzorp;
+	struct nf_conntrack_l4proto *l4proto;
+
 	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
 	kz_extension_copy_tuplehash(kzorp,ct);
 	kz_extension_fill(kzorp,ct);
-	kzorp->timerfunc_save = ct->timeout.function;
-	ct->timeout.function = kz_extension_timer;
+	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+	if (l4proto) {
+		kzorp->destroy_save = l4proto->destroy;
+		l4proto->destroy = kz_extension_destroy;
+	}
 	kzorp->ct_zone = nf_ct_zone(ct);
 	return kzorp;
 }
