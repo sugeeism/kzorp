@@ -1,5 +1,5 @@
 AC_INIT([kzorp], m4_esyscmd([tr -d '\n' < VERSION]))
-AC_CONFIG_SRCDIR([driver/net/netfilter/kzorp_core.c])
+AC_CONFIG_SRCDIR([driver/kzorp_core.c])
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 AM_SILENT_RULES([yes])
 
