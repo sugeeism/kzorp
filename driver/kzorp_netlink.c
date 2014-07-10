@@ -22,8 +22,8 @@
 #include <linux/netdevice.h>
 #include <linux/netfilter.h>
 #include <linux/proc_fs.h>
-#include <linux/netfilter/kzorp_netlink.h>
-#include <linux/netfilter/kzorp.h>
+#include "kzorp_netlink.h"
+#include "kzorp.h"
 
 #include <net/ipv6.h>
 #include <net/sock.h>

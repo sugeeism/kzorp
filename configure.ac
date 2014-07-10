@@ -19,13 +19,6 @@ AC_SUBST(ZORP_PYTHON_DIR)
 
 AC_CONFIG_FILES([
 Makefile
-kzorp/Makefile
-kzorp/include/Makefile
-kzorp/include/linux/Makefile
-kzorp/include/linux/netfilter/Makefile
-kzorp/include/net/Makefile
-kzorp/include/net/netfilter/Makefile
-kzorp/net/Makefile
 scripts/Makefile
 pylib/Makefile
 pylib/kzorp/Makefile
