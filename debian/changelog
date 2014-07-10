@@ -1,3 +1,9 @@
+kzorp (0.1.3zorp1) trusty; urgency=low
+
+  * fixed several packiging problem
+
+ -- Szilárd Pfeiffer <pfeiffer.szilard@balabit.hu>  Wed, 09 Jul 2014 08:12:52 +0100
+
 kzorp (0.1.3ubuntu5) quantal; urgency=low
 
   * i386 should build now 
