@@ -1154,22 +1154,61 @@ kz_commit_transaction_process_services(const struct kz_transaction *tr, struct k
 	return 0;
 }
 
+static bool
+kznl_zone_apply_delete_operation(struct kz_zone *deletable_zone, const struct list_head const *operations)
+{
+	struct kz_operation *operation, *n;
+	/* append zones created in the transaction */
+	list_for_each_entry_safe(operation, n, operations, list) {
+		if (operation->type == KZNL_OP_DELETE_ZONE) {
+			const struct kz_zone const * updater_zone = (const struct kz_zone const *) operation->data;
+			if (strcmp(updater_zone->name, deletable_zone->name) == 0) {
+				list_del(&operation->list);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 static int
 kz_commit_transaction_delete_zones(const struct kz_transaction *tr, struct kz_config *new)
 {
 	const struct kz_config * const old = tr->cfg;
 	struct kz_zone *i, *zone;
+	struct kz_operation *io;
 
 	/* clone existing zones */
-	if (!(tr->flags & KZF_TRANSACTION_FLUSH_ZONES)) {
+	if (tr->flags & KZF_TRANSACTION_FLUSH_ZONES) {
+		list_for_each_entry(io, &tr->op, list) {
+			if (io->type == KZNL_OP_DELETE_ZONE) {
+				kz_err("transaction problem: zone delete cannot be used with flush\n");
+				return -EINVAL;
+			}
+		}
+	} else {
 		list_for_each_entry(i, &old->zones.head, list) {
-			zone = kz_zone_clone(i);
-			if (zone == NULL)
-				return ENOMEM;
-			kz_debug("clone zone; name='%s', depth='%u'\n", zone->name, zone->depth);
-			list_add_tail(&zone->list, &new->zones.head);
+			if (kznl_zone_apply_delete_operation(i, &tr->op)) {
+				kz_debug("not cloned zone; name='%s', depth='%u'\n", i->name, i->depth);
+			} else {
+				zone = kz_zone_clone(i);
+				if (zone == NULL)
+					return -ENOMEM;
+				kz_debug("clone zone; name='%s', depth='%u'\n", zone->name, zone->depth);
+				list_add_tail(&zone->list, &new->zones.head);
+			}
 		}
 	}
+
+	list_for_each_entry(io, &tr->op, list) {
+		if (io->type == KZNL_OP_DELETE_ZONE) {
+			const struct kz_zone const * deletable_zone = (const struct kz_zone const *) io->data;
+			kz_err("transaction problem: unapplied zone delete operation found; name='%s' depth='%u'\n",
+			       deletable_zone->name, deletable_zone->depth);
+			return -EINVAL;
+		}
+	}
+
 
 	return 0;
 }
@@ -1285,6 +1324,7 @@ kz_commit_transaction_process_dispatchers(const struct kz_transaction *tr, struc
 
 	return 0;
 }
+
 
 /* this is a SINGLE point that changes the config (should that change, review what thinks so)
 
@@ -1663,6 +1703,89 @@ error_unlock_tr:
 
 	if (parent_name != NULL)
 		kfree(parent_name);
+
+	return res;
+}
+
+static int
+kznl_validate_update_zone_params(struct kz_zone *zone,
+				 struct kz_transaction *tr)
+{
+	/* check that we don't yet have a zone with the same name */
+	if (lookup_zone_merged(tr, zone->name) == NULL) {
+		kz_err("zone with the given name not found; name='%s'\n", zone->name);
+		return -ENOENT;
+	}
+
+	return 0;
+}
+
+static int
+kznl_parse_delete_zone_params(struct nlattr * const * const attrs, struct kz_zone **_zone)
+{
+	int res = 0;
+	struct kz_zone *zone;
+
+	if (!attrs[KZNL_ATTR_ZONE_NAME]) {
+		kz_err("required attribute missing: name\n");
+		res = -EINVAL;
+		goto error;
+	}
+
+	/* allocate zone structure */
+	zone = kz_zone_new();
+	if (zone == NULL) {
+		kz_err("failed to allocate zone structure\n");
+		res = -ENOMEM;
+		goto error;
+	}
+
+	if ((res = kznl_parse_name_alloc(attrs[KZNL_ATTR_ZONE_NAME], &zone->name)) < 0) {
+		kz_err("failed to parse name\n");
+		goto error_put_zone;
+	}
+
+	if (_zone)
+		*_zone = zone;
+	return 0;
+
+error_put_zone:
+	kz_zone_put(zone);
+
+error:
+	return res;
+}
+
+static int
+kznl_validate_delete_zone_params(struct kz_zone *zone,
+				 struct kz_transaction *tr)
+{
+	return kznl_validate_update_zone_params(zone, tr);
+}
+
+
+static int
+kznl_recv_delete_zone(struct sk_buff *skb, struct genl_info *info)
+{
+	int res = 0;
+	struct kz_zone *zone = NULL;
+	struct kz_transaction *tr;
+
+	if ((res = kznl_parse_delete_zone_params(info->attrs, &zone)) < 0)
+		return res;
+
+	if ((res = kznl_lock_transaction(get_genetlink_sender(info), &tr)) < 0)
+		goto error_unlock_tr;
+
+	if ((res = kznl_validate_delete_zone_params(zone, tr)) < 0)
+		goto error_unlock_op;
+
+	if ((res = transaction_add_op(tr, KZNL_OP_DELETE_ZONE, kz_zone_get(zone), transaction_destroy_zone)) < 0)
+		kz_err("failed to queue transaction operation\n");
+
+error_unlock_op:
+error_unlock_tr:
+	UNLOCK_TRANSACTIONS();
 
 	return res;
 }
