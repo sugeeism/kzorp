@@ -2558,6 +2558,7 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 		case KZNL_ATTR_SERVICE_DENY_IPV6_METHOD:
 		case KZNL_ATTR_ZONE_SUBNET:
 		case KZNL_ATTR_ZONE_SUBNET_NUM:
+		case KZNL_ATTR_ZONE_IP:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -2833,6 +2834,7 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 		case KZNL_ATTR_SERVICE_DENY_IPV6_METHOD:
 		case KZNL_ATTR_ZONE_SUBNET:
 		case KZNL_ATTR_ZONE_SUBNET_NUM:
+		case KZNL_ATTR_ZONE_IP:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -3788,6 +3790,73 @@ kznl_recv_get_version(struct sk_buff *skb, struct genl_info *info)
 
 error:
 	nlmsg_free(nskb);
+	return res;
+}
+
+static int
+kznl_recv_lookup_zone(struct sk_buff *skb, struct genl_info *info)
+{
+	int res = 0;
+	struct sk_buff *nskb = NULL;
+	sa_family_t l3proto;
+	union nf_inet_addr addr;
+	struct kz_zone *zone = NULL;
+	const struct kz_head_z * zones;
+	const struct kz_config * cfg;
+
+	/* parse attributes */
+	if (!info->attrs[KZNL_ATTR_ZONE_IP]) {
+		kz_err("required IP attribute missing\n");
+		res = -EINVAL;
+		goto error;
+	}
+
+	/* fill fields */
+	res = kznl_parse_inet_addr(info->attrs[KZNL_ATTR_ZONE_IP], &addr, &l3proto);
+	if (res < 0) {
+		kz_err("failed to parse src ip nested attribute\n");
+		goto error;
+	}
+
+	rcu_read_lock();
+	cfg = rcu_dereference(kz_config_rcu);
+
+	zones = &cfg->zones;
+
+	zone = kz_head_zone_lookup(zones, &addr, l3proto);
+	if (zone == NULL) {
+		kz_debug("no such zone found\n");
+		res = -ENOENT;
+		goto error_unlock_zone;
+	}
+
+	/* create skb and dump */
+	nskb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+	if (!nskb) {
+		kz_err("failed to allocate reply message\n");
+		res = -ENOMEM;
+		goto error_unlock_zone;
+	}
+
+	if (kznl_build_zone_add(nskb, get_genetlink_sender(info), info->snd_seq, 0, KZNL_MSG_ADD_ZONE, zone) < 0) {
+		/* data did not fit in a single entry -- for now no support of continuation
+		   we could loop and multicast; we chose not to send the partial info */
+		kz_err("failed to create zone messages\n");
+		res = -ENOMEM;
+		goto error_free_skb;
+	}
+
+	rcu_read_unlock();
+
+	return genlmsg_reply(nskb, info);
+
+error_free_skb:
+	nlmsg_free(nskb);
+
+error_unlock_zone:
+	rcu_read_unlock();;
+
+error:
 	return res;
 }
 
