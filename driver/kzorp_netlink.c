@@ -29,6 +29,19 @@
 #include <net/sock.h>
 #include <net/genetlink.h>
 
+#define list_nth(pos, head, member, n) \
+	list_for_each_entry(pos, head, member) { \
+		if (n-- == 0) \
+			break; \
+	}
+
+#define list_find(pos, head, member, elem) \
+	{ \
+		list_for_each_entry(pos, head, member) { \
+			if (pos == elem) \
+				break; \
+		} \
+	}
 
 /***********************************************************
  * Transactions
@@ -182,7 +195,7 @@ transaction_zone_lookup(const struct kz_transaction * const tr,
 		if (i->type == KZNL_OP_ADD_ZONE) {
 			struct kz_zone *z = (struct kz_zone *)i->data;
 
-			if (strcmp(z->unique_name, name) == 0)
+			if (strcmp(z->name, name) == 0)
 				return z;
 		}
 	}
@@ -1191,7 +1204,7 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 				zone = kz_zone_clone(i);
 				if (zone == NULL)
 					goto mem_error;
-				kz_debug("clone zone; name='%s', depth='%u'\n", zone->unique_name, zone->depth);
+				kz_debug("clone zone; name='%s', depth='%u'\n", zone->name, zone->depth);
 				list_add_tail(&zone->list, &new->zones.head);
 			}
 		}
@@ -1199,11 +1212,20 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 		/* append zones created in the transaction */
 		list_for_each_entry_safe(io, po, &tr->op, list) {
 			if (io->type == KZNL_OP_ADD_ZONE) {
+				struct kz_zone *existing_zone;
+
 				zone = (struct kz_zone *)(io->data);
+				existing_zone = __kz_zone_lookup_name(&new->zones.head, zone->name);
+				if (existing_zone != NULL) {
+					kz_err("zone with the same name already exists; name='%s'\n", existing_zone->name);
+					res = -EEXIST;
+					goto error;
+				}
+
 				list_del(&io->list);
 				list_add_tail(&zone->list, &new->zones.head);
 				kfree(io);
-				kz_debug("add zone; name='%s', depth='%u'\n", zone->unique_name, zone->depth);
+				kz_debug("add zone; name='%s', depth='%u'\n", zone->name, zone->depth);
 			}
 		}
 
@@ -1212,7 +1234,7 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 			if (i->admin_parent != NULL) {
 				struct kz_zone *parent;
 
-				parent = __kz_zone_lookup_name(&new->zones.head, i->admin_parent->unique_name);
+				parent = __kz_zone_lookup_name(&new->zones.head, i->admin_parent->name);
 				if (parent == NULL) {
 					/* oops, its admin parent was deleted, this is an
 					 * internal error */
@@ -1224,7 +1246,7 @@ kznl_recv_commit_transaction(struct kz_instance *instance, struct kz_transaction
 				kz_zone_get(parent);
 				kz_zone_put(i->admin_parent);
 				i->admin_parent = parent;
-				kz_debug("set admin-parent for zone; name='%s' parent='%s', depth='%u', parent_depth='%u'\n", i->unique_name, parent->unique_name, i->depth, parent->depth);
+				kz_debug("set admin-parent for zone; name='%s' parent='%s', depth='%u', parent_depth='%u'\n", i->name, parent->name, i->depth, parent->depth);
 			}
 		}
 	}
@@ -1389,6 +1411,13 @@ kznl_parse_add_zone_params(struct nlattr * const * const attrs, struct kz_zone *
 	int res = 0;
 	struct kz_zone *zone;
 
+	/* parse attributes */
+	if (!attrs[KZNL_ATTR_ZONE_SUBNET_NUM]) {
+		kz_err("required attribute missing: subnet num\n");
+		res = -EINVAL;
+		goto error;
+	}
+
 	if (!attrs[KZNL_ATTR_ZONE_NAME]) {
 		kz_err("required attribute missing: name\n");
 		res = -EINVAL;
@@ -1410,36 +1439,6 @@ kznl_parse_add_zone_params(struct nlattr * const * const attrs, struct kz_zone *
 		goto error_put_zone;
 	}
 
-	if (attrs[KZNL_ATTR_ZONE_RANGE]) {
-		res = kznl_parse_inet_subnet(attrs[KZNL_ATTR_ZONE_RANGE], &zone->addr, &zone->mask, &zone->family);
-		if (res < 0) {
-			kz_err("failed to parse zone range attribute\n");
-			goto error_put_zone;
-		} else {
-			zone->flags |= KZF_ZONE_HAS_RANGE;
-		}
-	}
-
-	if (attrs[KZNL_ATTR_ZONE_UNAME]) {
-		res = kznl_parse_name_alloc(attrs[KZNL_ATTR_ZONE_UNAME], &zone->unique_name);
-		if (res < 0) {
-			kz_err("failed to parse unique name\n");
-			goto error_put_zone;
-		}
-
-		/* compare unique name and name: if they are the same,
-		 * we can just set the unique name to name and save
-		 * some memory */
-		if (strcmp(zone->unique_name, zone->name) == 0) {
-			kfree(zone->unique_name);
-			zone->unique_name = zone->name;
-		}
-
-	} else {
-		/* unique name attribute not present, it's equal to name */
-		zone->unique_name = zone->name;
-	}
-
 	if (attrs[KZNL_ATTR_ZONE_PNAME]) {
 		res = kznl_parse_name_alloc(attrs[KZNL_ATTR_ZONE_PNAME], parent_name);
 		if (res < 0) {
@@ -1447,6 +1446,8 @@ kznl_parse_add_zone_params(struct nlattr * const * const attrs, struct kz_zone *
 			goto error_put_zone;
 		}
 	}
+
+	zone->alloc_subnet = ntohl(nla_get_be32(attrs[KZNL_ATTR_ZONE_SUBNET_NUM]));
 
 	if (_zone)
 		*_zone = zone;
@@ -1457,19 +1458,6 @@ error_put_zone:
 
 error:
 	return res;
-}
-
-static int
-kznl_validate_add_zone_params(struct kz_zone *zone,
-			      struct kz_transaction *tr)
-{
-	/* check that we don't yet have a zone with the same name */
-	if (lookup_zone_merged(tr, zone->unique_name) != NULL) {
-		kz_err("zone with the same unique name already present; name='%s'\n", zone->unique_name);
-		return -EEXIST;
-	}
-
-	return 0;
 }
 
 static int
@@ -1519,6 +1507,75 @@ kznl_lock_transaction(u32 snd_pid, struct kz_transaction **_tr)
 
 
 static int
+kznl_recv_add_zone_subnet(struct sk_buff *skb, struct genl_info *info)
+{
+	int res = 0;
+	char *zone_name = NULL;
+	struct kz_zone *zone;
+	struct kz_subnet zone_subnet;
+	struct kz_transaction *tr;
+
+	if (!info->attrs[KZNL_ATTR_ZONE_NAME]) {
+		kz_err("required attribtues missing; attr='zone name'\n");
+		res = -EINVAL;
+		goto error;
+	}
+
+	if (!info->attrs[KZNL_ATTR_ZONE_SUBNET]) {
+		kz_err("required attribtues missing; attr='zone subnet'\n");
+		res = -EINVAL;
+		goto error;
+	}
+
+	res = kznl_parse_name_alloc(info->attrs[KZNL_ATTR_ZONE_NAME], &zone_name);
+	if (res < 0) {
+		kz_err("failed to parse zone name\n");
+		goto error;
+	}
+
+	kznl_parse_inet_subnet(info->attrs[KZNL_ATTR_ZONE_SUBNET], &zone_subnet.addr, &zone_subnet.mask, &zone_subnet.family);
+	if (res < 0) {
+		kz_err("failed to parse zone subnet\n");
+		goto error_free_names;
+	}
+
+	/* look up transaction */
+	LOCK_TRANSACTIONS();
+
+	tr = transaction_lookup(get_genetlink_sender(info));
+	if (tr == NULL) {
+		kz_err("no transaction found; pid='%d'\n", get_genetlink_sender(info));
+		res = -ENOENT;
+		goto error_unlock_tr;
+	}
+
+	/* look up zone */
+	zone = lookup_zone_merged(tr, zone_name);
+	if (zone == NULL) {
+		kz_err("zone not found; name='%s'\n", zone_name);
+		res = -ENOENT;
+		goto error_unlock_zone;
+	}
+
+	res = kz_add_zone_subnet(zone, &zone_subnet);
+	if (res < 0) {
+		kz_err("failed to add subnet to zone; zone_name='%s'", zone_name);
+		goto error_unlock_zone;
+	}
+
+error_unlock_zone:
+error_unlock_tr:
+	UNLOCK_TRANSACTIONS();
+
+error_free_names:
+	kfree(zone_name);
+
+error:
+	return res;
+
+}
+
+static int
 kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
 {
 	int res = 0;
@@ -1532,10 +1589,10 @@ kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
 	if ((res = kznl_lock_transaction(get_genetlink_sender(info), &tr)) < 0)
 		goto error_unlock_tr;
 
-	if ((res = kznl_validate_add_zone_params(zone, tr)) < 0)
+	if ((res = kznl_zone_set_from_parent(zone, parent_name, tr)) < 0)
 		goto error_unlock_op;
 
-	if ((res = kznl_zone_set_from_parent(zone, parent_name, tr)) < 0)
+	if ((res = kz_add_zone(zone)) < 0)
 		goto error_unlock_op;
 
 	if ((res = transaction_add_op(tr, KZNL_OP_ADD_ZONE, kz_zone_get(zone), transaction_destroy_zone)) < 0)
@@ -1554,6 +1611,32 @@ error_unlock_tr:
 /* zone dumps */
 
 static int
+kznl_build_zone_add_subnet(struct sk_buff *skb, u_int32_t pid, u_int32_t seq,
+			   int flags, enum kznl_msg_types msg,
+			   const struct kz_zone * const zone,
+			   const struct kz_subnet * const subnet)
+{
+	void *hdr;
+
+	hdr = genlmsg_put(skb, pid, seq, &kznl_family, flags, msg);
+	if (!hdr)
+		goto nla_put_failure;
+
+	if (kznl_dump_name(skb, KZNL_ATTR_ZONE_NAME, zone->name) < 0)
+		goto nla_put_failure;
+
+	if (kznl_dump_inet_subnet(skb, KZNL_ATTR_ZONE_SUBNET, subnet->family, &subnet->addr, &subnet->mask) < 0)
+		goto nla_put_failure;
+
+	return genlmsg_end(skb, hdr);
+
+nla_put_failure:
+	genlmsg_cancel(skb, hdr);
+	return -1;
+}
+
+
+static int
 kznl_build_zone_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, int flags,
 		    enum kznl_msg_types msg, const struct kz_zone *zone)
 {
@@ -1563,16 +1646,11 @@ kznl_build_zone_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, int 
 	if (!hdr)
 		goto nla_put_failure;
 
-	kz_debug("flags='%x', family='%d'\n", zone->flags, zone->family);
-	if (zone->flags & KZF_ZONE_HAS_RANGE) {
-		if (kznl_dump_inet_subnet(skb, KZNL_ATTR_ZONE_RANGE, zone->family, &zone->addr, &zone->mask) < 0)
-			goto nla_put_failure;
-	}
-
-	if (kznl_dump_name(skb, KZNL_ATTR_ZONE_UNAME, zone->unique_name) < 0)
-		goto nla_put_failure;
 	if (kznl_dump_name(skb, KZNL_ATTR_ZONE_NAME, zone->name) < 0)
 		goto nla_put_failure;
+
+	NLA_PUT_BE32(skb, KZNL_ATTR_ZONE_SUBNET_NUM, htonl(zone->num_subnet));
+
 	if (zone->admin_parent != NULL) {
 		if (kznl_dump_name(skb, KZNL_ATTR_ZONE_PNAME, zone->admin_parent->name) < 0)
 			goto nla_put_failure;
@@ -1585,18 +1663,9 @@ nla_put_failure:
 	return -1;
 }
 
-static int
-kznl_build_zone(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, int flags,
-		const struct kz_zone *zone, const struct kz_config * cfg)
-{
-	/* *part_idx and *entry_idx is left pointing the failed item */
-	return kznl_build_zone_add(skb, pid, seq, flags, KZNL_MSG_ADD_ZONE, zone);
-}
-
 enum {
 	ZONE_DUMP_ARG_CURRENT_ZONE,
-	ZONE_DUMP_ARG_SUBPART,
-	ZONE_DUMP_ARG_RULE_ENTRY_SUBPART,
+	ZONE_DUMP_ARG_SUBNET_SUBPART,
 	ZONE_DUMP_ARG_STATE,
 	ZONE_DUMP_ARG_CONFIG_GENERATION,
 };
@@ -1608,9 +1677,51 @@ enum {
 };
 
 static int
+kznl_build_zone(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
+		      const struct kz_zone *zone, long *part_idx)
+{
+	unsigned char *msg_start, *msg_rollback;
+
+	/* part_idx: inout param; must be set to item to resume on next call or 0 for completion */
+
+	msg_start = skb_tail_pointer(skb);
+	msg_rollback = msg_start;
+
+	kz_debug("part_idx=%ld, num_subnet=%d", *part_idx, zone->num_subnet);
+	if (*part_idx == ZONE_DUMP_STATE_FIRST_CALL) {
+		msg_rollback = skb_tail_pointer(skb);
+		/* *part_idx and *entry_idx is left pointing the failed item */
+		if (kznl_build_zone_add(skb, pid, seq, flags, KZNL_MSG_ADD_ZONE, zone) < 0)
+			goto nlmsg_failure;
+		*part_idx = ZONE_DUMP_STATE_HAVE_CONFIG;
+	}
+
+	/* dump rule structures */
+	kz_debug("part_idx=%ld, num_subnet=%d", *part_idx, zone->num_subnet);
+	for (; (*part_idx) <= (long) zone->num_subnet; ++(*part_idx)) {
+		const struct kz_subnet const * subnet = &zone->subnet[(*part_idx) - 1];
+		kz_debug("part_idx=%ld", *part_idx);
+
+		msg_rollback = skb_tail_pointer(skb);
+		if (kznl_build_zone_add_subnet(skb, pid, seq, flags,
+					   KZNL_MSG_ADD_ZONE_SUBNET,
+					   zone, subnet) < 0)
+			goto nlmsg_failure;
+	}
+
+	*part_idx = ZONE_DUMP_STATE_FIRST_CALL;
+	return skb_tail_pointer(skb) - msg_start;
+
+nlmsg_failure:
+	/* *part_idx is left pointing the failed item */
+	skb_trim(skb, msg_rollback - skb->data);
+	return -1;
+}
+
+static int
 kznl_dump_zones(struct sk_buff *skb, struct netlink_callback *cb)
 {
-	const struct kz_zone *i, *last;
+	const struct kz_zone *i = NULL;
 	const struct kz_config * cfg;
 
 	/*
@@ -1628,36 +1739,24 @@ kznl_dump_zones(struct sk_buff *skb, struct netlink_callback *cb)
 	cfg = rcu_dereference(kz_config_rcu);
 	if (cb->args[ZONE_DUMP_ARG_STATE] == ZONE_DUMP_STATE_FIRST_CALL ||
 	    !kz_generation_valid(cfg, cb->args[ZONE_DUMP_ARG_CONFIG_GENERATION])) {
-		cb->args[ZONE_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
+		cb->args[ZONE_DUMP_ARG_CURRENT_ZONE] = 0;
+		cb->args[ZONE_DUMP_ARG_SUBNET_SUBPART] = 0;
 		cb->args[ZONE_DUMP_ARG_STATE] = ZONE_DUMP_STATE_HAVE_CONFIG;
+		cb->args[ZONE_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
 	}
 
-restart:
-	last = (struct kz_zone *) cb->args[ZONE_DUMP_ARG_CURRENT_ZONE];
-	list_for_each_entry(i, &cfg->zones.head, list) {
-		/* check if we're continuing the dump from a given entry */
-		if (last != NULL) {
-			if (i == last) {
-				/* ok, this was the last entry we've tried to dump */
-				cb->args[ZONE_DUMP_ARG_CURRENT_ZONE] = 0;
-				last = NULL;
-			} else
-				continue;
-		}
+	if (cb->args[ZONE_DUMP_ARG_STATE] != ZONE_DUMP_STATE_FIRST_CALL)
+		list_find(i, &cfg->zones.head, list, (struct kz_zone *) cb->args[ZONE_DUMP_ARG_CURRENT_ZONE]);
 
+	list_prepare_entry(i, &cfg->zones.head, list);
+	list_for_each_entry_continue(i, &cfg->zones.head, list) {
+		kz_debug("zone name: '%s'", i->name);
 		if (kznl_build_zone(skb, get_skb_portid(NETLINK_CB(cb->skb)),
-				   cb->nlh->nlmsg_seq, 0, i, cfg) < 0) {
+				   cb->nlh->nlmsg_seq, 0, i, &cb->args[ZONE_DUMP_ARG_SUBNET_SUBPART]) < 0) {
 			/* zone dump failed, try to continue from here next time */
 			cb->args[ZONE_DUMP_ARG_CURRENT_ZONE] = (long) i;
 			goto out;
 		}
-	}
-
-	if (last != NULL) {
-		/* we've tried to continue an interrupted dump but did not find the
-		 * restart point. cannot do any better but start again. */
-		cb->args[ZONE_DUMP_ARG_CURRENT_ZONE] = 0;
-		goto restart;
 	}
 
 	/* done */
@@ -1673,6 +1772,7 @@ static int
 kznl_recv_get_zone(struct sk_buff *skb, struct genl_info *info)
 {
 	int res = 0;
+	long idx = 0;
 	char *zone_name = NULL;
 	struct kz_zone *zone;
 	struct sk_buff *nskb = NULL;
@@ -1710,7 +1810,7 @@ kznl_recv_get_zone(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (kznl_build_zone(nskb, get_genetlink_sender(info),
-			    info->snd_seq, 0, zone, cfg) < 0) {
+			    info->snd_seq, 0, zone, &idx) < 0) {
 		/* data did not fit in a single entry -- for now no support of continuation
 		   we could loop and multicast; we chose not to send the partial info */
 		kz_err("failed to create zone messages\n");
@@ -2456,6 +2556,8 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 		case KZNL_ATTR_COMPAT_VERSION:
 		case KZNL_ATTR_SERVICE_DENY_IPV4_METHOD:
 		case KZNL_ATTR_SERVICE_DENY_IPV6_METHOD:
+		case KZNL_ATTR_ZONE_SUBNET:
+		case KZNL_ATTR_ZONE_SUBNET_NUM:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -2729,6 +2831,8 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 		case KZNL_ATTR_COMPAT_VERSION:
 		case KZNL_ATTR_SERVICE_DENY_IPV4_METHOD:
 		case KZNL_ATTR_SERVICE_DENY_IPV6_METHOD:
+		case KZNL_ATTR_ZONE_SUBNET:
+		case KZNL_ATTR_ZONE_SUBNET_NUM:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
