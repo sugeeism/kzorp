@@ -31,7 +31,7 @@
 #include "kzorp_internal.h"
 
 #define KZ_MAJOR_VERSION  4
-#define KZ_COMPAT_VERSION 4
+#define KZ_COMPAT_VERSION 5
 
 enum KZ_ALLOC_TYPE
 {
@@ -148,6 +148,7 @@ enum kznl_op_data_type {
 	KZNL_OP_ADD_SERVICE,
 	KZNL_OP_ADD_DISPATCHER,
 	KZNL_OP_ADD_BIND,
+	KZNL_OP_DELETE_ZONE,
 };
 
 struct kz_operation {
