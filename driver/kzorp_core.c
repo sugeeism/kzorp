@@ -331,7 +331,6 @@ kz_config_swap(struct kz_config * new_cfg)
  * Lookup
  ***********************************************************/
 
-
 void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 	enum ip_conntrack_info ctinfo,
 	const struct sk_buff *skb,
@@ -339,6 +338,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 	const u8 l3proto,
 	const struct kz_config **p_cfg)
 {
+	struct kz_traffic_props traffic_props;
 	struct kz_zone *czone = NULL;
 	struct kz_zone *szone = NULL;
 	struct kz_dispatcher *dpt = NULL;
@@ -426,9 +426,13 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 		reqids.len = 0;
 	}
 
-	kz_lookup_session(*p_cfg, &reqids, in, l3proto,
-			  saddr, daddr,
-			  l4proto, ntohs(ports->src), ntohs(ports->dst),
+	kz_traffic_props_init(&traffic_props,
+			      l3proto, l4proto,
+			      &reqids, in,
+			      saddr, daddr,
+			      ntohs(ports->src), ntohs(ports->dst));
+	kz_lookup_session(*p_cfg,
+			  &traffic_props,
 			  &dpt, &czone, &szone, &svc,
 			  (ctinfo >= IP_CT_IS_REPLY));
 

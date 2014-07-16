@@ -16,6 +16,7 @@
 #include <asm/atomic.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
+#include <linux/netdevice.h>
 #include <linux/rcupdate.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/in.h>
@@ -613,12 +614,49 @@ extern const NAT_RANGE_TYPE *kz_service_nat_lookup(const struct list_head * cons
 						    const __be16 sport, const __be16 dport,
 						    const u_int8_t proto);
 
+struct kz_traffic_props {
+	u_int8_t l3proto;
+
+	const struct kz_reqids *reqids;
+
+	const struct net_device *iface;
+
+	const union nf_inet_addr * src_addr;
+	const union nf_inet_addr * dst_addr;
+
+	struct kz_zone * src_zone;
+	struct kz_zone * dst_zone;
+
+	u_int16_t src_port;
+	u_int16_t dst_port;
+
+	u_int8_t  proto;
+};
+
+static inline void
+kz_traffic_props_init(struct kz_traffic_props *traffic_props,
+		      u_int8_t l3proto,
+		      u_int8_t l4proto,
+		      const struct kz_reqids *reqids,
+		      const struct net_device *iface,
+		      const union nf_inet_addr * src_addr,
+		      const union nf_inet_addr * dst_addr,
+		      u_int16_t src_port,
+		      u_int16_t dst_port
+		     )
+{
+	traffic_props->l3proto = l3proto;
+	traffic_props->proto = l4proto;
+	traffic_props->reqids = reqids;
+	traffic_props->iface = iface;
+	traffic_props->src_addr = src_addr;
+	traffic_props->dst_addr = dst_addr;
+	traffic_props->src_port = src_port;
+	traffic_props->dst_port = dst_port;
+}
+
 extern void kz_lookup_session(const struct kz_config *cfg,
-			      const struct kz_reqids *reqids,
-			      const struct net_device *in,
-			      u_int8_t l3proto,
-			      const union nf_inet_addr * const saddr, const union nf_inet_addr * const daddr,
-			      u_int8_t l4proto, u_int16_t sport, u_int16_t dport,
+			      struct kz_traffic_props * const traffic_props,
 			      struct kz_dispatcher **dispatcher,
 			      struct kz_zone **clientzone, struct kz_zone **serverzone,
 			      struct kz_service **service, int reply);

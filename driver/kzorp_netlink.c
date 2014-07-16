@@ -3433,6 +3433,7 @@ static int
 kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 {
 	int res = 0;
+	struct kz_traffic_props traffic_props;
 	struct kz_query query;
 	struct net_device *dev;
 	struct sk_buff *nskb = NULL;
@@ -3505,11 +3506,13 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 	/* lookup uses per-cpu data mutating it, we must make sure no interruptions on a CPU */
 	local_bh_disable();
 
-	kz_lookup_session(rcu_dereference(kz_config_rcu), &query.reqids, dev,
-			  query.src_addr_family,
-			  &query.src_addr,
-			  &query.dst_addr,
-			  query.proto, query.src_port, query.dst_port,
+	kz_traffic_props_init(&traffic_props,
+			      query.src_addr_family, query.proto,
+			      &query.reqids, dev,
+			      &query.src_addr, &query.dst_addr,
+			      query.src_port, query.dst_port);
+	kz_lookup_session(rcu_dereference(kz_config_rcu),
+			  &traffic_props,
 			  &dispatcher, &client_zone, &server_zone, &service,
 			  0);
 

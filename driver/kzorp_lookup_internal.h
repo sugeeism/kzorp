@@ -68,14 +68,7 @@ kz_rule_lookup_cursor_next_rule(struct kz_rule_lookup_cursor *cursor);
 KZ_PROTECTED int64_t
 kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 		  int64_t best_all,
-		  const struct kz_reqids * const reqids,
-		  const struct net_device * const iface,
-		  u_int8_t l3proto,
-		  const union nf_inet_addr * const src_addr,
-		  const union nf_inet_addr * const dst_addr,
-		  u_int8_t l4proto, u_int16_t src_port, u_int16_t dst_port,
-		  const struct kz_zone * const src_zone,
-		  const struct kz_zone * const dst_zone,
+		  const struct kz_traffic_props * const traffic_props,
 		  const unsigned long *src_zone_mask,
 		  const unsigned long *dst_zone_mask);
 
@@ -107,11 +100,7 @@ struct kz_percpu_env {
 
 KZ_PROTECTED u_int32_t
 kz_ndim_eval(
-  const struct kz_reqids *reqids, const struct net_device *iface, u_int8_t l3proto,
-  const union nf_inet_addr * const src_addr, const union nf_inet_addr * const dst_addr,
-  u_int8_t l4proto, u_int16_t src_port, u_int16_t dst_port,
-  const struct kz_zone * src_zone,
-  const struct kz_zone * dst_zone,
+  const struct kz_traffic_props * const traffic_props,
   const struct kz_head_d * const dispatchers,
   struct kz_percpu_env *lenv
 );
