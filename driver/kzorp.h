@@ -205,18 +205,6 @@ struct kz_reqids {
   int len;
 };
 
-struct kz_query {
-	sa_family_t src_addr_family;
-	union nf_inet_addr src_addr;
-	sa_family_t dst_addr_family;
-	union nf_inet_addr dst_addr;
-	u_int16_t src_port;
-	u_int16_t dst_port;
-	char ifname[IFNAMSIZ];
-        struct kz_reqids reqids;
-	u_int8_t proto;
-};
-
 typedef struct {
 	struct work_struct my_work;
 	void *p;
@@ -616,7 +604,7 @@ extern const NAT_RANGE_TYPE *kz_service_nat_lookup(const struct list_head * cons
 						    const u_int8_t proto);
 
 struct kz_traffic_props {
-	u_int8_t l3proto;
+	sa_family_t l3proto;
 
 	const struct kz_reqids *reqids;
 
@@ -632,28 +620,16 @@ struct kz_traffic_props {
 	u_int16_t dst_port;
 
 	u_int8_t  proto;
+	u_int32_t proto_type;
+	u_int32_t proto_subtype;
 };
 
 static inline void
-kz_traffic_props_init(struct kz_traffic_props *traffic_props,
-		      u_int8_t l3proto,
-		      u_int8_t l4proto,
-		      const struct kz_reqids *reqids,
-		      const struct net_device *iface,
-		      const union nf_inet_addr * src_addr,
-		      const union nf_inet_addr * dst_addr,
-		      u_int16_t src_port,
-		      u_int16_t dst_port
-		     )
+kz_traffic_props_init(struct kz_traffic_props *traffic_props)
 {
-	traffic_props->l3proto = l3proto;
-	traffic_props->proto = l4proto;
-	traffic_props->reqids = reqids;
-	traffic_props->iface = iface;
-	traffic_props->src_addr = src_addr;
-	traffic_props->dst_addr = dst_addr;
-	traffic_props->src_port = src_port;
-	traffic_props->dst_port = dst_port;
+	memset(traffic_props, 0, sizeof(struct kz_traffic_props));
+	traffic_props->proto_type = -1;
+	traffic_props->proto_subtype = -1;
 }
 
 extern void kz_lookup_session(const struct kz_config *cfg,

@@ -36,6 +36,9 @@
 #include <net/netfilter/nf_conntrack_helper.h>
 #include <net/netfilter/nf_conntrack_acct.h>
 
+#include <linux/icmp.h>
+#include <linux/icmpv6.h>
+
 #include "kzorp.h"
 #include "kzorp_netlink.h"
 
@@ -349,6 +352,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 	} __attribute__((packed)) *ports, _ports = { .src = 0, .dst = 0 };
 	const struct kz_config * loc_cfg;
 	u8 l4proto;
+	u_int32_t proto_type = 0, proto_subtype = 0;
 	union nf_inet_addr *saddr, *daddr;
         struct kz_reqids reqids;
 	int sp_idx;
@@ -376,9 +380,21 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 			ports = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_ports), &_ports);
 			if (unlikely(ports == NULL))
 				goto done;
+			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI4:%u', dst='%pI4:%u'\n",
+				 iph->protocol, &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
 		}
-		kz_debug("kzorp lookup for packet: protocol='%u', src='%pI4:%u', dst='%pI4:%u'\n",
-			 iph->protocol, &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
+		else if (l4proto == IPPROTO_ICMP) {
+			const struct icmphdr *icmp;
+			struct icmphdr _icmp = { .type = 0, .code = 0 };
+			icmp = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_icmp), &_icmp);
+			if (unlikely(icmp == NULL))
+				goto done;
+
+			proto_type = icmp->type;
+			proto_subtype = icmp->code;
+			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI4', dst='%pI4', type='%d', code='%d'\n", l4proto,
+				 &iph->saddr, &iph->daddr, icmp->type, icmp->code);
+		}
 	}
 		break;
 	case NFPROTO_IPV6:
@@ -406,10 +422,22 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 			ports = skb_header_pointer(skb, thoff, sizeof(_ports), &_ports);
 			if (unlikely(ports == NULL))
 				goto done;
+			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6:%u', dst='%pI6:%u'\n", l4proto,
+				 &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
+		}
+		else if (l4proto == IPPROTO_ICMPV6) {
+			const struct icmp6hdr *icmp;
+			struct icmp6hdr _icmp = { .icmp6_type = 0, .icmp6_code = 0 };
+			icmp = skb_header_pointer(skb, thoff, sizeof(_icmp), &_icmp);
+			if (unlikely(icmp == NULL))
+				goto done;
+
+			proto_type = icmp->icmp6_type;
+			proto_subtype = icmp->icmp6_code;
+			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6', dst='%pI6', type='%d', code='%d'\n", l4proto,
+				 &iph->saddr, &iph->daddr, icmp->icmp6_type, icmp->icmp6_code);
 		}
 
-		kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6:%u', dst='%pI6:%u'\n", l4proto,
-			 &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
 	}
 		break;
 	default:
@@ -426,11 +454,29 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 		reqids.len = 0;
 	}
 
-	kz_traffic_props_init(&traffic_props,
-			      l3proto, l4proto,
-			      &reqids, in,
-			      saddr, daddr,
-			      ntohs(ports->src), ntohs(ports->dst));
+	kz_traffic_props_init(&traffic_props);
+	traffic_props.l3proto = l3proto;
+	traffic_props.proto = l4proto;
+	traffic_props.reqids = &reqids;
+	traffic_props.iface = in;
+	traffic_props.src_addr = saddr;
+	traffic_props.dst_addr = daddr;
+	switch (l4proto) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+		traffic_props.src_port = ntohs(ports->src);
+		traffic_props.dst_port = ntohs(ports->dst);
+		break;
+
+	case IPPROTO_ICMP:
+	case IPPROTO_ICMPV6:
+		traffic_props.proto_type = proto_type;
+		traffic_props.proto_subtype = proto_subtype;
+		break;
+
+	default:
+		break;
+	}
 	kz_lookup_session(*p_cfg,
 			  &traffic_props,
 			  &dpt, &czone, &szone, &svc,
