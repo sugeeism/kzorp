@@ -81,6 +81,15 @@ static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 	for (i = 0; i < IP_CT_DIR_MAX; i++) {
 		hlist_nulls_del_rcu(&(kz->tuplehash[i].hnnode));
 	}
+
+	if (kz->czone != NULL)
+		kz_zone_put(kz->czone);
+	if (kz->szone != NULL)
+		kz_zone_put(kz->szone);
+	if (kz->dpt != NULL)
+		kz_dispatcher_put(kz->dpt);
+	if (kz->svc != NULL)
+		kz_service_put(kz->svc);
 	kzfree(kz);
 }
 
