@@ -598,6 +598,35 @@ kznl_parse_reqid(const struct nlattr *attr, __u32 *_reqid)
 	return 0;
 }
 
+static inline int
+kznl_parse_proto_type(const struct nlattr *attr, u_int8_t proto, __u32 *proto_type)
+{
+	const u_int32_t _proto_type = ntohl(nla_get_be32(attr));
+	if ((proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) && _proto_type > 255) {
+		kz_err("invalid protocol type received; proto_type='%hu'", _proto_type);
+		return -EINVAL;
+	}
+
+	*proto_type = _proto_type;
+
+	return 0;
+}
+
+static inline int
+kznl_parse_proto_subtype(const struct nlattr *attr, u_int8_t proto, __u32 *proto_subtype)
+{
+	const u_int32_t _proto_subtype = ntohl(nla_get_be32(attr));
+	if ((proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) && _proto_subtype > 255) {
+		kz_err("invalid protocol type received; proto_subtype='%hu'", _proto_subtype);
+		return -EINVAL;
+	}
+
+	*proto_subtype = _proto_subtype;
+
+	return 0;
+}
+
+
 
 static inline int
 kznl_parse_service_params(const struct nlattr *attr, struct kz_service *svc)
@@ -754,27 +783,15 @@ kznl_parse_dispatcher_n_dimension_rule_entry(const struct nlattr *attr,
 }
 
 static inline int
-kznl_parse_query_params(const struct nlattr *attr, struct kz_query *query)
+kznl_parse_query_params(const struct nlattr *attr, u_int8_t *proto, char *ifname)
 {
 	struct kza_query_params *a = nla_data(attr);
 
-	if (a->proto != IPPROTO_TCP && a->proto != IPPROTO_UDP)
-		return -EINVAL;
-
-	query->proto = a->proto;
-	query->src_port = ntohs(a->src_port);
-	query->dst_port = ntohs(a->dst_port);
-	memcpy(&query->ifname, &a->ifname, IFNAMSIZ);
+	*proto = a->proto;
+	memcpy(ifname, a->ifname, IFNAMSIZ);
 
 	return 0;
 }
-
-static inline int
-kznl_parse_get_version_params(const struct nlattr *attr, struct kz_query *query)
-{
-	return 0;
-}
-
 
 /***********************************************************
  * Netlink attribute dumping
@@ -2365,6 +2382,10 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 		case KZNL_ATTR_QUERY_PARAMS_SRC_IP:
 		case KZNL_ATTR_QUERY_PARAMS_DST_IP:
 		case KZNL_ATTR_QUERY_PARAMS_REQID:
+		case KZNL_ATTR_QUERY_PARAMS_SRC_PORT:
+		case KZNL_ATTR_QUERY_PARAMS_DST_PORT:
+		case KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE:
+		case KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE:
 		case KZNL_ATTR_SERVICE_ROUTER_DST_ADDR:
 		case KZNL_ATTR_SERVICE_ROUTER_DST_PORT:
 		case KZNL_ATTR_BIND_PROTO:
@@ -2433,6 +2454,11 @@ error:
 	return res;
 }
 
+#define KZNL_PARSE_DIMENSION(NAME, TYPE, CONVERTER) \
+			TYPE *NAME = nla_data(info->attrs[attr_type]); \
+			rule_entry.NAME = CONVERTER(*NAME); \
+			rule_entry.has_##NAME = true; \
+
 static int
 kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info)
 {
@@ -2494,6 +2520,14 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 			u_int8_t *proto = nla_data(info->attrs[attr_type]);
 			rule_entry.proto = *proto;
 			rule_entry.has_proto = true;
+			break;
+		}
+		case KZNL_ATTR_N_DIMENSION_PROTO_TYPE: {
+			KZNL_PARSE_DIMENSION(proto_type, __be32, ntohl);
+			break;
+		}
+		case KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE: {
+			KZNL_PARSE_DIMENSION(proto_subtype, __be32, ntohl);
 			break;
 		}
 		case KZNL_ATTR_N_DIMENSION_SRC_PORT: {
@@ -2621,6 +2655,10 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 		case KZNL_ATTR_QUERY_PARAMS_SRC_IP:
 		case KZNL_ATTR_QUERY_PARAMS_DST_IP:
 		case KZNL_ATTR_QUERY_PARAMS_REQID:
+		case KZNL_ATTR_QUERY_PARAMS_SRC_PORT:
+		case KZNL_ATTR_QUERY_PARAMS_DST_PORT:
+		case KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE:
+		case KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE:
 		case KZNL_ATTR_SERVICE_ROUTER_DST_ADDR:
 		case KZNL_ATTR_SERVICE_ROUTER_DST_PORT:
 		case KZNL_ATTR_BIND_PROTO:
@@ -3395,12 +3433,22 @@ nfattr_failure:
 	return -1;
 }
 
+#define kznl_query_check_param_existence(PARAM_TYPE, PARAM_NAME) \
+if (!info->attrs[PARAM_TYPE]) { \
+	kz_err("required attribute missing: attr='%s'\n", #PARAM_NAME); \
+	res = -EINVAL; \
+	goto error; \
+}
+
 static int
 kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 {
 	int res = 0;
 	struct kz_traffic_props traffic_props;
-	struct kz_query query;
+	union nf_inet_addr src_addr;
+	union nf_inet_addr dst_addr;
+	char ifname[IFNAMSIZ];
+	struct kz_reqids reqids;
 	struct net_device *dev;
 	struct sk_buff *nskb = NULL;
 	struct kz_dispatcher *dispatcher;
@@ -3408,56 +3456,82 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 	struct kz_zone *server_zone;
 	struct kz_service *service;
 
-	if (!info->attrs[KZNL_ATTR_QUERY_PARAMS]) {
-		kz_err("required attributes missing: attr='params'\n");
-		res = -EINVAL;
-		goto error;
-	}
-	if (!info->attrs[KZNL_ATTR_QUERY_PARAMS_SRC_IP]) {
-		kz_err("required attributes missing: attr='src ip'\n");
-		res = -EINVAL;
-		goto error;
-	}
-	if (!info->attrs[KZNL_ATTR_QUERY_PARAMS_DST_IP]) {
-		kz_err("required attributes missing: attr='dst ip'\n");
-		res = -EINVAL;
-		goto error;
-	}
+	kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS, params);
+	kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_SRC_IP, src_ip);
+	kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_DST_IP, dst_ip);
+
+	kz_traffic_props_init(&traffic_props);
+	traffic_props.src_addr = &src_addr;
+	traffic_props.dst_addr = &dst_addr;
 
 	/* fill fields */
-	res = kznl_parse_inet_addr(info->attrs[KZNL_ATTR_QUERY_PARAMS_SRC_IP], &query.src_addr, &query.src_addr_family);
+	res = kznl_parse_inet_addr(info->attrs[KZNL_ATTR_QUERY_PARAMS_SRC_IP], &src_addr, &traffic_props.l3proto);
 	if (res < 0) {
 		kz_err("failed to parse src ip nested attribute\n");
 		goto error;
 	}
 
-	res = kznl_parse_inet_addr(info->attrs[KZNL_ATTR_QUERY_PARAMS_DST_IP], &query.dst_addr, &query.dst_addr_family);
+	res = kznl_parse_inet_addr(info->attrs[KZNL_ATTR_QUERY_PARAMS_DST_IP], &dst_addr, &traffic_props.l3proto);
 	if (res < 0) {
 		kz_err("failed to parse src ip nested attribute\n");
 		goto error;
 	}
 
-	res = kznl_parse_query_params(info->attrs[KZNL_ATTR_QUERY_PARAMS], &query);
+	res = kznl_parse_query_params(info->attrs[KZNL_ATTR_QUERY_PARAMS], &traffic_props.proto, ifname);
 	if (res < 0) {
 		kz_err("failed to parse query parameters\n");
 		goto error;
 	}
 
-	if (info->attrs[KZNL_ATTR_QUERY_PARAMS_REQID]) {
-                query.reqids.len = 1;
-		res = kznl_parse_reqid(info->attrs[KZNL_ATTR_QUERY_PARAMS_REQID], &query.reqids.vec[0]);
+	if (traffic_props.proto == IPPROTO_TCP || traffic_props.proto == IPPROTO_UDP) {
+		kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_SRC_PORT, src_port);
+		res = kznl_parse_port(info->attrs[KZNL_ATTR_QUERY_PARAMS_SRC_PORT], &traffic_props.src_port);
 		if (res < 0) {
-			kz_err("failed to parse query attribute\n");
+			kz_err("failed to parse query attribute; attr='src_port'\n");
+			goto error;
+		}
+
+		kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_SRC_PORT, dst_port);
+		res = kznl_parse_port(info->attrs[KZNL_ATTR_QUERY_PARAMS_SRC_PORT], &traffic_props.dst_port);
+		if (res < 0) {
+			kz_err("failed to parse query attribute; attr='dst_port'\n");
+			goto error;
+		}
+	}
+
+	if (traffic_props.proto == IPPROTO_ICMP || traffic_props.proto == IPPROTO_ICMPV6) {
+		kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE, proto_type);
+		res = kznl_parse_proto_type(info->attrs[KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE], traffic_props.proto, &traffic_props.proto_type);
+		if (res < 0) {
+			kz_err("failed to parse query attribute; attr='proto_type'\n");
+			goto error;
+		}
+
+		kznl_query_check_param_existence(KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE, proto_subtype);
+		res = kznl_parse_proto_subtype(info->attrs[KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE], traffic_props.proto, &traffic_props.proto_subtype);
+		if (res < 0) {
+			kz_err("failed to parse query attribute; attr='proto_subtype'\n");
 			goto error;
 		}
 	}
 
 	/* look up interface */
-	dev = dev_get_by_name(&init_net, query.ifname);
+	dev = dev_get_by_name(&init_net, ifname);
 	if (dev == NULL) {
-		kz_err("failed to look up network device; ifname='%s'\n", query.ifname);
+		kz_err("failed to look up network device; ifname='%s'\n", ifname);
 		res = -ENOENT;
 		goto error;
+	}
+	traffic_props.iface = dev;
+
+	if (info->attrs[KZNL_ATTR_QUERY_PARAMS_REQID]) {
+		traffic_props.reqids = &reqids;
+		reqids.len = 1;
+		res = kznl_parse_reqid(info->attrs[KZNL_ATTR_QUERY_PARAMS_REQID], &reqids.vec[0]);
+		if (res < 0) {
+			kz_err("failed to parse query attribute\n");
+			goto error;
+		}
 	}
 
 	/* create reply skb */
@@ -3472,11 +3546,6 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 	/* lookup uses per-cpu data mutating it, we must make sure no interruptions on a CPU */
 	local_bh_disable();
 
-	kz_traffic_props_init(&traffic_props,
-			      query.src_addr_family, query.proto,
-			      &query.reqids, dev,
-			      &query.src_addr, &query.dst_addr,
-			      query.src_port, query.dst_port);
 	kz_lookup_session(rcu_dereference(kz_config_rcu),
 			  &traffic_props,
 			  &dispatcher, &client_zone, &server_zone, &service,

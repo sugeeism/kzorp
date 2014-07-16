@@ -547,6 +547,8 @@ typedef union kz_ndim_score {
 		unsigned long dst_port : 2;		/* 1: matching range, 2: specific match (range of 1 element) */
 		unsigned long src_port : 2;		/* 1: matching range, 2: specific match (range of 1 element) */
 		unsigned long proto : 1;		/* 1: protocol match */
+		unsigned long proto_type : 1;		/* 1: protocol type match */
+		unsigned long proto_subtype : 1;	/* 1: protocol type subtype match */
 		unsigned long iface : 3;		/* 1: interface group match, 2: interface match, 4: reqid match */
 	} d;
 	int64_t all;
@@ -648,6 +650,22 @@ kz_ndim_eval_rule_dst_if(const u_int32_t n_ifaces, ifname_t * r_ifaces,
 		return -1;
 }
 
+#define KZ_NDIM_EVAL_RULE_NUMERIC_DIMENSION(dim_name, format_specifier) \
+	unsigned int i; \
+	\
+	kz_debug("n_##dim_name##s='%u', dim_name='%u'\n", n_##dim_name##s, dim_name); \
+	\
+	if (n_##dim_name##s == 0) \
+		return 0; \
+	\
+	for (i = 0; i < n_##dim_name##s; i++) { \
+		kz_debug("comparing dim_name; dim_name='%u', r_##dim_name='%u'\n", dim_name, r_##dim_name##s[i]); \
+		if (dim_name == r_##dim_name##s[i]) \
+			return 1; \
+	} \
+	\
+	return -1;
+
 /**
  * kz_ndim_eval_rule_proto - evaluate if the protocol ID matches a list of protocols
  * @n_protos: number of elements in the protocol ID array
@@ -677,6 +695,42 @@ kz_ndim_eval_rule_proto(const u_int32_t n_protos, const u_int8_t * const r_proto
 
 	return -1;
 }
+
+
+/**
+ * kz_ndim_eval_rule_proto_type - evaluate if the protocol type number matches a list of protocols
+ * @n_proto_types: number of elements in the protocol type array
+ * @r_proto_types: array of protocol types to check
+ * @proto: protocol ID to look for in the array
+ *
+ * Returns: -1, if no matching protocol ID was found
+ *	     0, if @r_proto_types is empty
+ *	     1, if a match was found
+ */
+static int
+kz_ndim_eval_rule_proto_type(const u_int32_t n_proto_types, const u_int32_t * const r_proto_types,
+			     const u_int32_t proto_type)
+{
+	KZ_NDIM_EVAL_RULE_NUMERIC_DIMENSION(proto_type, u);
+}
+
+/**
+ * kz_ndim_eval_rule_proto_subtype - evaluate if the protocol subtype number matches a list of protocols
+ * @n_proto_subtypes: number of elements in the protocol subtype array
+ * @r_proto_subtypes: array of protocol subtypes to check
+ * @proto: protocol ID to look for in the array
+ *
+ * Returns: -1, if no matching protocol ID was found
+ *	     0, if @r_proto_subtypes is empty
+ *	     1, if a match was found
+ */
+static int
+kz_ndim_eval_rule_proto_subtype(const u_int32_t n_proto_subtypes, const u_int32_t * const r_proto_subtypes,
+				const u_int32_t proto_subtype)
+{
+	KZ_NDIM_EVAL_RULE_NUMERIC_DIMENSION(proto_subtype, u);
+}
+
 
 /**
  * kz_ndim_eval_rule_port - evaluate if a discrete port number matches a list of port ranges
@@ -1128,6 +1182,8 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 	}
 
 	EVAL_DIM_LOOKUP(proto);
+	EVAL_DIM_LOOKUP(proto_type);
+	EVAL_DIM_LOOKUP(proto_subtype);
 	EVAL_DIM_LOOKUP(src_port);
 	EVAL_DIM_LOOKUP(dst_port);
 

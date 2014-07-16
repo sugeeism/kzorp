@@ -94,6 +94,12 @@ enum kznl_attr_types {
 	KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
 	KZNL_ATTR_N_DIMENSION_REQID,
 	KZNL_ATTR_QUERY_PARAMS_REQID,
+	KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
+	KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
+	KZNL_ATTR_QUERY_PARAMS_SRC_PORT,
+	KZNL_ATTR_QUERY_PARAMS_DST_PORT,
+	KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE,
+	KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE,
 	KZNL_ATTR_TYPE_COUNT
 };
 
@@ -186,8 +192,6 @@ struct kza_n_dimension_rule_params {
 } __attribute__ ((packed));
 
 struct kza_query_params {
-	__be16 src_port;
-	__be16 dst_port;
 	char ifname[IFNAMSIZ];
 	__u8 proto;
 } __attribute__ ((packed));
