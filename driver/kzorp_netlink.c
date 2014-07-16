@@ -1593,6 +1593,20 @@ kznl_build_zone(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, int flag
 	return kznl_build_zone_add(skb, pid, seq, flags, KZNL_MSG_ADD_ZONE, zone);
 }
 
+enum {
+	ZONE_DUMP_ARG_CURRENT_ZONE,
+	ZONE_DUMP_ARG_SUBPART,
+	ZONE_DUMP_ARG_RULE_ENTRY_SUBPART,
+	ZONE_DUMP_ARG_STATE,
+	ZONE_DUMP_ARG_CONFIG_GENERATION,
+};
+
+enum {
+	ZONE_DUMP_STATE_FIRST_CALL,
+	ZONE_DUMP_STATE_HAVE_CONFIG,
+	ZONE_DUMP_STATE_NO_MORE_WORK,
+};
+
 static int
 kznl_dump_zones(struct sk_buff *skb, struct netlink_callback *cb)
 {
@@ -1607,24 +1621,25 @@ kznl_dump_zones(struct sk_buff *skb, struct netlink_callback *cb)
 	 */
 
 	/* check if we've finished the dump */
-	if (cb->args[3] == 2)
+	if (cb->args[ZONE_DUMP_ARG_STATE] == ZONE_DUMP_STATE_NO_MORE_WORK)
 		return skb->len;
 
 	rcu_read_lock();
 	cfg = rcu_dereference(kz_config_rcu);
-	if (cb->args[3] == 0 || !kz_generation_valid(cfg, cb->args[4])) {
-		cb->args[4] = kz_generation_get(cfg);
-		cb->args[3] = 1;
+	if (cb->args[ZONE_DUMP_ARG_STATE] == ZONE_DUMP_STATE_FIRST_CALL ||
+	    !kz_generation_valid(cfg, cb->args[ZONE_DUMP_ARG_CONFIG_GENERATION])) {
+		cb->args[ZONE_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
+		cb->args[ZONE_DUMP_ARG_STATE] = ZONE_DUMP_STATE_HAVE_CONFIG;
 	}
 
 restart:
-	last = (struct kz_zone *) cb->args[0];
+	last = (struct kz_zone *) cb->args[ZONE_DUMP_ARG_CURRENT_ZONE];
 	list_for_each_entry(i, &cfg->zones.head, list) {
 		/* check if we're continuing the dump from a given entry */
 		if (last != NULL) {
 			if (i == last) {
 				/* ok, this was the last entry we've tried to dump */
-				cb->args[0] = 0;
+				cb->args[ZONE_DUMP_ARG_CURRENT_ZONE] = 0;
 				last = NULL;
 			} else
 				continue;
@@ -1633,7 +1648,7 @@ restart:
 		if (kznl_build_zone(skb, get_skb_portid(NETLINK_CB(cb->skb)),
 				   cb->nlh->nlmsg_seq, 0, i, cfg) < 0) {
 			/* zone dump failed, try to continue from here next time */
-			cb->args[0] = (long) i;
+			cb->args[ZONE_DUMP_ARG_CURRENT_ZONE] = (long) i;
 			goto out;
 		}
 	}
@@ -1641,12 +1656,12 @@ restart:
 	if (last != NULL) {
 		/* we've tried to continue an interrupted dump but did not find the
 		 * restart point. cannot do any better but start again. */
-		cb->args[0] = 0;
+		cb->args[ZONE_DUMP_ARG_CURRENT_ZONE] = 0;
 		goto restart;
 	}
 
 	/* done */
-	cb->args[3] = 2;
+	cb->args[ZONE_DUMP_ARG_STATE] = ZONE_DUMP_STATE_NO_MORE_WORK;
 
 out:
 	rcu_read_unlock();
