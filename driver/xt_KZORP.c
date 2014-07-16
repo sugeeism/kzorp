@@ -53,8 +53,8 @@ static const char *const kz_log_null = "(NULL)";
 static struct kz_zone *
 kz_zone_lookup(const struct kz_config *cfg, __be32 _addr)
 {
-	struct in_addr addr = { _addr };
-	return kz_head_zone_ipv4_lookup(&cfg->zones, &addr);
+	const union nf_inet_addr addr = { .ip = _addr };
+	return kz_head_zone_lookup(&cfg->zones, &addr, NFPROTO_IPV4);
 }
 
 #define L4PROTOCOL_STRING_SIZE 4 /* "100" plus trailing zero */

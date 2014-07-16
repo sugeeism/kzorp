@@ -33,11 +33,11 @@
 
 #define KZ_NOT_MATCHING_SCORE ((u_int64_t)-1)
 
-struct kz_lookup_ipv6_node {
-  struct kz_lookup_ipv6_node *parent;
-  struct kz_lookup_ipv6_node *left;
-  struct kz_lookup_ipv6_node *right;
-  struct in6_addr addr;
+struct kz_zone_lookup_node {
+  struct kz_zone_lookup_node *parent;
+  struct kz_zone_lookup_node *left;
+  struct kz_zone_lookup_node *right;
+  union nf_inet_addr addr;
   struct kz_zone *zone;
   __u16 prefix_len;
 };
@@ -171,19 +171,23 @@ mask_to_size_v6(const struct in6_addr * const mask)
 KZ_PROTECTED void
 kz_generate_lookup_data(struct kz_head_d *dispatchers);
 
-KZ_PROTECTED inline struct kz_lookup_ipv6_node *
-ipv6_node_new(void);
+KZ_PROTECTED inline struct kz_zone_lookup_node *
+zone_lookup_node_new(void);
 
 KZ_PROTECTED inline void
-ipv6_node_free(struct kz_lookup_ipv6_node *n);
+zone_lookup_node_free(struct kz_zone_lookup_node *n);
 
-struct kz_lookup_ipv6_node *
-ipv6_add(struct kz_lookup_ipv6_node *root, struct in6_addr *addr, int prefix_len);
+KZ_PROTECTED struct kz_zone_lookup_node *
+zone_lookup_node_insert(struct kz_zone_lookup_node *root,
+			const union nf_inet_addr * addr, int prefix_len,
+			u_int8_t proto);
 
-KZ_PROTECTED struct kz_lookup_ipv6_node *
-ipv6_lookup(struct kz_lookup_ipv6_node *root, const struct in6_addr *addr);
+KZ_PROTECTED const struct kz_zone_lookup_node *
+zone_lookup_node_find(const struct kz_zone_lookup_node *root,
+		      const union nf_inet_addr *addr,
+		      u_int8_t proto);
 
 KZ_PROTECTED void
-ipv6_destroy(struct kz_lookup_ipv6_node *node);
+zone_lookup_node_destroy(struct kz_zone_lookup_node *node);
 
 #endif /* _KZORP_LOOKUP_INTERNAL_H */
