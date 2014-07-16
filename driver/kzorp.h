@@ -31,7 +31,7 @@
 #include "kzorp_internal.h"
 
 #define KZ_MAJOR_VERSION  4
-#define KZ_COMPAT_VERSION 2
+#define KZ_COMPAT_VERSION 3
 
 enum KZ_ALLOC_TYPE
 {
@@ -277,33 +277,17 @@ struct kz_subnet {
 	union nf_inet_addr mask;
 };
 
-struct kz_zone_subnet {
-	struct list_head list;
-	struct kz_subnet subnet;
-};
-
 struct kz_zone {
 	struct list_head list;
 	struct hlist_node hlist;
 	atomic_t refcnt;
-	unsigned int flags;
 	/* static lookup helper data */
 	int depth;
 	unsigned int index;
-	/* range */
-	sa_family_t family;
-	union nf_inet_addr addr;
-	union nf_inet_addr mask;
 
-	/* NOTE: name and unique_name can be the same, in this case
-	 * KZorp tries to save some memory and just set unique_name to
-	 * the same pointer as name. Because of this, we have to be
-	 * extra careful when cloning and freeing zone structures. On
-	 * the other hand, we can rely on the names not being the same
-	 * if the pointers differ -- this saves us a few strcmp()
-	 * calls here and there. */
+        DECLARE_PARAM_ENTRY(subnet, struct kz_subnet);
+
 	char *name;
-	char *unique_name;
 
 	struct kz_zone *admin_parent;
 };
@@ -610,6 +594,9 @@ extern void kz_head_zone_init(struct kz_head_z *h);
 extern int kz_head_zone_build(struct kz_head_z *h);
 extern void kz_head_zone_destroy(struct kz_head_z *h);
 extern struct kz_zone * kz_head_zone_lookup(const struct kz_head_z *h, const union nf_inet_addr * addr, u_int8_t proto);
+
+extern int kz_add_zone(struct kz_zone *zone);
+extern int kz_add_zone_subnet(struct kz_zone *zone, const struct kz_subnet * const zone_subnet);
 
 extern const NAT_RANGE_TYPE *kz_service_nat_lookup(const struct list_head * const head,
 						    const __be32 saddr, const __be32 daddr,

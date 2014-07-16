@@ -65,6 +65,7 @@
   ACTION ( FLUSH_BIND,           flush_b,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
   ACTION ( QUERY_REPLY,          NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
   ACTION ( GET_VERSION_REPLY,    NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
+  ACTION ( ADD_ZONE_SUBNET,      add_zone_subnet,            NO_DUMP_FUNC,      KZNL_OP   )_ \
 
 #define KZORP_COMMA_SEPARATOR ,
 
