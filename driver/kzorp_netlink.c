@@ -3585,6 +3585,8 @@ kznl_build_get_version_resp(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, i
 	if (!hdr)
 		goto nla_put_failure;
 
+	kz_debug("dump version; major='%d', compat='%d'\n", KZ_MAJOR_VERSION, KZ_COMPAT_VERSION);
+
 	if (nla_put_u8(skb, KZNL_ATTR_MAJOR_VERSION, KZ_MAJOR_VERSION))
 		goto nla_put_failure;
 	if (nla_put_u8(skb, KZNL_ATTR_COMPAT_VERSION, KZ_COMPAT_VERSION))
@@ -3612,7 +3614,7 @@ kznl_recv_get_version(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (kznl_build_get_version_resp(nskb, get_genetlink_sender(info), info->snd_seq, 0,
-					KZNL_MSG_GET_VERSION) < 0) {
+					KZNL_MSG_GET_VERSION_REPLY) < 0) {
 		res = -ENOMEM;
 		goto error;
 	}

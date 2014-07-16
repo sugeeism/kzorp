@@ -31,7 +31,7 @@
 #include "kzorp_internal.h"
 
 #define KZ_MAJOR_VERSION  4
-#define KZ_COMPAT_VERSION 1
+#define KZ_COMPAT_VERSION 2
 
 enum KZ_ALLOC_TYPE
 {
