@@ -271,6 +271,17 @@ enum kzf_zone_internal_flags {
 	KZF_ZONE_HAS_RANGE = 1 << 16,
 };
 
+struct kz_subnet {
+	sa_family_t family;
+	union nf_inet_addr addr;
+	union nf_inet_addr mask;
+};
+
+struct kz_zone_subnet {
+	struct list_head list;
+	struct kz_subnet subnet;
+};
+
 struct kz_zone {
 	struct list_head list;
 	struct hlist_node hlist;
@@ -307,18 +318,18 @@ struct kz_zone {
 #define KZ_ZONE_MAX 16384
 #define KZ_ZONE_BF_SIZE (KZ_ZONE_MAX / 8)
 
-struct kz_lookup_ipv6_node;
+struct kz_zone_lookup_node;
 
 struct kz_zone_lookup {
-	struct hlist_head hash[33][KZ_ZONE_HASH_SIZE];
-	struct kz_lookup_ipv6_node *root;
+	struct kz_zone_lookup_node *ipv4_root_node;
+	struct kz_zone_lookup_node *ipv6_root_node;
 };
 
 /* config holder for zones */
 struct kz_head_z {
 	struct list_head head;
 	/* lookup data structures */
-	struct kz_zone_lookup luzone;
+	struct kz_zone_lookup zone_lookup;
 };
 
 /* config holder for dispatchers */
@@ -598,7 +609,7 @@ extern void kz_head_dispatcher_destroy(struct kz_head_d *h);
 extern void kz_head_zone_init(struct kz_head_z *h);
 extern int kz_head_zone_build(struct kz_head_z *h);
 extern void kz_head_zone_destroy(struct kz_head_z *h);
-extern struct kz_zone *kz_head_zone_ipv4_lookup(const struct kz_head_z *h, const struct in_addr * const addr);
+extern struct kz_zone * kz_head_zone_lookup(const struct kz_head_z *h, const union nf_inet_addr * addr, u_int8_t proto);
 
 extern const NAT_RANGE_TYPE *kz_service_nat_lookup(const struct list_head * const head,
 						    const __be32 saddr, const __be32 daddr,
