@@ -3682,110 +3682,25 @@ kznl_netlink_event(struct notifier_block *n, unsigned long event, void *v)
  * Initialization
  ***********************************************************/
 
+#define kznl_recv_NO_RECV_FUNC NULL
+#define kznl_dump_NO_DUMP_FUNC NULL
+
+#define KZNL_OP(NL_MSG_NAME, RECV_FUNC, DUMP_FUNC) \
+	{ \
+		.cmd = KZNL_MSG_##NL_MSG_NAME, \
+		.doit = kznl_recv_##RECV_FUNC, \
+		.dumpit = kznl_dump_##DUMP_FUNC, \
+		.flags = GENL_ADMIN_PERM, \
+	},
+#define KZNL_NOOP(NL_MSG_NAME, RECV_FUNC, DUMP_FUNC)
+
 static struct genl_ops kznl_ops[] = {
-	{
-		.cmd = KZNL_MSG_GET_VERSION,
-		.doit = kznl_recv_get_version,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_START,
-		.doit = kznl_recv_start,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_COMMIT,
-		.doit = kznl_recv_commit,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_FLUSH_ZONE,
-		.doit = kznl_recv_flush_z,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_ZONE,
-		.doit = kznl_recv_add_zone,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_GET_ZONE,
-		.doit = kznl_recv_get_zone,
-		.dumpit = kznl_dump_zones,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_FLUSH_SERVICE,
-		.doit = kznl_recv_flush_s,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_SERVICE,
-		.doit = kznl_recv_add_service,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_SERVICE_NAT_SRC,
-		.doit = kznl_recv_add_service_nat_src,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_SERVICE_NAT_DST,
-		.doit = kznl_recv_add_service_nat_dst,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_GET_SERVICE,
-		.doit = kznl_recv_get_service,
-		.dumpit = kznl_dump_services,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_FLUSH_DISPATCHER,
-		.doit = kznl_recv_flush_d,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_DISPATCHER,
-		.doit = kznl_recv_add_dispatcher,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_GET_DISPATCHER,
-		.doit = kznl_recv_get_dispatcher,
-		.dumpit = kznl_dump_dispatchers,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_QUERY,
-		.doit = kznl_recv_query,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_RULE,
-		.doit = kznl_recv_add_n_dimension_rule,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_RULE_ENTRY,
-		.doit = kznl_recv_add_n_dimension_rule_entry,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_ADD_BIND,
-		.doit = kznl_recv_add_bind,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_GET_BIND,
-		.dumpit = kznl_dump_binds,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = KZNL_MSG_FLUSH_BIND,
-		.doit = kznl_recv_flush_b,
-		.flags = GENL_ADMIN_PERM,
-	},
+#define SETUP_kznl_ops(NL_MSG_NAME, RECV_FUNC, DUMP_FUNC, KZNL_OP_GEN, ...) \
+		KZNL_OP_GEN(NL_MSG_NAME, RECV_FUNC, DUMP_FUNC)
+
+	KZORP_MSG_LIST(SETUP_kznl_ops, )
+
+#undef SETUP_kznl_ops
 };
 
 static struct notifier_block kz_rtnl_notifier = {
@@ -3803,7 +3718,7 @@ int __init kz_netlink_init(void)
 	netlink_register_notifier(&kz_rtnl_notifier);
 	res = genl_register_family_with_ops_and_size(&kznl_family, kznl_ops, ARRAY_SIZE(kznl_ops));
 	if (res < 0) {
-		kz_err("failed to register generic netlink family\n");
+		kz_err("failed to register generic netlink family; err='%d'\n", res);
 		goto cleanup_notifier;
 	}
 
