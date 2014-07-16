@@ -12,6 +12,7 @@
 
 #include <linux/hash.h>
 #include <linux/bootmem.h>
+#include <net/netfilter/nf_conntrack_acct.h>
 #include <net/netfilter/nf_conntrack_l4proto.h>
 #include <net/netfilter/nf_conntrack_zones.h>
 #include "kzorp.h"
@@ -99,6 +100,27 @@ static void kz_extension_destroy(struct nf_conn *ct)
 
 	if (kzorp == NULL)
 		return;
+
+	if ((kzorp->svc != NULL) && (kzorp->sid != 0) &&
+	    (kzorp->svc->type == KZ_SERVICE_FORWARD)) {
+		if (kz_log_ratelimit()) {
+			struct nf_conn_counter *acct;
+
+			acct = nf_conn_acct_find(ct);
+			if (acct)
+				printk(KERN_INFO "kzorp (svc/%s:%lu): Ending forwarded session; "
+				       "orig_bytes='%llu', orig_packets='%llu', "
+				       "reply_bytes='%llu', reply_packets='%llu'\n",
+				       kzorp->svc->name, kzorp->sid,
+				       acct[IP_CT_DIR_ORIGINAL].bytes,
+				       acct[IP_CT_DIR_ORIGINAL].packets,
+				       acct[IP_CT_DIR_REPLY].bytes,
+				       acct[IP_CT_DIR_REPLY].packets);
+			else
+				printk(KERN_INFO "kzorp (svc/%s:%lu) Ending forwarded session;\n",
+				       kzorp->svc->name, kzorp->sid);
+		}
+	}
 
 	kz_extension_dealloc(kzorp);
 	if (kzorp->destroy_save)
