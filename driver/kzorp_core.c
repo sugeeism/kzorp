@@ -617,9 +617,6 @@ kz_zone_destroy(struct kz_zone *zone)
 {
        if (zone->admin_parent)
 	       kz_zone_put(zone->admin_parent);
-       /* unique_name may be the same pointer as name! */
-       if (zone->unique_name != zone->name)
-	       kfree(zone->unique_name);
        if (zone->name)
 	       kfree(zone->name);
        kfree(zone);
@@ -634,7 +631,7 @@ __kz_zone_lookup_name(const struct list_head * const head, const char *name)
 	BUG_ON(!name);
 
 	list_for_each_entry(i, head, list) {
-		if (strcmp(i->unique_name, name) == 0)
+		if (strcmp(i->name, name) == 0)
 			return i;
 	}
 
@@ -651,30 +648,20 @@ struct kz_zone *
 kz_zone_clone(const struct kz_zone * const o)
 {
 	struct kz_zone *zone;
-
+	int res = 0;
 
 	zone = kz_zone_new();
 	if (zone == NULL)
 		return NULL;
 
-	zone->flags = o->flags;
-	zone->family = o->family;
-	zone->addr = o->addr;
-	zone->mask = o->mask;
 	zone->depth = o->depth;
 
 	zone->name = kz_name_dup(o->name);
 	if (zone->name == NULL)
 		goto error_put;
 
-	if (o->name == o->unique_name) {
-		zone->unique_name = zone->name;
-	} else {
-		/* unique name is different */
-		zone->unique_name = kz_name_dup(o->unique_name);
-		if (zone->unique_name == NULL)
-			goto error_put;
-	}
+	kz_alloc_entry(subnet, zone, o, error_put);
+	kz_clone_entry(subnet, zone, o);
 
 	if (o->admin_parent != NULL)
 		zone->admin_parent = kz_zone_get(o->admin_parent);
@@ -1206,6 +1193,35 @@ error:
 	return res;
 }
 
+int
+kz_add_zone_subnet(struct kz_zone *zone,
+		   const struct kz_subnet * const zone_subnet)
+{
+	int res = 0;
+
+	kz_object_entry_check_alloc(zone, subnet);
+
+	zone->subnet[zone->num_subnet].family = zone_subnet->family;
+	zone->subnet[zone->num_subnet].addr = zone_subnet->addr;
+	zone->subnet[zone->num_subnet].mask = zone_subnet->mask;
+
+	kz_object_entry_num_inc(zone, subnet)
+
+error:
+	return res;
+}
+
+int
+kz_add_zone(struct kz_zone *zone)
+{
+	int res = 0;
+
+	kz_alloc_entry(subnet, zone, zone, error);
+
+error:
+	return res;
+}
+
 static void
 kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr, const struct list_head * zonelist)
 {
@@ -1217,7 +1233,7 @@ kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr, const struct li
 	for (i = 0, put = 0; i < *size; ++i)
 	{
 		struct kz_zone * const in = arr[i];
-		struct kz_zone * out = __kz_zone_lookup_name(zonelist, in->unique_name);
+		struct kz_zone * out = __kz_zone_lookup_name(zonelist, in->name);
 
 		if (out == NULL) { /* just drop */
 			kz_zone_put(in);

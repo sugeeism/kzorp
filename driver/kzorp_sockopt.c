@@ -108,8 +108,8 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 		rcu_read_unlock();
 
 		kz_debug("found kzorp results; client_zone='%s', server_zone='%s', dispatcher='%s', service='%s'\n",
-			 kzorp->czone ? kzorp->czone->unique_name : kz_log_null,
-			 kzorp->szone ? kzorp->szone->unique_name : kz_log_null,
+			 kzorp->czone ? kzorp->czone->name : kz_log_null,
+			 kzorp->szone ? kzorp->szone->name : kz_log_null,
 			 kzorp->dpt ? kzorp->dpt->name : kz_log_null,
 			 kzorp->svc ? kzorp->svc->name : kz_log_null);
 
@@ -119,9 +119,9 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 		}
 
 		if (kzorp->czone)
-			COPY_NAME_TO_USER(user, czone_name, kzorp->czone->unique_name);
+			COPY_NAME_TO_USER(user, czone_name, kzorp->czone->name);
 		if (kzorp->szone)
-			COPY_NAME_TO_USER(user, szone_name, kzorp->szone->unique_name);
+			COPY_NAME_TO_USER(user, szone_name, kzorp->szone->name);
 		if (kzorp->dpt)
 			COPY_NAME_TO_USER(user, dispatcher_name, kzorp->dpt->name);
 		if (kzorp->svc)
