@@ -28,6 +28,8 @@
   ACTION ( ifname,         IFACE,         ifname_t,             ifname,        ifname_t             )_ \
   ACTION ( ifgroup,        IFGROUP,       u_int32_t,            value,         u_int32_t            )_ \
   ACTION ( proto,          PROTO,         u_int8_t,             value,         u_int8_t             )_ \
+  ACTION ( proto_type,     PROTO_TYPE,    u_int32_t,            value,         u_int32_t            )_ \
+  ACTION ( proto_subtype,  PROTO_SUBTYPE, u_int32_t,            value,         u_int32_t            )_ \
   ACTION ( src_port,       SRC_PORT,      struct kz_port_range, portrange,     struct kz_port_range )_ \
   ACTION ( dst_port,       DST_PORT,      struct kz_port_range, portrange,     struct kz_port_range )_ \
   ACTION ( src_in_subnet,  SRC_IP,        struct kz_in_subnet,  in_subnet,     struct kz_in_subnet  )_ \
