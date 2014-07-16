@@ -1384,14 +1384,12 @@ kznl_recv_flush_b(struct sk_buff *skb, struct genl_info *info)
 }
 
 static int
-kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
+kznl_parse_add_zone_params(struct nlattr * const * const attrs, struct kz_zone **_zone, char **parent_name)
 {
 	int res = 0;
-	struct kz_zone *zone, *p;
-	struct kz_transaction *tr;
-	char *parent_name = NULL;
+	struct kz_zone *zone;
 
-	if (!info->attrs[KZNL_ATTR_ZONE_NAME]) {
+	if (!attrs[KZNL_ATTR_ZONE_NAME]) {
 		kz_err("required attribute missing: name\n");
 		res = -EINVAL;
 		goto error;
@@ -1406,14 +1404,14 @@ kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	/* fill fields */
-	res = kznl_parse_name_alloc(info->attrs[KZNL_ATTR_ZONE_NAME], &zone->name);
+	res = kznl_parse_name_alloc(attrs[KZNL_ATTR_ZONE_NAME], &zone->name);
 	if (res < 0) {
 		kz_err("failed to parse zone name\n");
 		goto error_put_zone;
 	}
 
-	if (info->attrs[KZNL_ATTR_ZONE_RANGE]) {
-		res = kznl_parse_inet_subnet(info->attrs[KZNL_ATTR_ZONE_RANGE], &zone->addr, &zone->mask, &zone->family);
+	if (attrs[KZNL_ATTR_ZONE_RANGE]) {
+		res = kznl_parse_inet_subnet(attrs[KZNL_ATTR_ZONE_RANGE], &zone->addr, &zone->mask, &zone->family);
 		if (res < 0) {
 			kz_err("failed to parse zone range attribute\n");
 			goto error_put_zone;
@@ -1422,8 +1420,8 @@ kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-	if (info->attrs[KZNL_ATTR_ZONE_UNAME]) {
-		res = kznl_parse_name_alloc(info->attrs[KZNL_ATTR_ZONE_UNAME], &zone->unique_name);
+	if (attrs[KZNL_ATTR_ZONE_UNAME]) {
+		res = kznl_parse_name_alloc(attrs[KZNL_ATTR_ZONE_UNAME], &zone->unique_name);
 		if (res < 0) {
 			kz_err("failed to parse unique name\n");
 			goto error_put_zone;
@@ -1442,54 +1440,106 @@ kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
 		zone->unique_name = zone->name;
 	}
 
-	if (info->attrs[KZNL_ATTR_ZONE_PNAME]) {
-		res = kznl_parse_name_alloc(info->attrs[KZNL_ATTR_ZONE_PNAME], &parent_name);
+	if (attrs[KZNL_ATTR_ZONE_PNAME]) {
+		res = kznl_parse_name_alloc(attrs[KZNL_ATTR_ZONE_PNAME], parent_name);
 		if (res < 0) {
 			kz_err("failed to parse parent name\n");
 			goto error_put_zone;
 		}
 	}
 
-	/* look up transaction */
-	LOCK_TRANSACTIONS();
+	if (_zone)
+		*_zone = zone;
+	return 0;
 
-	tr = transaction_lookup(get_genetlink_sender(info));
-	if (tr == NULL) {
-		kz_err("no transaction found; pid='%d'\n", get_genetlink_sender(info));
-		res = -ENOENT;
-		goto error_unlock_tr;
-	}
+error_put_zone:
+	kz_zone_put(zone);
 
+error:
+	return res;
+}
+
+static int
+kznl_validate_add_zone_params(struct kz_zone *zone,
+			      struct kz_transaction *tr)
+{
 	/* check that we don't yet have a zone with the same name */
-	p = lookup_zone_merged(tr, zone->unique_name);
-	if (p != NULL) {
+	if (lookup_zone_merged(tr, zone->unique_name) != NULL) {
 		kz_err("zone with the same unique name already present; name='%s'\n", zone->unique_name);
-		res = -EEXIST;
-		goto error_unlock_op;
+		return -EEXIST;
 	}
+
+	return 0;
+}
+
+static int
+kznl_zone_set_from_parent(struct kz_zone *zone,
+			  const char *parent_name,
+			  struct kz_transaction *tr)
+{
+	struct kz_zone *parent_zone;
 
 	/* look up parent zone by name:
 	 * it's either been added in this transaction or is present in the global
 	 * zone list (should check iff the transaction does not have the FLUSH
 	 * flag set) */
 	if (parent_name != NULL) {
-		p = lookup_zone_merged(tr, parent_name);
-		if (p == NULL) {
+		parent_zone = lookup_zone_merged(tr, parent_name);
+		if (parent_zone == NULL) {
 			kz_err("parent zone not found; name='%s'\n", parent_name);
-			res = -ENOENT;
-			goto error_unlock_op;
+			return -ENOENT;
 		}
 
-		zone->admin_parent = kz_zone_get(p);
+		zone->admin_parent = kz_zone_get(parent_zone);
 		/* there's an implicit dependency here on the zones being ordered
 		 * so that we've already set up the depth of the parent zone */
-		zone->depth = p->depth + 1;
+		zone->depth = parent_zone->depth + 1;
 	}
 
-	res = transaction_add_op(tr, KZNL_OP_ADD_ZONE, kz_zone_get(zone), transaction_destroy_zone);
-	if (res < 0) {
-		kz_err("failed to queue transaction operation\n");
+	return 0;
+}
+
+static int
+kznl_lock_transaction(u32 snd_pid, struct kz_transaction **_tr)
+{
+	struct kz_transaction *tr;
+
+	/* look up transaction */
+	LOCK_TRANSACTIONS();
+
+	tr = transaction_lookup(snd_pid);
+	if (tr == NULL) {
+		kz_err("no transaction found; pid='%d'\n", snd_pid);
+		return -ENOENT;
 	}
+
+	*_tr = tr;
+	return 0;
+}
+
+
+static int
+kznl_recv_add_zone(struct sk_buff *skb, struct genl_info *info)
+{
+	int res = 0;
+	struct kz_zone *zone;
+	struct kz_transaction *tr;
+	char *parent_name = NULL;
+
+	if ((res = kznl_parse_add_zone_params(info->attrs, &zone, &parent_name)))
+		return res;
+
+	if ((res = kznl_lock_transaction(get_genetlink_sender(info), &tr)) < 0)
+		goto error_unlock_tr;
+
+	if ((res = kznl_validate_add_zone_params(zone, tr)) < 0)
+		goto error_unlock_op;
+
+	if ((res = kznl_zone_set_from_parent(zone, parent_name, tr)) < 0)
+		goto error_unlock_op;
+
+	if ((res = transaction_add_op(tr, KZNL_OP_ADD_ZONE, kz_zone_get(zone), transaction_destroy_zone)) < 0)
+		kz_err("failed to queue transaction operation\n");
 
 error_unlock_op:
 error_unlock_tr:
@@ -1498,10 +1548,6 @@ error_unlock_tr:
 	if (parent_name != NULL)
 		kfree(parent_name);
 
-error_put_zone:
-	kz_zone_put(zone);
-
-error:
 	return res;
 }
 
