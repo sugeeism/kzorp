@@ -55,7 +55,8 @@ KZNL_MSG_ADD_BIND            = 18
 KZNL_MSG_GET_BIND            = 19
 KZNL_MSG_FLUSH_BIND          = 20
 KZNL_MSG_QUERY_REPLY         = 21
-KZNL_MSG_MAX                 = 22
+KZNL_MSG_GET_VERSION_REPLY   = 22
+KZNL_MSG_MAX                 = 23
 
 # attribute types
 KZNL_ATTR_INVALID                       = 0
@@ -1131,6 +1132,47 @@ class KZorpGetBindMessage(GenericNetlinkMessage):
         if self.instance:
             self.append_attribute(create_name_attr(KZNL_ATTR_INSTANCE_NAME, self.instance))
 
+class KZorpGetVersionMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_GET_VERSION
+
+    def __init__(self):
+        super(KZorpGetVersionMessage, self).__init__(self.command, version = 1)
+
+        self._build_payload()
+
+    def _build_payload(self):
+        pass
+
+class KZorpGetVersionReplyMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_GET_VERSION_REPLY
+
+    def __init__(self, major, compat):
+        super(KZorpGetVersionReplyMessage, self).__init__(self.command, version = 1)
+
+        self.major = major
+        self.compat = compat
+
+    @staticmethod
+    def get_kz_attr(attrs, key_type, parser):
+        attribute = attrs.get(key_type)
+        if attribute:
+            return parser(attribute)
+        else:
+            return None
+
+    @staticmethod
+    def parse(version, data):
+        attrs = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
+
+        major = KZorpGetVersionReplyMessage.get_kz_attr(attrs, KZNL_ATTR_MAJOR_VERSION, NetlinkAttribute.parse_int8)
+        compat = KZorpGetVersionReplyMessage.get_kz_attr(attrs, KZNL_ATTR_COMPAT_VERSION, NetlinkAttribute.parse_int8)
+
+        return KZorpGetVersionReplyMessage(major, compat)
+
+    def __str__(self):
+        return "Version: %d.%d" % (self.major, self.compat)
+
+
 class KZorpMessageFactory(object):
     known_classes = {
       KZNL_MSG_ADD_BIND            : KZorpAddBindMessage,
@@ -1153,6 +1195,7 @@ class KZorpMessageFactory(object):
       KZNL_MSG_START               : KZorpStartTransactionMessage,
       KZNL_MSG_QUERY               : KZorpQueryMessage,
       KZNL_MSG_QUERY_REPLY         : KZorpQueryReplyMessage,
+      KZNL_MSG_GET_VERSION_REPLY   : KZorpGetVersionReplyMessage,
     }
 
     @staticmethod
