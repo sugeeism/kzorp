@@ -1,1 +1,1 @@
-SUBDIRS = driver pylib scripts tests
+SUBDIRS = driver pylib daemon scripts tests

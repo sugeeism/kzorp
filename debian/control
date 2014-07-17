@@ -46,3 +46,17 @@ Description: mixed packet filter/application level gateway, kernel module
  .
  This package provides the kernel module.
 
+Package: kzorpd
+Architecture: all
+Section: python
+Depends: ${python:Depends},
+         ${misc:Depends},
+         python-daemon,
+         python-prctl,
+         python-zorp-common (= ${Source-Version})
+Description: Python bindings for kzorp.
+ Zorp is a new generation firewall. It is essentially a transparent proxy
+ firewall, with strict protocol analyzing proxies, a modular architecture,
+ and fine-grained control over the mediated traffic. Configuration decisions
+ .
+ Standalone daemon that handles zones and updates dynamic zones.
