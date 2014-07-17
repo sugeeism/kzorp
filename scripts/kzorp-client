@@ -60,23 +60,34 @@ class DumpBase():
         self.quiet = quiet
         self.msg = msg
         self.replies = []
+        self.handle = kzorp.communication.Handle()
+
+    def _fill_replies(self):
+        for reply in self.handle.dump(self.msg):
+            self.replies.append(reply)
 
     replies = []
     def dump(self):
         try:
-            handle = kznl.Handle()
-            for reply in handle.talk(self.msg, True):
-                self.replies.append(reply)
+            self._fill_replies()
+            for reply in self.replies:
                 if self.quiet:
                     pass
                 else:
                     print str(reply)
-        except kznl.NetlinkException as e:
+        except kzorp.netlink.NetlinkException as e:
             res = int(e.detail)
             sys.stderr.write("Dump failed: result='%d' error='%s'\n" % (res, os.strerror(-res)))
             return 1
 
         return 0
+
+class DumpVersion(DumpBase):
+    def __init__(self, quiet):
+        DumpBase.__init__(self, quiet, kznl.KZorpGetVersionMessage())
+
+    def _fill_replies(self):
+        self.replies = [self.handle.exchange(self.msg), ]
 
 class DumpZones(DumpBase):
     def __init__(self, quiet):
@@ -326,13 +337,16 @@ def evaluate(parser, args, quiet):
     del kws['saddr_str']
     del kws['daddr_str']
 
-    handle = kznl.Handle()
     query_msg = kznl.KZorpQueryMessage(**kws)
-    for reply in handle.talk(query_msg, False):
-        print str(reply)
+    print str(kznl.Handle().exchange(query_msg))
 
 def main(args):
     option_list = [
+                     optparse.make_option("-v", "--version",
+                                          action="store_true", dest="version",
+                                          default=False,
+                                          help="dump KZorp version "
+                                               "[default: %default]"),
                      optparse.make_option("-z", "--zones",
                                           action="store_true", dest="zones",
                                           default=False,
@@ -375,7 +389,7 @@ def main(args):
     parser = optparse.OptionParser(option_list=option_list, prog="kzorp", usage = "usage: %prog [options]")
     (options, args) = parser.parse_args()
 
-    if (options.zones or options.services or options.dispatchers or options.binds or options.upload != None or options.evaluate != None) == False:
+    if (options.version or options.zones or options.services or options.dispatchers or options.binds or options.upload != None or options.evaluate != None) == False:
         parser.error("at least one option must be set")
 
     if os.getuid() != 0:
@@ -384,6 +398,9 @@ def main(args):
 
     res = 3
     try:
+        if options.version:
+            version = DumpVersion(options.quiet)
+            res = version.dump()
         if options.zones:
             dump_zones = DumpZones(options.quiet)
             res = dump_zones.dump()
