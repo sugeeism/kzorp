@@ -1,0 +1,320 @@
+#!/usr/bin/env python2.7
+
+"""
+KZorp Daemon
+
+This is a stand alone daemon with the following responsibilities:
+
+ - initial zone download to KZorp
+ - continuous update of hostanme par of zones in KZorp
+
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import generators
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import nested_scopes
+from __future__ import with_statement
+
+import daemon
+from daemon.pidlockfile import PIDLockFile
+import itertools
+import socket
+
+import os
+import pwd
+
+import time
+
+import Zorp.Zorp as Zorp
+import Zorp.KZorp as KZorp
+import Zorp.ResolverCache as ResolverCache
+
+import kzorp.kzorp_netlink as kznl
+
+from Zorp.Zone import Zone
+from Zorp.InstancesConf import InstancesConf
+from zorpctl.ZorpctlConf import ZorpctlConfig
+
+class DynamicZoneHandler():
+    def __init__(self, zones, dnscache):
+        self.zones = zones
+        self.dnscache = dnscache
+        self.kzorp_handle = kznl.Handle()
+
+    def setup_dns_cache(self):
+        """
+        Fills up the DNS cache with host found in zones in policy.py
+        """
+
+        for zone in self.zones:
+            for hostname in zone.hostnames:
+                try:
+                    self.dnscache.addHost(hostname)
+                    ttl = self.dnscache.lookupTTL(hostname)
+                    dnsaddresses = self.dnscache.lookupHostname(hostname)
+                    Zorp.log(None, Zorp.CORE_DEBUG, 6,
+                             "Hostname initially added to the cache; name='%s', ttl='%d', addresses='%s', zone='%s'" %
+                             (hostname, ttl, dnsaddresses, zone.name))
+                except KeyError:
+                    Zorp.log(None, Zorp.CORE_ERROR, 2,
+                             "Hostname cannot be resolved; name='%s', zone='%s'" %
+                             (hostname, zone.name))
+
+    def _create_add_zone_messages_from_zone(self, zone, num_of_hostname_subnets = 0):
+        subnet_num = len(zone.subnets) + num_of_hostname_subnets
+        pname = zone.admin_parent.name if zone.admin_parent else None
+        return kznl.KZorpAddZoneMessage(zone.name, pname, subnet_num = subnet_num)
+
+    def _create_add_zone_subnet_messages_from_zone(self, zone):
+        add_zone_subnet_messages = []
+        for subnet in zone.subnets:
+            add_zone_subnet_message = kznl.KZorpAddZoneSubnetMessage(zone.name,
+                                                                     subnet.get_family(),
+                                                                     subnet.addr_packed(),
+                                                                     subnet.netmask_packed())
+            add_zone_subnet_messages.append(add_zone_subnet_message)
+        return add_zone_subnet_messages
+
+    def _create_zone_addition_messages(self):
+        add_zone_messages = []
+        add_zone_subnet_messages = []
+        for zone in sorted(self.zones, cmp=lambda z1, z2: cmp(z1.getDepth(), z2.getDepth())):
+            add_zone_messages += [self._create_add_zone_messages_from_zone(zone), ]
+            add_zone_subnet_messages += self._create_add_zone_subnet_messages_from_zone(zone)
+        return add_zone_messages + add_zone_subnet_messages
+
+    def setup_static_zones(self):
+        """
+        Download static zones to kernel and flush the exiting ones.
+        """
+
+        try:
+            self.kzorp_handle.exchange(kznl.KZorpStartTransactionMessage(kznl.KZ_INSTANCE_GLOBAL))
+
+            self.kzorp_handle.exchange(kznl.KZorpFlushZonesMessage())
+            for msg in self._create_zone_addition_messages():
+                self.kzorp_handle.exchange(msg)
+
+            self.kzorp_handle.exchange(kznl.KZorpCommitTransactionMessage())
+        except kznl.NetlinkException as e:
+            Zorp.log(None, Zorp.CORE_ERROR, 6,
+                     "Error occured while downloading zones to kernel; error='%s'" % (e.detail))
+            raise e
+
+    def __create_add_zone_subnet_messages(self, zone, ipv4_addresses, ipv6_addresses):
+        add_zone_subnet_messages = []
+
+        for address in ipv4_addresses:
+            add_zone_subnet_message = kznl.KZorpAddZoneSubnetMessage(zone.name, socket.AF_INET,
+                                                                     socket.inet_pton(socket.AF_INET, address))
+            add_zone_subnet_messages.append(add_zone_subnet_message)
+        for address in ipv6_addresses:
+            add_zone_subnet_message = kznl.KZorpAddZoneSubnetMessage(zone.name, socket.AF_INET6,
+                                                                     socket.inet_pton(socket.AF_INET6, address))
+            add_zone_subnet_messages.append(add_zone_subnet_message)
+
+        return add_zone_subnet_messages
+
+    def setup_dynamic_zones(self):
+        add_zone_subnet_messages = {}
+        for zone in self.zones:
+            for hostname in zone.hostnames:
+                try:
+                    ipv4_addresses, ipv6_addresses = self.dnscache.lookupHostname(hostname)
+                    if add_zone_subnet_messages.has_key(zone.name):
+                        add_zone_subnet_messages[zone.name] += self.__create_add_zone_subnet_messages(zone, ipv4_addresses, ipv6_addresses)
+                    else:
+                        add_zone_subnet_messages[zone.name] = self.__create_add_zone_subnet_messages(zone, ipv4_addresses, ipv6_addresses)
+                except KeyError:
+                    pass
+
+        delete_zone_messages = {}
+        add_zone_messages = {}
+        for (zone_name, messages) in add_zone_subnet_messages.iteritems():
+            delete_zone_messages[zone_name] = kznl.KZorpDeleteZoneMessage(zone_name)
+            add_zone_messages[zone_name] = self._create_add_zone_messages_from_zone(Zone.lookup_by_name(zone_name), len(messages))
+
+        try:
+            KZorp.startTransaction(self.kzorp_handle, kznl.KZ_INSTANCE_GLOBAL)
+            KZorp.exchangeMessages(self.kzorp_handle, delete_zone_messages.values())
+            KZorp.exchangeMessages(self.kzorp_handle, add_zone_messages.values())
+            for m in itertools.chain(*add_zone_subnet_messages.values()):
+                KZorp.exchangeMessage(self.kzorp_handle, m)
+            KZorp.commitTransaction(self.kzorp_handle)
+        except kznl.NetlinkException:
+            raise
+
+    def setup(self):
+        self.setup_static_zones()
+        self.setup_dns_cache()
+        self.setup_dynamic_zones()
+
+class ConfigurationHandler():
+    def __init__(self):
+        self.instances_conf = InstancesConf()
+
+    def _import_policy(self):
+        policy_files = set()
+
+        for instance in self.instances_conf:
+            policy_files.add(instance.zorp_process.args.policy)
+        if len(policy_files) > 1:
+            raise ValueError('Different policy files found in instances.conf; policy_files=%s' % policy_files)
+        if len(policy_files) == 0:
+            raise ValueError("No instances defined; instances_conf='%s'" % self.instances_conf.instances_conf_path)
+
+        import imp
+        import os
+        policy_file = policy_files.pop()
+        module_name = os.path.splitext(os.path.basename(policy_file))[0]
+        fp, pathname, description = imp.find_module(module_name, [os.path.dirname(policy_file), ])
+        try:
+            imp.load_module(module_name, fp, pathname, description)
+        finally:
+            if fp:
+                fp.close()
+
+    def setup(self):
+        self._import_policy()
+
+class Daemon():
+    min_sleep_in_sec = 60
+
+    def __init__(self, user, group):
+        Zorp.log(None, Zorp.CORE_INFO, 1, "KZorpd starting up...")
+
+        import grp
+        import pwd
+        zorp_uid = pwd.getpwnam(user).pw_uid
+        zorp_gid = grp.getgrnam(group).gr_gid
+
+        import signal
+        self.context = daemon.DaemonContext(
+            working_directory='/etc/zorp',
+            umask=0o002,
+            #uid=zorp_uid,
+            #gid=zorp_gid,
+            pidfile=PIDLockFile('/var/run/zorp/kzorpd.pid'),
+            signal_map={
+                         signal.SIGHUP: self.sighup_handler,
+                         signal.SIGINT: self.sigint_handler,
+                         signal.SIGTERM: self.sigterm_handler,
+                       },
+            )
+
+        self.conf_handler = ConfigurationHandler()
+        self.dnscache = ResolverCache.ResolverCache(ResolverCache.DNSResolver())
+        self.zone_handler = None
+        self.checkAndCreatePidfiledir()
+
+    def sigint_handler(self, sig_num, frame):
+        Zorp.log(None, Zorp.CORE_INFO, 1, "Received SIGINT, loading static zones")
+        if self.zone_handler:
+            self.zone_handler.setup_static_zones()
+        else:
+            Zorp.log(None, Zorp.CORE_INFO, 1, "Failed to set up zone handler, no static zones loaded")
+        exit(0)
+
+    def sighup_handler(self, sig_num, frame):
+        Zorp.log(None, Zorp.CORE_INFO, 1, "Received SIGHUP, reloading configuration")
+        try:
+            self.zone_handler.setup()
+        except BaseException, e:
+            Zorp.log(None, Zorp.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
+
+    def sigterm_handler(self, sig_num, frame):
+        Zorp.log(None, Zorp.CORE_INFO, 1, "KZorpd shutting down...")
+        try:
+            self.context.pidfile.break_lock()
+            if self.zone_handler:
+                self.zone_handler.setup_static_zones()
+            else:
+                Zorp.log(None, Zorp.CORE_INFO, 1, "Failed to set up zone handler, no static zones loaded")
+        except BaseException, e:
+            Zorp.log(None, Zorp.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
+        finally:
+            exit(0)
+
+    def checkAndCreatePidfiledir(self):
+        zorpctlconf = ZorpctlConfig.Instance()
+        pidfiledir = zorpctlconf['ZORP_PIDFILEDIR']
+        if not os.path.exists(pidfiledir):
+            owner = zorpctlconf['PIDFILE_DIR_OWNER']
+            group = zorpctlconf['PIDFILE_DIR_GROUP']
+            mode = zorpctlconf['PIDFILE_DIR_MODE']
+
+            owner_uid = pwd.getpwnam(owner).pw_uid
+            group_uid = pwd.getpwnam(group).pw_gid
+            mode_oct = int(str(mode), 8)
+
+            os.makedirs(pidfiledir)
+            os.chown(pidfiledir, owner_uid, group_uid)
+            os.chmod(pidfiledir, mode_oct)
+
+    def setup(self):
+        self.conf_handler.setup()
+
+        from Zorp.Common import BaseZone
+        self.zone_handler = DynamicZoneHandler(BaseZone.zones.values(), self.dnscache)
+        self.zone_handler.setup()
+
+    def do_main(self):
+        self.setup()
+
+        while True:
+            now = time.time()
+
+            try:
+                self.dnscache.update()
+                try:
+                    expired_host, expiration_time = self.dnscache.getNextExpiration()
+                except ValueError, e:
+                    # if no hosts are in the cache, a ValueError is raised, sleep for the minimum time
+                    sleep_sec = self.min_sleep_in_sec
+                    Zorp.log(None, Zorp.CORE_DEBUG, 6,
+                             "No hostnames in cache, sleep minimum expiration; sleep_sec='%d'" %
+                             (sleep_sec, ))
+                else:
+                    sleep_sec = max(expiration_time - now, self.min_sleep_in_sec)
+                    Zorp.log(None, Zorp.CORE_DEBUG, 6,
+                             "Sleep until next DNS expiration; sleep_sec='%d', host='%s'" %
+                             (sleep_sec, expired_host))
+            except KeyError:
+                sleep_sec = self.min_sleep_in_sec
+                Zorp.log(None, Zorp.CORE_DEBUG, 6,
+                         "Cache lookup failed, sleep minimum expiration; sleep_sec='%d'" %
+                         (sleep_sec, ))
+            time.sleep(sleep_sec)
+
+    def __exit__(self):
+        Zorp.log(None, Zorp.CORE_INFO, 1, "KZorpd shutting down...")
+
+def run(foreground, log_verbosity, user, group):
+    DAEMON = Daemon(user, group)
+
+    if foreground:
+        DAEMON.do_main()
+    else:
+        with DAEMON.context:
+            DAEMON.do_main()
+
+def process_command_line_arguments():
+    import argparse
+
+    parser = argparse.ArgumentParser(description='KZorp daemon')
+    parser.add_argument("-F", "--foreground", action="store_true", dest="foreground", default=False,
+                        help='do not go into the background after initialization (default: %(default)s)')
+    parser.add_argument('-v', '--verbose', action='store', dest='verbose', type=int, default=3,
+                        help='set verbosity level (default: %(default)d)')
+    parser.add_argument('-u', '--user', action='store', dest='user', type=str, default="zorp",
+                        help='set the user to run the deamon as (default: %(default)s)')
+    parser.add_argument('-g', '--group', action='store', dest='group', type=str, default="zorp",
+                        help='set the group to run the deamon as (default: %(default)s)')
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    args = process_command_line_arguments()
+    run(args.foreground, args.verbose, args.user, args.group)

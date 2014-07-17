@@ -44,9 +44,12 @@ install-indep: build-indep debian/kzorp-dkms.dkms
 
 	dh_auto_install --destdir=debian/python-kzorp -- -C pylib install
 	dh_auto_install --destdir=debian/kzorp-utils -- -C scripts install
+	dh_auto_install --destdir=debian/kzorpd -- -C daemon install
 
 binary-indep: build-indep install-indep
 	dh $@  --with autotools-dev
+
+
 
 binary: binary-indep
 .PHONY: build build-indep clean install install-indep binary-indep binary
