@@ -102,6 +102,8 @@ class DumpDispatchers(DumpBase):
             (kznl.KZNL_ATTR_N_DIMENSION_IFACE    ,   'src_iface'),
             (kznl.KZNL_ATTR_N_DIMENSION_IFGROUP  ,   'src_ifgroup'),
             (kznl.KZNL_ATTR_N_DIMENSION_PROTO    ,   'proto'),
+            (kznl.KZNL_ATTR_N_DIMENSION_PROTO_TYPE,  'proto_type'),
+            (kznl.KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE, 'proto_subtype'),
             (kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT ,   'src_port'),
             (kznl.KZNL_ATTR_N_DIMENSION_DST_PORT ,   'dst_port'),
             (kznl.KZNL_ATTR_N_DIMENSION_SRC_IP   ,   'src_subnet'),
