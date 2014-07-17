@@ -106,6 +106,34 @@ def downloadBindAddresses(h):
             log(None, CORE_ERROR, 0, "Error occured during bind address upload to KZorp; dispatcher='%s', error='%s'" % (dispatch.bindto[0].format(), sys.exc_value))
             raise
 
+def createAddZoneMessageFromZone(zone):
+    subnet_num = len(zone.subnets) + len(zone.hostnames)
+    pname = zone.admin_parent.name if zone.admin_parent else None
+    return kzorp.kzorp_netlink.KZorpAddZoneMessage(zone.name, pname, subnet_num = subnet_num)
+
+def createAddZoneSubnetMessagesFromZoneAddresses(zone):
+    add_zone_subnet_messages = []
+    for subnet in zone.subnets:
+        add_zone_subnet_message = kzorp.kzorp_netlink.KZorpAddZoneSubnetMessage(zone.name,
+                                                                                subnet.get_family(),
+                                                                                subnet.addr_packed(),
+                                                                                subnet.netmask_packed())
+        add_zone_subnet_messages.append(add_zone_subnet_message)
+    return add_zone_subnet_messages
+
+def downloadStaticZones(zones):
+    h = kzorp.kzorp_netlink.Handle()
+    startTransaction(h, kzorp.kzorp_netlink.KZ_INSTANCE_GLOBAL)
+    try:
+        for zone in sorted(zones, cmp=lambda z1, z2: cmp(z1.getDepth(), z2.getDepth())):
+            exchangeMessages(h, (createAddZoneMessageFromZone(zone), ))
+            exchangeMessages(h, createAddZoneSubnetMessagesFromZoneAddresses(zone))
+
+        commitTransaction(h)
+    except:
+        h.close()
+        raise
+
 def downloadKZorpConfig(instance_name, is_master):
 
     random.seed()

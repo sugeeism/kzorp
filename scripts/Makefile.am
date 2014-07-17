@@ -1,2 +1,2 @@
-sbin_SCRIPTS=kzorp-client
-EXTRA_DIST=kzorp-client
+sbin_SCRIPTS=kzorp-client kzorpd
+EXTRA_DIST=kzorp-client kzorpd
