@@ -57,7 +57,7 @@ class KZorpComm(unittest.TestCase):
 
         try:
             res = 0
-            for reply_message in self.handle.talk(message, dump):
+            for reply_message in self.handle.talk(message, dump, factory=kzorp_netlink.KZorpMessageFactory):
                 if message_handler is not None:
                     message_handler(reply_message)
                 else:

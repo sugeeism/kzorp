@@ -1210,5 +1210,17 @@ class Handle(netlink.Handle):
     def __init__(self):
         super(Handle, self).__init__('kzorp')
 
-    def talk(self, message, is_dump_request=False, factory=KZorpMessageFactory):
-        return super(Handle, self).talk(message, is_dump_request, factory)
+    def dump(self, message, factory=KZorpMessageFactory):
+        return super(Handle, self).talk(message, True, factory)
+
+    def exchange(self, message, factory=KZorpMessageFactory):
+        replies = []
+        for reply in self.talk(message, False, factory):
+            replies.append(reply)
+        reply_num = len(replies)
+        if reply_num == 0:
+            return None
+        elif reply_num == 1:
+            return replies[0]
+        else:
+            raise NetlinkException, "Netlink message has more than one reply: command='%d'" % (msg.command)
