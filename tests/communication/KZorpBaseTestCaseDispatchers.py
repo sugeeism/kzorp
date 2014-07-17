@@ -63,10 +63,6 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
 
              ]
 
-    def send_add_zone_message(self, inet_zone):
-       for m in inet_zone.buildKZorpMessage():
-           self.send_message(m)
-
     def test_subnet_arith(self):
         self.assertEqual(socket.inet_pton(socket.AF_INET,'192.168.1.1'), testutil.subnet_base(socket.AF_INET,'192.168.1.1/24'))
         self.assertEqual(socket.inet_pton(socket.AF_INET,'255.255.255.0'), testutil.subnet_mask(socket.AF_INET,'192.168.1.1/24'))
