@@ -234,6 +234,31 @@ def upload_zones(fname):
 
     return 0
 
+def flush(flushable_option):
+    if flushable_option == 'all':
+        flushables = ['binds', 'dispatchers', 'services', 'zones']
+    else:
+        flushables = [flushable_option, ]
+
+    handle = kznl.Handle()
+
+    if 'zones' in flushables:
+        handle.send(kznl.KZorpStartTransactionMessage(kznl.KZ_INSTANCE_GLOBAL))
+        handle.send(kznl.KZorpFlushZonesMessage())
+        handle.send(kznl.KZorpCommitTransactionMessage())
+        flushables.remove('zones')
+
+    if len(flushables) > 0:
+        for instance in [kznl.KZ_INSTANCE_GLOBAL, ]:
+            handle.send(kznl.KZorpStartTransactionMessage(instance))
+            if 'binds' in flushables:
+                handle.send(kznl.KZorpFlushBindsMessage())
+            if 'dispatchers' in flushables:
+                handle.send(kznl.KZorpFlushDispatchersMessage())
+            if 'services' in flushables:
+                handle.send(kznl.KZorpFlushServicesMessage())
+            handle.send(kznl.KZorpCommitTransactionMessage())
+
 def evaluate_option_parser_cb(option, opt_str, value, parser):
     assert value is None
     value = []
@@ -456,12 +481,18 @@ def main(args):
                                           default=None,
                                           help="dump KZorp zone best matches the given IP"
                                                "[default: %default]"),
+                     optparse.make_option("-f", "--flush",
+                                          action="store", type="choice", dest="flush",
+                                          choices=['binds', 'dispatchers', 'services', 'zones', 'all'],
+                                          default=None,
+                                          help="flush objects from KZorp"
+                                               "[default: %default]"),
                   ]
 
     parser = optparse.OptionParser(option_list=option_list, prog="kzorp", usage = "usage: %prog [options]")
     (options, args) = parser.parse_args()
 
-    if (options.version or options.zones or options.services or options.dispatchers or options.binds or options.upload != None or options.evaluate != None or options.lookup_ip != None) == False:
+    if (options.version or options.zones or options.services or options.dispatchers or options.binds or options.upload != None or options.evaluate != None or options.lookup_ip != None or options.flush != None) == False:
         parser.error("at least one option must be set")
 
     if os.getuid() != 0:
@@ -473,6 +504,8 @@ def main(args):
         if options.version:
             version = DumpVersion(options.quiet)
             res = version.dump()
+        if options.flush:
+            flush(options.flush)
         if options.zones:
             dump_zones = DumpZones(options.quiet)
             res = dump_zones.dump()
