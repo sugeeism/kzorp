@@ -233,9 +233,6 @@ def upload_zones(fname):
 def evaluate_option_parser_cb(option, opt_str, value, parser):
     assert value is None
     value = []
-    if len(parser.rargs) < 6 or len(parser.rargs) > 7:
-        raise optparse.OptionValueError("-e option requires 6 or 7 arguments")
-
     for arg in parser.rargs:
         # stop on --foo like options
         if arg[:2] == "--" and len(arg) > 2:
@@ -246,20 +243,18 @@ def evaluate_option_parser_cb(option, opt_str, value, parser):
             break
         value.append(arg)
 
+    if len(value) != 4:
+        raise optparse.OptionValueError("-e option requires 4 arguments")
+
     del parser.rargs[:len(value)]
     setattr(parser.values, option.dest, value)
 
-def evaluate(parser, args, quiet):
+def evaluate(parser, options, quiet):
     EVAL_ARG_NUM_PROTO    = 0
     EVAL_ARG_NUM_SRC_IP   = 1
-    EVAL_ARG_NUM_SRC_PORT = 2
-    EVAL_ARG_NUM_DST_IP   = 3
-    EVAL_ARG_NUM_DST_PORT = 4
-    EVAL_ARG_NUM_IFACE    = 5
-    EVAL_ARG_NUM_REQID    = 6
-    EVAL_ARG_NUM          = 7
-
-    optional_argument_num = len([EVAL_ARG_NUM_REQID, ])
+    EVAL_ARG_NUM_DST_IP   = 2
+    EVAL_ARG_NUM_IFACE    = 3
+    EVAL_ARG_NUM          = 4
 
     def parse_ip(parser, ip, description):
         try:
@@ -273,60 +268,93 @@ def evaluate(parser, args, quiet):
     def parse_num(parser, num_str, max_num_bits, description):
         try:
             num = int(num_str)
-            if 0 < num < 2 ** max_num_bits:
+            if 0 <= num < 2 ** max_num_bits:
                 return num
             else:
                 raise ValueError, ""
         except ValueError:
-            parser.error("invalid %s: %s" % (description, num_str))
+            return None
+        except TypeError:
+            return None
 
     def parse_reqid(parser, reqid, description):
         return parse_num(parser, reqid, 32, description)
 
+    def parse_proto_type(parser, proto_type, description):
+        return parse_num(parser, proto_type, 8, description)
+
+    def parse_proto_subtype(parser, proto_subtype, description):
+        return parse_num(parser, proto_subtype, 8, description)
+
     def parse_port(parser, port, description):
-        return parse_num(parser, port, 16, description)
+        port = parse_num(parser, port, 16, description)
+        if port == 0:
+            return None
+        return port
 
     def parse_proto(parser, proto):
-        if proto.lower() == "tcp":
-            return socket.IPPROTO_TCP
-        elif proto.lower() == "udp":
-            return socket.IPPROTO_UDP
-        else:
-            parser.error('protocol must be "tcp" or "udp"')
+        try:
+            return socket.getprotobyname(proto)
+        except socket.error:
+            try:
+                return int(proto)
+            except ValueError:
+                parser.error('protocol must be protocol name or number')
 
-    if len(args) < EVAL_ARG_NUM - optional_argument_num:
-        parser.error('evaluate requires at least %d parameters', EVAL_ARG_NUM - optional_argument_num)
+    if len(options.evaluate) < EVAL_ARG_NUM:
+        parser.error('evaluate requires %d parameters', EVAL_ARG_NUM)
 
     kws = {}
-    kws['proto'] = parse_proto(parser, args[EVAL_ARG_NUM_PROTO])
+    kws['proto'] = parse_proto(parser, options.evaluate[EVAL_ARG_NUM_PROTO])
 
-    kws['saddr_str'] = args[EVAL_ARG_NUM_SRC_IP]
-    (sfamily, saddr) = parse_ip(parser, kws['saddr_str'], "client")
+    saddr_str = options.evaluate[EVAL_ARG_NUM_SRC_IP]
+    (sfamily, saddr) = parse_ip(parser, saddr_str, "client")
     kws['family'] = sfamily
     kws['saddr'] = saddr
 
-    kws['sport'] = parse_port(parser, args[EVAL_ARG_NUM_SRC_PORT], "client port")
-
-    kws['daddr_str'] = args[EVAL_ARG_NUM_DST_IP]
-    (dfamily, daddr) = parse_ip(parser, kws['daddr_str'], "server")
+    daddr_str = options.evaluate[EVAL_ARG_NUM_DST_IP]
+    (dfamily, daddr) = parse_ip(parser, daddr_str, "server")
     kws['daddr'] = daddr
 
-    kws['dport'] = parse_port(parser, args[EVAL_ARG_NUM_DST_PORT], "server port")
+    if options.sport is not None:
+        kws['sport'] = parse_port(parser, options.sport, "client port")
+    if options.dport is not None:
+        kws['dport'] = parse_port(parser, options.dport, "server port")
 
-    kws['iface'] = args[EVAL_ARG_NUM_IFACE]
-    if len(args[EVAL_ARG_NUM_IFACE]) > 15:
+    if options.proto_type is not None:
+        kws['proto_type'] = parse_proto_type(parser, options.proto_type, "ICMP type")
+    if options.proto_subtype is not None:
+        kws['proto_subtype'] = parse_proto_subtype(parser, options.proto_subtype, "ICMP code")
+
+    kws['iface'] = options.evaluate[EVAL_ARG_NUM_IFACE]
+    if len(options.evaluate[EVAL_ARG_NUM_IFACE]) > 15:
         parser.error('invalid interface name (>15 characters)')
 
-    if len(args) == EVAL_ARG_NUM:
-        kws['reqid'] = parse_reqid(parser, args[EVAL_ARG_NUM_REQID], "request id")
+    if options.reqid is not None:
+        kws['reqid'] = parse_reqid(parser, options.reqid, "request id")
 
     if sfamily != dfamily:
         parser.error("family of source and destination address is not the same")
 
+    try:
+        query_msg = kznl.KZorpQueryMessage(**kws)
+    except kznl.NetlinkAttributeException as e:
+        raise socket.error(e.detail)
+
+    kws['saddr_str'] = saddr_str
+    kws['daddr_str'] = daddr_str
+
     if not quiet:
-        eval_str = "evaluating %(saddr_str)s:%(sport)s -> %(daddr_str)s:%(dport)s on %(iface)s" % kws
+        if kws['proto'] == socket.IPPROTO_TCP or kws['proto'] == socket.IPPROTO_UDP:
+            eval_str = "evaluating %(saddr_str)s:%(sport)s -> %(daddr_str)s:%(dport)s on %(iface)s" % kws
+        else:
+            eval_str = "evaluating %(saddr_str)s -> %(daddr_str)s on %(iface)s" % kws
+        if 'proto_type' in kws:
+            eval_str += " and the protocol type is %s" % (kws['proto_type'])
+        if 'proto_subtype' in kws:
+            eval_str += " and the protocol subtype is %s" % (kws['proto_subtype'])
         if 'reqid' in kws:
-            eval_str += " with request id is %s" % (kws['reqid'])
+            eval_str += " and the request id is %s" % (kws['reqid'])
         print eval_str
 
     del kws['saddr_str']
@@ -368,7 +396,33 @@ def main(args):
                                           default=None,
                                           callback=evaluate_option_parser_cb,
                                           help="evaluate "
-                                               "arguments: <protocol> <client address> <client port> <server address> <server port> <interface name> [request id]"),
+                                               "arguments: <protocol> <client address> <server address> <interface name>\n"\
+                                               "optional parameters of the evaluation might be set by src-port, dst-port, icmp-type, icmp-code, request-id oarameters"),
+                     optparse.make_option(None, "--src-port",
+                                          action="store", type="int", dest="sport",
+                                          default=None,
+                                          help="source port inc case of evaluation "
+                                               "[default: 1024]"),
+                     optparse.make_option(None, "--dst-port",
+                                          action="store", type="int", dest="dport",
+                                          default=None,
+                                          help="destination port inc case of evaluation "
+                                               "[default: %default]"),
+                     optparse.make_option(None, "--icmp-type",
+                                          action="store", type="int", dest="proto_type",
+                                          default=None,
+                                          help="ICMP type in case of evaluation "
+                                               "[default: %default]"),
+                     optparse.make_option(None, "--icmp-code",
+                                          action="store", type="int", dest="proto_subtype",
+                                          default=None,
+                                          help="ICMP code in case of evaluation "
+                                               "[default: %default]"),
+                     optparse.make_option(None, "--request-id",
+                                          action="store", type="int", dest="reqid",
+                                          default=None,
+                                          help="IPSec request number in case of evaluation "
+                                               "[default: %default]"),
                      optparse.make_option("-q", "--quiet",
                                           action="store_true", dest="quiet",
                                           default=False,
@@ -411,7 +465,7 @@ def main(args):
         if options.upload:
             res = upload_zones(options.upload)
         if options.evaluate:
-            res = evaluate(parser, options.evaluate, options.quiet)
+            res = evaluate(parser, options, options.quiet)
     except socket.error, e:
         if e[0] == 111:
             sys.stderr.write("KZorp support not present in kernel\n")
