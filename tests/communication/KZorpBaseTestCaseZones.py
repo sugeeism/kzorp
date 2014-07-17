@@ -26,6 +26,9 @@ class KZorpBaseTestCaseZones(KZorpComm):
     _dumped_zones = []
 
     def _dump_zone_handler(self, message):
+        if message.command is not kzorp_netlink.KZNL_MSG_ADD_ZONE:
+            return
+
         self._dumped_zones.append(message)
 
     def check_zone_num(self, num_zones = 0, in_transaction = True):
@@ -48,33 +51,15 @@ class KZorpBaseTestCaseZones(KZorpComm):
 
         return attrs
 
-    def get_zone_name(self, message):
-        attrs = self.get_zone_attrs(message)
-        if attrs.has_key(kzorp_netlink.KZNL_ATTR_ZONE_NAME) == True:
-            return kzorp_netlink.parse_name_attr(attrs[kzorp_netlink.KZNL_ATTR_ZONE_NAME])
-
-        return None
-
-    def get_zone_uname(self, message):
-        attrs = self.get_zone_attrs(message)
-        self.assertEqual(attrs.has_key(kzorp_netlink.KZNL_ATTR_ZONE_UNAME), True)
-
-        return kzorp_netlink.parse_name_attr(attrs[kzorp_netlink.KZNL_ATTR_ZONE_UNAME])
-
-    def get_zone_range(self, message):
-        attrs = self.get_zone_attrs(message)
-        self.assertEqual(attrs.has_key(kzorp_netlink.KZNL_ATTR_ZONE_RANGE), True)
-
-        (family, addr, mask) = kzorp_netlink.parse_inet_range_attr(attrs[kzorp_netlink.KZNL_ATTR_ZONE_RANGE])
-
-        return "%s/%s" % (socket.inet_ntop(family, addr), socket.inet_ntop(family, mask))
+    def send_add_zone_message(self, inet_zone):
+       for m in inet_zone.buildKZorpMessage():
+           self.send_message(m)
 
     def _check_zone_params(self, add_zone_message, zone_data):
-        self.assertEqual(self.get_zone_name(add_zone_message), zone_data['name'])
-        self.assertEqual(self.get_zone_uname(add_zone_message), zone_data['uname'])
-
-        family = zone_data['family']
-        self.assertEqual(self.get_zone_range(add_zone_message), "%s/%s" % (zone_data['address'], testutil.size_to_mask(family, zone_data['mask'])))
+        self.assertEqual(add_zone_message.name, zone_data['name'])
+        self.assertEqual(add_zone_message.pname, zone_data['pname'])
+        subnet_num = 1 if zone_data.has_key('address') else 0
+        self.assertEqual(add_zone_message.subnet_num, subnet_num)
 
 if __name__ == "__main__":
     testutil.main()

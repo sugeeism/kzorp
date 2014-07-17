@@ -186,27 +186,26 @@ def upload_zones(fname):
         if line.startswith("#"):
             return
 
-        zone, parent, r = line.split(";")
+        zone, parent, s = line.split(";")
 
         zone = zone.strip('"')
         parent = parent.strip('"')
         if parent == "":
             parent = None
 
-        ranges = r.split(",")
-        if len(ranges) <= 1:
-            if ranges == [""]:
-                ranges = []
+        subnets = s.split(",")
+        if len(subnets) <= 1:
+            if subnets == [""]:
+                subnets = []
             else:
-                ranges = [r]
+                subnets = [s]
 
         # we send the "parent" first
-        handle.send(kznl.KZorpAddZoneMessage(zone, address=None, mask=None, uname=zone, pname=parent))
-        # then the rest
-        for i in xrange(len(ranges)):
-            uname = zone + "-#%d" % (i,)
-            family, addr, mask = parse_range(ranges[i])
-            handle.send(kznl.KZorpAddZoneMessage(zone, family=family, address=addr, mask=mask, uname=uname, pname=zone))
+        handle.send(kznl.KZorpAddZoneMessage(name=zone, pname=parent, subnet_num=len(subnets)))
+        print zone
+        for subnet in subnets:
+            family, addr, mask = parse_range(subnet)
+            handle.send(kznl.KZorpAddZoneSubnetMessage(zone, family=family, address=addr, mask=mask))
 
     handle = kznl.Handle()
     handle.send(kznl.KZorpStartTransactionMessage(kznl.KZ_INSTANCE_GLOBAL))
@@ -222,7 +221,7 @@ def upload_zones(fname):
 
         try:
             process_line(handle, line)
-        except Exception, e:
+        except ValueError, e:
             sys.stderr.write("Error while processing the following line: %s\n%s\n" % (e, line))
             return 1
 
