@@ -16,12 +16,17 @@
 # Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+import errno
 import os
 import optparse
 import sys
 import types
 import socket
 import kzorp.kzorp_netlink as kznl
+
+import time
+
+import errno
 
 AttributeRequiredError = "required attribute missing"
 
@@ -255,21 +260,22 @@ def evaluate_option_parser_cb(option, opt_str, value, parser):
     del parser.rargs[:len(value)]
     setattr(parser.values, option.dest, value)
 
+def parse_ip_option(parser, ip, description):
+    try:
+        return (socket.AF_INET, socket.inet_pton(socket.AF_INET, ip))
+    except socket.error:
+        try:
+            return (socket.AF_INET6, socket.inet_pton(socket.AF_INET6, ip))
+        except socket.error:
+            parser.error("invalid %s ip: %s" % (description, ip))
+
+
 def evaluate(parser, options, quiet):
     EVAL_ARG_NUM_PROTO    = 0
     EVAL_ARG_NUM_SRC_IP   = 1
     EVAL_ARG_NUM_DST_IP   = 2
     EVAL_ARG_NUM_IFACE    = 3
     EVAL_ARG_NUM          = 4
-
-    def parse_ip(parser, ip, description):
-        try:
-            return (socket.AF_INET, socket.inet_pton(socket.AF_INET, ip))
-        except socket.error:
-            try:
-                return (socket.AF_INET6, socket.inet_pton(socket.AF_INET6, ip))
-            except socket.error:
-                parser.error("invalid %s ip: %s" % (description, ip))
 
     def parse_num(parser, num_str, max_num_bits, description):
         try:
@@ -314,12 +320,12 @@ def evaluate(parser, options, quiet):
     kws['proto'] = parse_proto(parser, options.evaluate[EVAL_ARG_NUM_PROTO])
 
     saddr_str = options.evaluate[EVAL_ARG_NUM_SRC_IP]
-    (sfamily, saddr) = parse_ip(parser, saddr_str, "client")
+    (sfamily, saddr) = parse_ip_option(parser, saddr_str, "client")
     kws['family'] = sfamily
     kws['saddr'] = saddr
 
     daddr_str = options.evaluate[EVAL_ARG_NUM_DST_IP]
-    (dfamily, daddr) = parse_ip(parser, daddr_str, "server")
+    (dfamily, daddr) = parse_ip_option(parser, daddr_str, "server")
     kws['daddr'] = daddr
 
     if options.sport is not None:
@@ -368,6 +374,19 @@ def evaluate(parser, options, quiet):
 
     query_msg = kznl.KZorpQueryMessage(**kws)
     print str(kznl.Handle().exchange(query_msg))
+
+def LookupZone(parser, address):
+    handle = kznl.Handle()
+
+    (family, addr) = parse_ip_option(parser, address, 'lookup')
+    lookup_msg = kznl.KZorpLookupZoneMessage(family, addr)
+    try:
+        print str(kznl.Handle().exchange(lookup_msg))
+    except kznl.NetlinkException, e:
+        if e.detail != -errno.ENOENT:
+            raise e
+
+    return 0
 
 def main(args):
     option_list = [
@@ -438,13 +457,18 @@ def main(args):
                                           action="store", type="string", dest="upload",
                                           default=None,
                                           help="upload KZorp zone structure from file "
-                                               "[default: %default]")
+                                               "[default: %default]"),
+                     optparse.make_option("-l", "--lookup",
+                                          action="store", dest="lookup_ip",
+                                          default=None,
+                                          help="dump KZorp zone best matches the given IP"
+                                               "[default: %default]"),
                   ]
 
     parser = optparse.OptionParser(option_list=option_list, prog="kzorp", usage = "usage: %prog [options]")
     (options, args) = parser.parse_args()
 
-    if (options.version or options.zones or options.services or options.dispatchers or options.binds or options.upload != None or options.evaluate != None) == False:
+    if (options.version or options.zones or options.services or options.dispatchers or options.binds or options.upload != None or options.evaluate != None or options.lookup_ip != None) == False:
         parser.error("at least one option must be set")
 
     if os.getuid() != 0:
@@ -472,6 +496,8 @@ def main(args):
             res = upload_zones(options.upload)
         if options.evaluate:
             res = evaluate(parser, options, options.quiet)
+        if options.lookup_ip:
+            res = LookupZone(parser, options.lookup_ip)
     except socket.error, e:
         if e[0] == 111:
             sys.stderr.write("KZorp support not present in kernel\n")
