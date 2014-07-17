@@ -56,7 +56,8 @@ KZNL_MSG_GET_BIND            = 19
 KZNL_MSG_FLUSH_BIND          = 20
 KZNL_MSG_QUERY_REPLY         = 21
 KZNL_MSG_GET_VERSION_REPLY   = 22
-KZNL_MSG_MAX                 = 23
+KZNL_MSG_ADD_ZONE_SUBNET     = 23
+KZNL_MSG_MAX                 = 24
 
 # attribute types
 KZNL_ATTR_INVALID                       = 0
@@ -115,7 +116,9 @@ KZNL_ATTR_QUERY_PARAMS_SRC_PORT         = 52
 KZNL_ATTR_QUERY_PARAMS_DST_PORT         = 53
 KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE       = 54
 KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE    = 55
-KZNL_ATTR_MAX                           = 56
+KZNL_ATTR_ZONE_SUBNET                   = 56
+KZNL_ATTR_ZONE_SUBNET_NUM               = 57
+KZNL_ATTR_MAX                           = 58
 
 # list of attributes in an N dimension rule
 N_DIMENSION_ATTRS = [
@@ -776,26 +779,20 @@ class KZorpGetServiceMessage(GenericNetlinkMessage):
 class KZorpAddZoneMessage(GenericNetlinkMessage):
     command = KZNL_MSG_ADD_ZONE
 
-    def __init__(self, name, family=socket.AF_INET, address = None, mask = None, uname = None, pname = None):
+    def __init__(self, name, pname = None, subnet_num = 0):
         super(KZorpAddZoneMessage, self).__init__(self.command, version = 1)
 
         self.name = name
-        self.uname = uname
         self.pname = pname
-        self.family = family
-        self.address = address
-        self.mask = mask
+        self.subnet_num = subnet_num
 
         self._build_payload()
 
     def _build_payload(self):
         self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_NAME, self.name))
-        if self.uname != None:
-            self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_UNAME, self.uname))
         if self.pname != None:
             self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_PNAME, self.pname))
-        if self.address != None and self.mask != None:
-            self.append_attribute(create_inet_range_attr(KZNL_ATTR_ZONE_RANGE, self.family, self.address, self.mask))
+        self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_ZONE_SUBNET_NUM, self.subnet_num))
 
     @staticmethod
     def parse(version, data):
@@ -807,26 +804,79 @@ class KZorpAddZoneMessage(GenericNetlinkMessage):
         else:
             raise AttributeRequiredError, "KZNL_ATTR_ZONE_NAME"
 
-        if attrs.has_key(KZNL_ATTR_ZONE_UNAME):
-            kw['uname'] = parse_name_attr(attrs[KZNL_ATTR_ZONE_UNAME])
-
         if attrs.has_key(KZNL_ATTR_ZONE_PNAME):
             kw['pname'] = parse_name_attr(attrs[KZNL_ATTR_ZONE_PNAME])
 
-        if attrs.has_key(KZNL_ATTR_ZONE_RANGE):
-            (family, address, mask) = parse_inet_range_attr(attrs[KZNL_ATTR_ZONE_RANGE])
-            kw['family'] = family
-            kw['address'] = address
-            kw['mask'] = mask
+        kw['subnet_num'] = attrs[KZNL_ATTR_ZONE_SUBNET_NUM].parse_be32()
 
         return KZorpAddZoneMessage(name, **kw)
 
     def __str__(self):
-        res = "Zone unique_name='%s', visible_name='%s', admin_parent='%s'" % (self.uname, self.name, self.pname)
-        if self.address:
-            range_str = "range '%s/%s'" % (socket.inet_ntop(self.family, self.address), socket.inet_ntop(self.family, self.mask))
-            res += ",\n        %s" % range_str
+        res = "Zone name='%s', admin_parent='%s'" % (self.name, self.pname)
         return res
+
+class KZorpObjectEntryMessage(GenericNetlinkMessage):
+    def __init__(self, version):
+        super(KZorpObjectEntryMessage, self).__init__(self.command, version)
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+class KZorpObjectSubnetEntryMessage(KZorpObjectEntryMessage):
+    def __init__(self, zone_name, family, address, mask = None):
+        super(KZorpObjectSubnetEntryMessage, self).__init__(version = 1)
+
+        self.zone_name = zone_name
+        self.family = family
+        self.address = address
+        self.mask = mask
+        if self.mask is None:
+            if family == socket.AF_INET:
+                self.mask = '\xff' * 4
+            elif family == socket.AF_INET6:
+                self.mask = '\xff' * 16
+            else:
+                raise AttributeRequiredError, "KZNL_ATTR_ZONE_SUBNET"
+
+        self._build_payload()
+
+    def _build_payload(self):
+        self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_NAME, self.zone_name))
+        self.append_attribute(create_inet_range_attr(KZNL_ATTR_ZONE_SUBNET, self.family, self.address, self.mask))
+
+    @staticmethod
+    def parse(version, data):
+        attrs = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
+        kw = {}
+
+        if attrs.has_key(KZNL_ATTR_ZONE_NAME):
+            kw['zone_name']= parse_name_attr(attrs[KZNL_ATTR_ZONE_NAME])
+        else:
+            raise AttributeRequiredError, "KZNL_ATTR_ZONE_NAME"
+
+        if attrs.has_key(KZNL_ATTR_ZONE_SUBNET):
+            (family, address, mask) = parse_inet_range_attr(attrs[KZNL_ATTR_ZONE_SUBNET])
+            kw['family'] = family
+            kw['address'] = address
+            kw['mask'] = mask
+        else:
+            raise AttributeRequiredError, "KZNL_ATTR_ZONE_SUBNET"
+
+        return KZorpAddZoneSubnetMessage(**kw)
+
+    def __str__(self):
+        range_str = "        range '%s/%s'" % (socket.inet_ntop(self.family, self.address), socket.inet_ntop(self.family, self.mask))
+        return range_str
+
+class KZorpAddZoneSubnetMessage(KZorpObjectSubnetEntryMessage):
+    command = KZNL_MSG_ADD_ZONE_SUBNET
+
+    def __init__(self, zone_name, family, address, mask = None):
+        super(KZorpAddZoneSubnetMessage, self).__init__(zone_name, family, address, mask)
+
+    @staticmethod
+    def parse(version, data):
+        return KZorpObjectSubnetEntryMessage.parse(version, data)
 
 class KZorpGetZoneMessage(GenericNetlinkMessage):
     command = KZNL_MSG_GET_ZONE
@@ -1223,6 +1273,7 @@ class KZorpMessageFactory(object):
       KZNL_MSG_ADD_SERVICE_NAT_DST : KZorpAddServiceDestinationNATMappingMessage,
       KZNL_MSG_ADD_SERVICE_NAT_SRC : KZorpAddServiceSourceNATMappingMessage,
       KZNL_MSG_ADD_ZONE            : KZorpAddZoneMessage,
+      KZNL_MSG_ADD_ZONE_SUBNET     : KZorpAddZoneSubnetMessage,
       KZNL_MSG_FLUSH_BIND          : KZorpFlushBindsMessage,
       KZNL_MSG_FLUSH_DISPATCHER    : KZorpFlushDispatchersMessage,
       KZNL_MSG_FLUSH_SERVICE       : KZorpFlushServicesMessage,
