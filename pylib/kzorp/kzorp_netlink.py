@@ -109,7 +109,9 @@ KZNL_ATTR_N_DIMENSION_DST_IFACE         = 46
 KZNL_ATTR_N_DIMENSION_DST_IFGROUP       = 47
 KZNL_ATTR_N_DIMENSION_REQID             = 48
 KZNL_ATTR_QUERY_PARAMS_REQID            = 49
-KZNL_ATTR_MAX                           = 50
+KZNL_ATTR_N_DIMENSION_PROTO_TYPE        = 50
+KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE     = 51
+KZNL_ATTR_MAX                           = 52
 
 # list of attributes in an N dimension rule
 N_DIMENSION_ATTRS = [
@@ -127,6 +129,8 @@ N_DIMENSION_ATTRS = [
   KZNL_ATTR_N_DIMENSION_DST_IFACE,
   KZNL_ATTR_N_DIMENSION_DST_IFGROUP,
   KZNL_ATTR_N_DIMENSION_REQID,
+  KZNL_ATTR_N_DIMENSION_PROTO_TYPE,
+  KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE,
 ]
 
 # name of global instance
@@ -402,6 +406,8 @@ def parse_rule_entry_attrs(attr):
                 value = parse_inet_subnet_attr(attr[dim_type], get_family_from_attr(attr[dim_type]))
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFGROUP or \
                  dim_type == KZNL_ATTR_N_DIMENSION_DST_IFGROUP or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_TYPE or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE or \
                  dim_type == KZNL_ATTR_N_DIMENSION_REQID:
                 value = struct.unpack('>I',  data[:4])[0]
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFACE    or \
@@ -932,6 +938,8 @@ class KZorpAddRuleEntryMessage(GenericNetlinkMessage):
                 self.append_attribute(create_inet_subnet_attr(dim_type, socket.AF_INET6, value[0], value[1]))
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFGROUP or \
                  dim_type == KZNL_ATTR_N_DIMENSION_DST_IFGROUP or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_TYPE or \
+                 dim_type == KZNL_ATTR_N_DIMENSION_PROTO_SUBTYPE or \
                  dim_type == KZNL_ATTR_N_DIMENSION_REQID:
                 self.append_attribute(NetlinkAttribute.create_be32(dim_type, value))
             elif dim_type == KZNL_ATTR_N_DIMENSION_IFACE    or \
@@ -951,7 +959,7 @@ class KZorpAddRuleEntryMessage(GenericNetlinkMessage):
         return KZorpAddRuleEntryMessage(dpt_name, rule_id, entry_values)
 
     def aggregate_rule_entries(self, rule_entries):
-        dpt_protocols = {6: "TCP", 17: "UDP"}
+        dpt_protocols = {1: "ICMP", 6: "TCP", 17: "UDP"}
 
         for dim_type, value in self.entry_values.items():
             if not dim_type in rule_entries:
