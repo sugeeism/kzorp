@@ -1,15 +1,15 @@
 import netlink
 import random, time
-import kzorp_netlink
+import messages
 
 class Handle(netlink.Handle):
     def __init__(self):
         super(Handle, self).__init__('kzorp')
 
-    def dump(self, message, factory=kzorp_netlink.KZorpMessageFactory):
+    def dump(self, message, factory=messages.KZorpMessageFactory):
         return super(Handle, self).talk(message, True, factory)
 
-    def exchange(self, message, factory=kzorp_netlink.KZorpMessageFactory):
+    def exchange(self, message, factory=messages.KZorpMessageFactory):
         replies = []
         for reply in self.talk(message, False, factory):
             replies.append(reply)
@@ -37,7 +37,7 @@ def startTransaction(h, instance_name):
     wait = 0.1
     while tries > 0:
         try:
-            exchangeMessage(h, kzorp_netlink.KZorpStartTransactionMessage(instance_name))
+            exchangeMessage(h, messages.KZorpStartTransactionMessage(instance_name))
         except:
             tries = tries - 1
             if tries == 0:
@@ -49,4 +49,4 @@ def startTransaction(h, instance_name):
         break
 
 def commitTransaction(h):
-    exchangeMessage(h, kzorp_netlink.KZorpCommitTransactionMessage())
+    exchangeMessage(h, messages.KZorpCommitTransactionMessage())
