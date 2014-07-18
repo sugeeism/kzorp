@@ -1,36 +1,7 @@
-
-#
-# Copyright (C) 2006-2012, BalaBit IT Ltd.
-# This program/include file is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as published
-# by the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program/include file is distributed in the hope that it will be
-# useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
 import struct
 import socket
 from netlink import *
 import pprint
-
-def enum(*args, **kw):
-
-    def reverse_enumerate(s):
-        return zip(s, range(len(s)))
-
-    def to_string_method(enums):
-        rev_map=dict((v,k) for k, v in enums.iteritems())
-        return staticmethod(lambda value: rev_map[value])
-
-    enums = dict(reverse_enumerate(args), **kw)
-    return type('Enum', (object,), dict(enums, to_string=to_string_method(enums)))
 
 # message types
 KZNL_MSG_INVALID             = 0
@@ -57,7 +28,9 @@ KZNL_MSG_FLUSH_BIND          = 20
 KZNL_MSG_QUERY_REPLY         = 21
 KZNL_MSG_GET_VERSION_REPLY   = 22
 KZNL_MSG_ADD_ZONE_SUBNET     = 23
-KZNL_MSG_MAX                 = 24
+KZNL_MSG_LOOKUP_ZONE         = 24
+KZNL_MSG_DELETE_ZONE         = 25
+KZNL_MSG_MAX                 = 26
 
 # attribute types
 KZNL_ATTR_INVALID                       = 0
@@ -118,7 +91,8 @@ KZNL_ATTR_QUERY_PARAMS_PROTO_TYPE       = 54
 KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE    = 55
 KZNL_ATTR_ZONE_SUBNET                   = 56
 KZNL_ATTR_ZONE_SUBNET_NUM               = 57
-KZNL_ATTR_MAX                           = 58
+KZNL_ATTR_ZONE_IP                       = 58
+KZNL_ATTR_MAX                           = 59
 
 # list of attributes in an N dimension rule
 N_DIMENSION_ATTRS = [
@@ -160,22 +134,23 @@ KZF_SVC_TRANSPARENT = 1
 KZF_SVC_FORGE_ADDR = 2
 KZF_SVC_LOGGING = 4
 
-DenyIPv4 = enum(DROP=0,
-                TCP_RESET=1,
-                ICMP_NET_UNREACHABLE=2,
-                ICMP_HOST_UNREACHABLE=3,
-                ICMP_PROTO_UNREACHABLE=4,
-                ICMP_PORT_UNREACHABLE=5,
-                ICMP_NET_PROHIBITED=6,
-                ICMP_HOST_PROHIBITED=7,
-                ICMP_ADMIN_PROHIBITED=8)
+# service deny methods
+KZ_SVC_DENY_METHOD_V4_DROP = 0
+KZ_SVC_DENY_METHOD_V4_TCP_RESET = 1
+KZ_SVC_DENY_METHOD_ICMP_NET_UNREACHABLE = 2
+KZ_SVC_DENY_METHOD_ICMP_HOST_UNREACHABLE = 3
+KZ_SVC_DENY_METHOD_ICMP_PROTO_UNREACHABLE = 4
+KZ_SVC_DENY_METHOD_ICMP_PORT_UNREACHABLE = 5
+KZ_SVC_DENY_METHOD_ICMP_NET_PROHIBITED = 6
+KZ_SVC_DENY_METHOD_ICMP_HOST_PROHIBITED = 7
+KZ_SVC_DENY_METHOD_ICMP_ADMIN_PROHIBITED = 8
 
-DenyIPv6 = enum(DROP=0,
-                TCP_RESET=1,
-                ICMP_NO_ROUTE=2,
-                ICMP_ADMIN_PROHIBITED=3,
-                ICMP_ADDR_UNREACHABLE=4,
-                ICMP_PORT_UNREACHABLE=5)
+KZ_SVC_DENY_METHOD_V6_DROP = 0
+KZ_SVC_DENY_METHOD_V6_TCP_RESET = 1
+KZ_SVC_DENY_METHOD_ICMPV6_NO_ROUTE = 2
+KZ_SVC_DENY_METHOD_ICMPV6_ADMIN_PROHIBITED = 3
+KZ_SVC_DENY_METHOD_ICMPV6_ADDR_UNREACHABLE = 4
+KZ_SVC_DENY_METHOD_ICMPV6_PORT_UNREACHABLE = 5
 
 # service NAT entry flags
 KZ_SVC_NAT_MAP_IPS = 1
@@ -610,24 +585,24 @@ class KZorpAddDenyServiceMessage(KZorpAddServiceMessage):
     type_string = "DenyService"
 
     deny_ipv4_types = {
-        DenyIPv4.DROP: 'Drop',
-        DenyIPv4.TCP_RESET: 'TCP reset',
-        DenyIPv4.ICMP_NET_UNREACHABLE: 'Network unreachable',
-        DenyIPv4.ICMP_HOST_UNREACHABLE: 'Host unreachable',
-        DenyIPv4.ICMP_PROTO_UNREACHABLE: 'Proto unreachable',
-        DenyIPv4.ICMP_PORT_UNREACHABLE: 'Port unreachable',
-        DenyIPv4.ICMP_NET_PROHIBITED: 'Network prohibited',
-        DenyIPv4.ICMP_HOST_PROHIBITED: 'Host prohibited',
-        DenyIPv4.ICMP_ADMIN_PROHIBITED: 'Administratively prohibited',
+        KZ_SVC_DENY_METHOD_V4_DROP: 'Drop',
+        KZ_SVC_DENY_METHOD_V4_TCP_RESET: 'TCP reset',
+        KZ_SVC_DENY_METHOD_ICMP_NET_UNREACHABLE: 'Network unreachable',
+        KZ_SVC_DENY_METHOD_ICMP_HOST_UNREACHABLE: 'Host unreachable',
+        KZ_SVC_DENY_METHOD_ICMP_PROTO_UNREACHABLE: 'Proto unreachable',
+        KZ_SVC_DENY_METHOD_ICMP_PORT_UNREACHABLE: 'Port unreachable',
+        KZ_SVC_DENY_METHOD_ICMP_NET_PROHIBITED: 'Network prohibited',
+        KZ_SVC_DENY_METHOD_ICMP_HOST_PROHIBITED: 'Host prohibited',
+        KZ_SVC_DENY_METHOD_ICMP_ADMIN_PROHIBITED: 'Administratively prohibited',
         }
 
     deny_ipv6_types = {
-        DenyIPv6.DROP: 'Drop',
-        DenyIPv6.TCP_RESET: 'TCP reset',
-        DenyIPv6.ICMP_NO_ROUTE: 'No route',
-        DenyIPv6.ICMP_ADMIN_PROHIBITED: 'Administratively prohibited',
-        DenyIPv6.ICMP_ADDR_UNREACHABLE: 'Address unreachable',
-        DenyIPv6.ICMP_PORT_UNREACHABLE: 'Port unreachable',
+        KZ_SVC_DENY_METHOD_V6_DROP: 'Drop',
+        KZ_SVC_DENY_METHOD_V6_TCP_RESET: 'TCP reset',
+        KZ_SVC_DENY_METHOD_ICMPV6_NO_ROUTE: 'No route',
+        KZ_SVC_DENY_METHOD_ICMPV6_ADMIN_PROHIBITED: 'Administratively prohibited',
+        KZ_SVC_DENY_METHOD_ICMPV6_ADDR_UNREACHABLE: 'Address unreachable',
+        KZ_SVC_DENY_METHOD_ICMPV6_PORT_UNREACHABLE: 'Port unreachable',
         }
 
     def __init__(self, name, logging, count, ipv4_settings, ipv6_settings):
@@ -1262,6 +1237,54 @@ class KZorpGetVersionReplyMessage(GenericNetlinkMessage):
     def __str__(self):
         return "Version: %d.%d" % (self.major, self.compat)
 
+class KZorpDeleteZoneMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_DELETE_ZONE
+
+    def __init__(self, name, family = None, address = None, mask = None):
+        super(KZorpDeleteZoneMessage, self).__init__(self.command, version = 1)
+
+        self.name = name
+
+        self._build_payload()
+
+    def _build_payload(self):
+        self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_NAME, self.name))
+
+    @staticmethod
+    def parse(version, data):
+        attrs = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
+        name = parse_name_attr(attrs[KZNL_ATTR_ZONE_NAME])
+
+        return KZorpDeleteZoneMessage(name)
+
+    def __str__(self):
+        raise NotImplementedError
+
+class KZorpLookupZoneMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_LOOKUP_ZONE
+
+    def __init__(self, family, address):
+        super(KZorpLookupZoneMessage, self).__init__(self.command, version = 1)
+
+        self.address = address
+        self.family = family
+
+        self._build_payload()
+
+    def _build_payload(self):
+        self.append_attribute(create_inet_addr_attr(KZNL_ATTR_ZONE_LOOKUP_PARAM_IP, self.family, self.address))
+
+    @staticmethod
+    def parse(version, data):
+        attrs = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
+        address = parse_name_attr(attrs[KZNL_ATTR_ZONE_LOOKUP_PARAM_IP])
+
+        (family, address) = parse_inet_addr_attr(attrs[KZNL_ATTR_ZONE_LOOKUP_PARAM_IP])
+
+        return KZorpUpdateZoneMessage(address)
+
+    def __str__(self):
+        raise NotImplementedError
 
 class KZorpMessageFactory(object):
     known_classes = {
@@ -1287,6 +1310,8 @@ class KZorpMessageFactory(object):
       KZNL_MSG_QUERY               : KZorpQueryMessage,
       KZNL_MSG_QUERY_REPLY         : KZorpQueryReplyMessage,
       KZNL_MSG_GET_VERSION_REPLY   : KZorpGetVersionReplyMessage,
+      KZNL_MSG_LOOKUP_ZONE         : KZorpLookupZoneMessage,
+      KZNL_MSG_DELETE_ZONE         : KZorpDeleteZoneMessage,
     }
 
     @staticmethod

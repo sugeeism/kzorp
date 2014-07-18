@@ -9,7 +9,7 @@ from Zorp.DynamicZoneHandler import DynamicZoneHandler
 
 from Zorp.Base import BaseZone
 from Zorp.Zone import Zone
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages
 
 class TestDynamicZoneHandler(unittest.TestCase):
     def setUp(self):
@@ -26,11 +26,11 @@ class TestSetupZones(TestDynamicZoneHandler):
         zone_handler = DynamicZoneHandler(BaseZone.zones.values(), None)
         messages = zone_handler.create_zone_static_address_initialization_messages()
 
-        add_zone_messages = filter(lambda msg: msg.command == kznl.KZNL_MSG_ADD_ZONE, messages)
+        add_zone_messages = filter(lambda msg: msg.command == kzorp.messages.KZNL_MSG_ADD_ZONE, messages)
         self.assertEqual([msg.name for msg in add_zone_messages], zone_names_in_order)
 
         subnets_from_zones = set(zone_subnets)
-        add_zone_subnet_messages = filter(lambda msg: msg.command == kznl.KZNL_MSG_ADD_ZONE_SUBNET, messages)
+        add_zone_subnet_messages = filter(lambda msg: msg.command == kzorp.messages.KZNL_MSG_ADD_ZONE_SUBNET, messages)
         subnets_from_messages = self._create_subnet_set_from_messages(add_zone_subnet_messages)
         self.assertEqual(subnets_from_messages, subnets_from_zones)
 
@@ -132,16 +132,16 @@ class TestUpdateZones(TestDynamicZoneHandler):
         zone_handler = DynamicZoneHandler(BaseZone.zones.values(), MyResolverCache())
         messages = zone_handler.create_zone_update_messages(updatable_hostname)
 
-        delete_zone_messages = filter(lambda msg: msg.command == kznl.KZNL_MSG_DELETE_ZONE, messages)
+        delete_zone_messages = filter(lambda msg: msg.command == kzorp.messages.KZNL_MSG_DELETE_ZONE, messages)
         delete_zone_messages = dict(map(lambda msg: (msg.name, msg), delete_zone_messages))
         self.assertEqual(set(delete_zone_messages.keys()), updatable_zone_names)
 
-        add_zone_messages = filter(lambda msg: msg.command == kznl.KZNL_MSG_ADD_ZONE, messages)
+        add_zone_messages = filter(lambda msg: msg.command == kzorp.messages.KZNL_MSG_ADD_ZONE, messages)
         add_zone_messages = dict(map(lambda msg: (msg.name, msg), add_zone_messages))
         self.assertEqual(set(add_zone_messages.keys()), updatable_zone_names)
 
         for (zone_name, subnets) in updatable_zones.iteritems():
-            add_zone_subnet_messages = filter(lambda msg: msg.command == kznl.KZNL_MSG_ADD_ZONE_SUBNET and \
+            add_zone_subnet_messages = filter(lambda msg: msg.command == kzorp.messages.KZNL_MSG_ADD_ZONE_SUBNET and \
                                                           msg.zone_name == zone_name,
                                               messages)
             subnets_from_messages = self._create_subnet_set_from_messages(add_zone_subnet_messages)

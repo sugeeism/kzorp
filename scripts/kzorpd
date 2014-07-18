@@ -33,7 +33,6 @@ import radix
 import Zorp.Common as Common
 import Zorp.ResolverCache as ResolverCache
 
-import kzorp.kzorp_netlink as kznl
 import kzorp.communication
 
 from Zorp.Zone import Zone

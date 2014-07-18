@@ -21,20 +21,20 @@
 
 import Globals
 import random
-import kzorp.kzorp_netlink
+import kzorp.messages
 import kzorp.communication
 from Zorp import *
 
 def downloadServices(h):
     # download services
-    kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushServicesMessage())
+    kzorp.communication.exchangeMessage(h, kzorp.messages.KZorpFlushServicesMessage())
 
     for service in Globals.services.values():
         messages = service.buildKZorpMessage()
         kzorp.communication.exchangeMessages(h, messages)
 
 def downloadDispatchers(h):
-    kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushDispatchersMessage())
+    kzorp.communication.exchangeMessage(h, kzorp.messages.KZorpFlushDispatchersMessage())
 
     for dispatch in Globals.dispatches:
         try:
@@ -57,12 +57,12 @@ def downloadBindAddresses(h):
 def createAddZoneMessageFromZone(zone):
     subnet_num = len(zone.subnets) + len(zone.hostnames)
     pname = zone.admin_parent.name if zone.admin_parent else None
-    return kzorp.kzorp_netlink.KZorpAddZoneMessage(zone.name, pname, subnet_num = subnet_num)
+    return kzorp.messages.KZorpAddZoneMessage(zone.name, pname, subnet_num = subnet_num)
 
 def createAddZoneSubnetMessagesFromZoneAddresses(zone):
     add_zone_subnet_messages = []
     for subnet in zone.subnets:
-        add_zone_subnet_message = kzorp.kzorp_netlink.KZorpAddZoneSubnetMessage(zone.name,
+        add_zone_subnet_message = kzorp.messages.KZorpAddZoneSubnetMessage(zone.name,
                                                                                 subnet.get_family(),
                                                                                 subnet.addr_packed(),
                                                                                 subnet.netmask_packed())
@@ -71,7 +71,7 @@ def createAddZoneSubnetMessagesFromZoneAddresses(zone):
 
 def downloadStaticZones(zones):
     h = kzorp.communication.Handle()
-    kzorp.communication.startTransaction(h, kzorp.kzorp_netlink.KZ_INSTANCE_GLOBAL)
+    kzorp.communication.startTransaction(h, kzorp.messages.KZ_INSTANCE_GLOBAL)
     try:
         for zone in sorted(zones, cmp=lambda z1, z2: cmp(z1.getDepth(), z2.getDepth())):
             kzorp.communication.exchangeMessages(h, (createAddZoneMessageFromZone(zone), ))
@@ -113,8 +113,8 @@ def flushKZorpConfig(instance_name):
     # flush dispatchers and services
     kzorp.communication.startTransaction(h, instance_name)
     try:
-        kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushDispatchersMessage())
-        kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushServicesMessage())
+        kzorp.communication.exchangeMessage(h, kzorp.messages.KZorpFlushDispatchersMessage())
+        kzorp.communication.exchangeMessage(h, kzorp.messages.KZorpFlushServicesMessage())
         kzorp.communication.commitTransaction(h)
     except:
         h.close()

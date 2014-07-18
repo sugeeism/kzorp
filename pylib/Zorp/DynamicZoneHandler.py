@@ -1,7 +1,8 @@
 from Zone import Zone
 from Subnet import Subnet
 import Common
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages
+import kzorp.netlink
 import kzorp.communication
 import socket
 import prctl
@@ -34,12 +35,12 @@ class DynamicZoneHandler(object):
     def _create_add_zone_messages_from_zone(self, zone, num_of_hostname_subnets = 0):
         subnet_num = len(zone.subnets) + num_of_hostname_subnets
         pname = zone.admin_parent.name if zone.admin_parent else None
-        return kznl.KZorpAddZoneMessage(zone.name, pname, subnet_num = subnet_num)
+        return kzorp.messages.KZorpAddZoneMessage(zone.name, pname, subnet_num = subnet_num)
 
     def _create_add_zone_subnet_messages_from_zone(self, zone):
         add_zone_subnet_messages = []
         for subnet in zone.subnets:
-            add_zone_subnet_message = kznl.KZorpAddZoneSubnetMessage(zone.name,
+            add_zone_subnet_message = kzorp.messages.KZorpAddZoneSubnetMessage(zone.name,
                                                                      subnet.get_family(),
                                                                      subnet.addr_packed(),
                                                                      subnet.netmask_packed())
@@ -86,7 +87,7 @@ class DynamicZoneHandler(object):
         if updatable_zone is None:
             return []
 
-        delete_zone_messages = [kznl.KZorpDeleteZoneMessage(updatable_zone.name), ]
+        delete_zone_messages = [kzorp.messages.KZorpDeleteZoneMessage(updatable_zone.name), ]
         add_zone_subnet_messages_for_static_addresses = self._create_add_zone_subnet_messages_from_zone(updatable_zone)
         add_zone_subnet_messages_for_dynamic_addresses = self._create_add_zone_subnet_messages_of_hostnames(
             updatable_zone)
@@ -99,7 +100,7 @@ class DynamicZoneHandler(object):
             lambda msg: socket.inet_ntop(msg.family, msg.address) not in conflicting_zone_addresses_map,
             add_zone_subnet_messages_for_dynamic_addresses)
         for (conflicting_zone, conflicting_addresses) in conflicting_zone_addresses_map.iteritems():
-            delete_zone_messages += [kznl.KZorpDeleteZoneMessage(conflicting_zone.name), ]
+            delete_zone_messages += [kzorp.messages.KZorpDeleteZoneMessage(conflicting_zone.name), ]
             add_zone_subnet_messages_for_static_addresses += self._create_add_zone_subnet_messages_from_zone(
                 conflicting_zone)
             add_zone_subnet_messages = self._create_add_zone_subnet_messages_of_hostnames(conflicting_zone)
@@ -117,7 +118,7 @@ class DynamicZoneHandler(object):
                                     add_zone_subnet_messages_for_dynamic_addresses))
             zone = Zone.lookupByName(zone_name)
             parent_name = zone.admin_parent.name if zone.admin_parent is not None else None
-            add_zone_messages += [ kznl.KZorpAddZoneMessage(zone.name, parent_name, subnet_num), ]
+            add_zone_messages += [ kzorp.messages.KZorpAddZoneMessage(zone.name, parent_name, subnet_num), ]
 
         return delete_zone_messages + add_zone_messages + \
             add_zone_subnet_messages_for_static_addresses + \
@@ -131,11 +132,11 @@ class DynamicZoneHandler(object):
         add_zone_subnet_messages = []
 
         for address in ipv4_addresses:
-            add_zone_subnet_message = kznl.KZorpAddZoneSubnetMessage(zone.name, socket.AF_INET,
+            add_zone_subnet_message = kzorp.messages.KZorpAddZoneSubnetMessage(zone.name, socket.AF_INET,
                                                                      socket.inet_pton(socket.AF_INET, address))
             add_zone_subnet_messages.append(add_zone_subnet_message)
         for address in ipv6_addresses:
-            add_zone_subnet_message = kznl.KZorpAddZoneSubnetMessage(zone.name, socket.AF_INET6,
+            add_zone_subnet_message = kzorp.messages.KZorpAddZoneSubnetMessage(zone.name, socket.AF_INET6,
                                                                      socket.inet_pton(socket.AF_INET6, address))
             add_zone_subnet_messages.append(add_zone_subnet_message)
 
@@ -168,9 +169,9 @@ class DynamicZoneHandler(object):
     def create_zone_dynamic_address_initialization_messages(self):
         def get_zone_name_from_message(msg):
             attr_name_by_command = {
-                                     kznl.KZNL_MSG_ADD_ZONE:        'name',
-                                     kznl.KZNL_MSG_DELETE_ZONE:     'name',
-                                     kznl.KZNL_MSG_ADD_ZONE_SUBNET: 'zone_name',
+                                     kzorp.messages.KZNL_MSG_ADD_ZONE:        'name',
+                                     kzorp.messages.KZNL_MSG_DELETE_ZONE:     'name',
+                                     kzorp.messages.KZNL_MSG_ADD_ZONE_SUBNET: 'zone_name',
                                    }
             return getattr(msg, attr_name_by_command[msg.command])
 
@@ -226,19 +227,19 @@ class ZoneDownload(object):
 
     def __send_messages(self, messages):
         try:
-            kzorp.communication.startTransaction(self.kzorp_handle, kznl.KZ_INSTANCE_GLOBAL)
+            kzorp.communication.startTransaction(self.kzorp_handle, kzorp.messages.KZ_INSTANCE_GLOBAL)
 
             for message in messages:
                 self.kzorp_handle.exchange(message)
 
             kzorp.communication.commitTransaction(self.kzorp_handle)
-        except kznl.NetlinkException as e:
+        except kzorp.netlink.NetlinkException as e:
             Common.log(None, Common.CORE_ERROR, 6,
                        "Error occured while downloading zones to kernel; error='%s'" % (e.detail))
             raise e
 
     def initial(self, messages):
-        self.__send_messages([kznl.KZorpFlushZonesMessage(), ] + messages)
+        self.__send_messages([kzorp.messages.KZorpFlushZonesMessage(), ] + messages)
 
     def update(self, messages):
         self.__send_messages(messages)
