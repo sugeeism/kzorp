@@ -22,23 +22,24 @@
 import Globals
 import random
 import kzorp.kzorp_netlink
+import kzorp.communication
 from Zorp import *
 
 def downloadServices(h):
     # download services
-    kzorp.kzorp_netlink.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushServicesMessage())
+    kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushServicesMessage())
 
     for service in Globals.services.values():
         messages = service.buildKZorpMessage()
-        kzorp.kzorp_netlink.exchangeMessages(h, messages)
+        kzorp.communication.exchangeMessages(h, messages)
 
 def downloadDispatchers(h):
-    kzorp.kzorp_netlink.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushDispatchersMessage())
+    kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushDispatchersMessage())
 
     for dispatch in Globals.dispatches:
         try:
             messages = dispatch.buildKZorpMessage()
-            kzorp.kzorp_netlink.exchangeMessages(h, messages)
+            kzorp.communication.exchangeMessages(h, messages)
         except:
             log(None, CORE_ERROR, 0, "Error occured during Dispatcher upload to KZorp; dispatcher='%s', error='%s'" % (dispatch.bindto[0].format(), sys.exc_value))
             raise
@@ -48,7 +49,7 @@ def downloadBindAddresses(h):
     for dispatch in Globals.dispatches:
         try:
             messages = dispatch.buildKZorpBindMessage()
-            kzorp.kzorp_netlink.exchangeMessages(h, messages)
+            kzorp.communication.exchangeMessages(h, messages)
         except:
             log(None, CORE_ERROR, 0, "Error occured during bind address upload to KZorp; dispatcher='%s', error='%s'" % (dispatch.bindto[0].format(), sys.exc_value))
             raise
@@ -69,14 +70,14 @@ def createAddZoneSubnetMessagesFromZoneAddresses(zone):
     return add_zone_subnet_messages
 
 def downloadStaticZones(zones):
-    h = kzorp.kzorp_netlink.Handle()
-    kzorp.kzorp_netlink.startTransaction(h, kzorp.kzorp_netlink.KZ_INSTANCE_GLOBAL)
+    h = kzorp.communication.Handle()
+    kzorp.communication.startTransaction(h, kzorp.kzorp_netlink.KZ_INSTANCE_GLOBAL)
     try:
         for zone in sorted(zones, cmp=lambda z1, z2: cmp(z1.getDepth(), z2.getDepth())):
-            kzorp.kzorp_netlink.exchangeMessages(h, (createAddZoneMessageFromZone(zone), ))
-            kzorp.kzorp_netlink.exchangeMessages(h, createAddZoneSubnetMessagesFromZoneAddresses(zone))
+            kzorp.communication.exchangeMessages(h, (createAddZoneMessageFromZone(zone), ))
+            kzorp.communication.exchangeMessages(h, createAddZoneSubnetMessagesFromZoneAddresses(zone))
 
-        kzorp.kzorp_netlink.commitTransaction(h)
+        kzorp.communication.commitTransaction(h)
     except:
         h.close()
         raise
@@ -84,17 +85,17 @@ def downloadStaticZones(zones):
 def downloadKZorpConfig(instance_name, is_master):
 
     random.seed()
-    h = kzorp.kzorp_netlink.Handle()
+    h = kkzorp.communication.Handle()
 
     # start transaction
-    kzorp.kzorp_netlink.startTransaction(h, instance_name)
+    kzorp.communication.startTransaction(h, instance_name)
 
     try:
         if is_master:
             downloadServices(h)
             downloadDispatchers(h)
         downloadBindAddresses(h)
-        kzorp.kzorp_netlink.commitTransaction(h)
+        kzorp.communication.commitTransaction(h)
     except:
         h.close()
         raise
@@ -107,14 +108,14 @@ def flushKZorpConfig(instance_name):
 
     h = getattr(Globals, "kzorp_netlink_handle", None)
     if not h:
-        h = kzorp.kzorp_netlink.Handle()
+        h = kzorp.communication.Handle()
 
     # flush dispatchers and services
-    kzorp.kzorp_netlink.startTransaction(h, instance_name)
+    kzorp.communication.startTransaction(h, instance_name)
     try:
-        kzorp.kzorp_netlink.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushDispatchersMessage())
-        kzorp.kzorp_netlink.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushServicesMessage())
-        kzorp.kzorp_netlink.commitTransaction(h)
+        kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushDispatchersMessage())
+        kzorp.communication.exchangeMessage(h, kzorp.kzorp_netlink.KZorpFlushServicesMessage())
+        kzorp.communication.commitTransaction(h)
     except:
         h.close()
         raise

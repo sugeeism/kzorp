@@ -1,9 +1,11 @@
+#!/usr/bin/env python
+
 import unittest
 
 import socket
 import radix
 
-from kzorpd import DynamicZoneHandler
+from Zorp.DynamicZoneHandler import DynamicZoneHandler
 
 from Zorp.Base import BaseZone
 from Zorp.Zone import Zone
@@ -270,6 +272,16 @@ class TestUpdateZones(TestDynamicZoneHandler):
                           set(self.__get_subnets_from_addresses([MyResolverCache.non_conflicting_ipv4_addr,
                                                                  MyResolverCache.non_conflicting_ipv6_addr, ])),
                          'conflicting_dynamic_zone': set(),
+                        }
+        self.__check_zone_update_messages(MyResolverCache.conflicting_host_hostname, updated_zones)
+
+    @unittest.skip("known bug in 5.0.0")
+    def test_dynamic_conflicts_in_same_zone(self):
+        zone = Zone('self_conflicting_dynamic_zone',
+                    hostnames=[ MyResolverCache.host_one_hostname,
+                                MyResolverCache.conflicting_host_hostname, ])
+        updated_zones = {
+                         'self_conflicting_dynamic_zone': set(),
                         }
         self.__check_zone_update_messages(MyResolverCache.conflicting_host_hostname, updated_zones)
 
