@@ -23,6 +23,7 @@ import sys
 import types
 import socket
 import kzorp.kzorp_netlink as kznl
+import kzorp.communication
 
 import time
 
@@ -219,7 +220,7 @@ def upload_zones(fname):
             family, addr, mask = parse_range(subnet)
             handle.send(kznl.KZorpAddZoneSubnetMessage(zone, family=family, address=addr, mask=mask))
 
-    handle = kznl.Handle()
+    handle = kzorp.communication.Handle()
     handle.send(kznl.KZorpStartTransactionMessage(kznl.KZ_INSTANCE_GLOBAL))
     handle.send(kznl.KZorpFlushZonesMessage())
 
@@ -247,7 +248,7 @@ def flush(flushable_option):
     else:
         flushables = [flushable_option, ]
 
-    handle = kznl.Handle()
+    handle = kzorp.communication.Handle()
 
     if 'zones' in flushables:
         handle.send(kznl.KZorpStartTransactionMessage(kznl.KZ_INSTANCE_GLOBAL))
@@ -394,19 +395,15 @@ def evaluate(parser, options, quiet):
             eval_str += " and the request id is %s" % (kws['reqid'])
         print eval_str
 
-    del kws['saddr_str']
-    del kws['daddr_str']
-
-    query_msg = kznl.KZorpQueryMessage(**kws)
-    print str(kznl.Handle().exchange(query_msg))
+    print str(kzorp.communication.Handle().exchange(query_msg))
 
 def LookupZone(parser, address):
-    handle = kznl.Handle()
+    handle = kzorp.communication.Handle()
 
     (family, addr) = parse_ip_option(parser, address, 'lookup')
     lookup_msg = kznl.KZorpLookupZoneMessage(family, addr)
     try:
-        print str(kznl.Handle().exchange(lookup_msg))
+        print str(kzorp.communication.Handle().exchange(lookup_msg))
     except kznl.NetlinkException, e:
         if e.detail != -errno.ENOENT:
             raise e
