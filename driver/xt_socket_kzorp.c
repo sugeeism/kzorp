@@ -28,7 +28,7 @@
 #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
 #endif
 
-#include <linux/netfilter/xt_socket.h>
+#include <linux/netfilter/xt_socket_kzorp.h>
 
 #if IS_ENABLED(CONFIG_NF_CONNTRACK)
 #define XT_SOCKET_HAVE_CONNTRACK 1
@@ -440,7 +440,7 @@ static int socket_mt_v2_check(const struct xt_mtchk_param *par)
 
 static struct xt_match socket_mt_reg[] __read_mostly = {
 	{
-		.name		= "socket",
+		.name		= "socket_kzorp",
 		.revision	= 0,
 		.family		= NFPROTO_IPV4,
 		.match		= socket_mt4_v0,
@@ -449,7 +449,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.me		= THIS_MODULE,
 	},
 	{
-		.name		= "socket",
+		.name		= "socket_kzorp",
 		.revision	= 1,
 		.family		= NFPROTO_IPV4,
 		.match		= socket_mt4_v1_v2,
@@ -461,7 +461,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 	},
 #ifdef XT_SOCKET_HAVE_IPV6
 	{
-		.name		= "socket",
+		.name		= "socket_kzorp",
 		.revision	= 1,
 		.family		= NFPROTO_IPV6,
 		.match		= socket_mt6_v1_v2,
@@ -473,7 +473,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 	},
 #endif
 	{
-		.name		= "socket",
+		.name		= "socket_kzorp",
 		.revision	= 2,
 		.family		= NFPROTO_IPV4,
 		.match		= socket_mt4_v1_v2,
@@ -485,7 +485,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 	},
 #ifdef XT_SOCKET_HAVE_IPV6
 	{
-		.name		= "socket",
+		.name		= "socket_kzorp",
 		.revision	= 2,
 		.family		= NFPROTO_IPV6,
 		.match		= socket_mt6_v1_v2,
@@ -519,5 +519,5 @@ module_exit(socket_mt_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Krisztian Kovacs, Balazs Scheidler");
 MODULE_DESCRIPTION("x_tables socket match module");
-MODULE_ALIAS("ipt_socket");
-MODULE_ALIAS("ip6t_socket");
+MODULE_ALIAS("ipt_socket_kzorp");
+MODULE_ALIAS("ip6t_socket_kzorp");

@@ -1,5 +1,5 @@
-#ifndef _XT_SOCKET_H
-#define _XT_SOCKET_H
+#ifndef _XT_SOCKET_KZORP_H
+#define _XT_SOCKET_KZORP_H
 
 #include <linux/types.h>
 
@@ -18,4 +18,4 @@ struct xt_socket_mtinfo2 {
 };
 #define XT_SOCKET_FLAGS_V2 (XT_SOCKET_TRANSPARENT | XT_SOCKET_NOWILDCARD)
 
-#endif /* _XT_SOCKET_H */
+#endif /* _XT_SOCKET_KZORP_H */
