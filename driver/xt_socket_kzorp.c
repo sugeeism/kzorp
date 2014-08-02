@@ -203,6 +203,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
 	if (sk) {
 		bool wildcard;
 		bool transparent = true;
+		bool is_mark_matches = true;
 
 		/* Ignore sockets listening on INADDR_ANY,
 		 * unless XT_SOCKET_NOWILDCARD is set
@@ -219,10 +220,16 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
 				       (sk->sk_state == TCP_TIME_WAIT &&
 					inet_twsk(sk)->tw_transparent));
 
+		if (info->flags & XT_SOCKET_MARK) {
+			const struct xt_socket_mtinfo3 *mark_info = (struct xt_socket_mtinfo3 *) info;
+
+			is_mark_matches = ((sk->sk_mark & mark_info->mask) == mark_info->mark) ^ mark_info->invert;
+		}
+
 		if (sk != skb->sk)
 			sock_gen_put(sk);
 
-		if (wildcard || !transparent)
+		if (wildcard || !transparent || !is_mark_matches)
 			sk = NULL;
 	}
 
@@ -245,7 +252,7 @@ socket_mt4_v0(const struct sk_buff *skb, struct xt_action_param *par)
 }
 
 static bool
-socket_mt4_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
+socket_mt4_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	return socket_match(skb, par, par->matchinfo);
 }
@@ -332,7 +339,7 @@ xt_socket_get_sock_v6(struct net *net, const u8 protocol,
 }
 
 static bool
-socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
+socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct ipv6hdr *iph = ipv6_hdr(skb);
 	struct udphdr _hdr, *hp = NULL;
@@ -378,6 +385,7 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
 	if (sk) {
 		bool wildcard;
 		bool transparent = true;
+		bool is_mark_matches = true;
 
 		/* Ignore sockets listening on INADDR_ANY
 		 * unless XT_SOCKET_NOWILDCARD is set
@@ -399,10 +407,16 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
 				       (sk->sk_state == TCP_TIME_WAIT &&
 					inet_twsk(sk)->tw_transparent));
 
+		if (info->flags & XT_SOCKET_MARK) {
+			const struct xt_socket_mtinfo3 *mark_info = (struct xt_socket_mtinfo3 *) info;
+
+			is_mark_matches = ((sk->sk_mark & mark_info->mask) == mark_info->mark) ^ mark_info->invert;
+		}
+
 		if (sk != skb->sk)
 			sock_gen_put(sk);
 
-		if (wildcard || !transparent)
+		if (wildcard || !transparent || !is_mark_matches)
 			sk = NULL;
 	}
 
@@ -438,6 +452,22 @@ static int socket_mt_v2_check(const struct xt_mtchk_param *par)
 	return 0;
 }
 
+static inline int socket_mt_check_flags(__u8 flags, __u8 valid_flags) {
+	const __u8 invalid_flags = flags & ~valid_flags;
+
+	if (invalid_flags) {
+		pr_info("unknown flags 0x%x\n", invalid_flags);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int socket_mt_v3_check(const struct xt_mtchk_param *par) {
+	const struct xt_socket_mtinfo3 *info = (struct xt_socket_mtinfo3 *) par->matchinfo;
+
+	return socket_mt_check_flags(info->flags, XT_SOCKET_FLAGS_V3);
+}
+
 static struct xt_match socket_mt_reg[] __read_mostly = {
 	{
 		.name		= "socket_kzorp",
@@ -452,7 +482,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.name		= "socket_kzorp",
 		.revision	= 1,
 		.family		= NFPROTO_IPV4,
-		.match		= socket_mt4_v1_v2,
+		.match		= socket_mt4_v1_v2_v3,
 		.checkentry	= socket_mt_v1_check,
 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
@@ -464,7 +494,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.name		= "socket_kzorp",
 		.revision	= 1,
 		.family		= NFPROTO_IPV6,
-		.match		= socket_mt6_v1_v2,
+		.match		= socket_mt6_v1_v2_v3,
 		.checkentry	= socket_mt_v1_check,
 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
@@ -476,7 +506,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.name		= "socket_kzorp",
 		.revision	= 2,
 		.family		= NFPROTO_IPV4,
-		.match		= socket_mt4_v1_v2,
+		.match		= socket_mt4_v1_v2_v3,
 		.checkentry	= socket_mt_v2_check,
 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
@@ -488,7 +518,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.name		= "socket_kzorp",
 		.revision	= 2,
 		.family		= NFPROTO_IPV6,
-		.match		= socket_mt6_v1_v2,
+		.match		= socket_mt6_v1_v2_v3,
 		.checkentry	= socket_mt_v2_check,
 		.matchsize	= sizeof(struct xt_socket_mtinfo1),
 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
@@ -496,6 +526,31 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.me		= THIS_MODULE,
 	},
 #endif
+	{
+		.name		= "socket",
+		.revision	= 3,
+		.family		= NFPROTO_IPV4,
+		.match		= socket_mt4_v1_v2_v3,
+		.checkentry	= socket_mt_v3_check,
+		.matchsize	= sizeof(struct xt_socket_mtinfo3),
+		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+				  (1 << NF_INET_LOCAL_IN),
+		.me		= THIS_MODULE,
+	},
+#ifdef XT_SOCKET_HAVE_IPV6
+	{
+		.name		= "socket",
+		.revision	= 3,
+		.family		= NFPROTO_IPV6,
+		.match		= socket_mt6_v1_v2_v3,
+		.checkentry	= socket_mt_v3_check,
+		.matchsize	= sizeof(struct xt_socket_mtinfo3),
+		.hooks		= (1 << NF_INET_PRE_ROUTING) |
+				  (1 << NF_INET_LOCAL_IN),
+		.me		= THIS_MODULE,
+	},
+#endif
+
 };
 
 static int __init socket_mt_init(void)
