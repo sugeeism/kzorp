@@ -527,7 +527,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 	},
 #endif
 	{
-		.name		= "socket",
+		.name		= "socket_kzorp",
 		.revision	= 3,
 		.family		= NFPROTO_IPV4,
 		.match		= socket_mt4_v1_v2_v3,
@@ -539,7 +539,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 	},
 #ifdef XT_SOCKET_HAVE_IPV6
 	{
-		.name		= "socket",
+		.name		= "socket_kzorp",
 		.revision	= 3,
 		.family		= NFPROTO_IPV6,
 		.match		= socket_mt6_v1_v2_v3,
