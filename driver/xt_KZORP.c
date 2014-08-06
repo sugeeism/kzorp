@@ -553,71 +553,69 @@ kz_session_log(const char *msg,
 	       const struct sk_buff *skb,
 	       const __be16 src_port, const __be16 dst_port)
 {
+	char _buf[L4PROTOCOL_STRING_SIZE];
 	const char *client_zone_name = (client_zone && client_zone->name) ? client_zone->name : kz_log_null;
 	const char *server_zone_name = (server_zone && server_zone->name) ? server_zone->name : kz_log_null;
 
-	if (kz_log_ratelimit()) {
-		char _buf[L4PROTOCOL_STRING_SIZE];
+	if (!kz_log_ratelimit())
+		return;
 
-		switch (l3proto) {
-		case NFPROTO_IPV4:
-		{
-			const struct iphdr * const iph = ip_hdr(skb);
-			if (svc_name)
-				printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI4:%u', "
-						 "server_address='%pI4:%u', protocol='%s'\n",
-						 svc_name, msg, svc_name,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
+	switch (l3proto) {
+	case NFPROTO_IPV4: {
+		const struct iphdr * const iph = ip_hdr(skb);
+		if (svc_name)
+			printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
+					 "client_zone='%s', server_zone='%s', "
+					 "client_address='%pI4:%u', "
+					 "server_address='%pI4:%u', protocol='%s'\n",
+					 svc_name, msg, svc_name,
+					 client_zone_name,
+					 server_zone_name,
+					 &iph->saddr, ntohs(src_port),
+					 &iph->daddr, ntohs(dst_port),
+					 l4proto_as_string(l4proto, _buf));
 
-			else
-				printk(KERN_INFO "kzorp: %s; "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI4:%u', "
-						 "server_address='%pI4:%u', protocol='%s'\n",
-						 msg,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
-		}
-			break;
-		case NFPROTO_IPV6:
-		{
-			const struct ipv6hdr *iph = ipv6_hdr(skb);
-			if (svc_name)
-				printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI6:%u', "
-						 "server_address='%pI6:%u', protocol='%s'\n",
-						 svc_name, msg, svc_name,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
-			else
-				printk(KERN_INFO "kzorp: %s; "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI6:%u', "
-						 "server_address='%pI6:%u', protocol='%s'\n",
-						 msg,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
-		}
-			break;
-		default:
-			BUG();
-		}
+		else
+			printk(KERN_INFO "kzorp: %s; "
+					 "client_zone='%s', server_zone='%s', "
+					 "client_address='%pI4:%u', "
+					 "server_address='%pI4:%u', protocol='%s'\n",
+					 msg,
+					 client_zone_name,
+					 server_zone_name,
+					 &iph->saddr, ntohs(src_port),
+					 &iph->daddr, ntohs(dst_port),
+					 l4proto_as_string(l4proto, _buf));
+	}
+		break;
+	case NFPROTO_IPV6: {
+		const struct ipv6hdr *iph = ipv6_hdr(skb);
+		if (svc_name)
+			printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
+					 "client_zone='%s', server_zone='%s', "
+					 "client_address='%pI6:%u', "
+					 "server_address='%pI6:%u', protocol='%s'\n",
+					 svc_name, msg, svc_name,
+					 client_zone_name,
+					 server_zone_name,
+					 &iph->saddr, ntohs(src_port),
+					 &iph->daddr, ntohs(dst_port),
+					 l4proto_as_string(l4proto, _buf));
+		else
+			printk(KERN_INFO "kzorp: %s; "
+					 "client_zone='%s', server_zone='%s', "
+					 "client_address='%pI6:%u', "
+					 "server_address='%pI6:%u', protocol='%s'\n",
+					 msg,
+					 client_zone_name,
+					 server_zone_name,
+					 &iph->saddr, ntohs(src_port),
+					 &iph->daddr, ntohs(dst_port),
+					 l4proto_as_string(l4proto, _buf));
+	}
+		break;
+	default:
+		BUG();
 	}
 }
 
