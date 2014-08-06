@@ -1137,42 +1137,10 @@ kz_forward_newconn_verdict(struct sk_buff *skb,
 		case KZ_SERVICE_FORWARD:
 			/* log new sessions */
 			if (new_session && kz_log_ratelimit()) {
-				char _buf[L4PROTOCOL_STRING_SIZE];
-
-				switch (l3proto) {
-				case NFPROTO_IPV4:
-				{
-					const struct iphdr * const iph = ip_hdr(skb);
-					printk(KERN_INFO "kzorp (svc/%s:%lu): Starting forwarded session; "
-					       "client_address='%pI4:%u', client_zone='%s', "
-					       "server_address='%pI4:%u', server_zone='%s', "
-					       "protocol='%s'\n",
-					       kzorp->svc->name, kzorp->sid,
-					       &iph->saddr, ntohs(sport),
-					       (kzorp->czone != NULL) ? kzorp->czone->name : kz_log_null,
-					       &iph->daddr, ntohs(dport),
-					       (kzorp->szone != NULL) ? kzorp->szone->name : kz_log_null,
-					       l4proto_as_string(l4proto, _buf));
-				}
-					break;
-				case NFPROTO_IPV6:
-				{
-					const struct ipv6hdr * const iph = ipv6_hdr(skb);
-					printk(KERN_INFO "kzorp (svc/%s:%lu): Starting forwarded session; "
-					       "client_address='%pI6:%u', client_zone='%s', "
-					       "server_address='%pI6:%u', server_zone='%s', "
-					       "protocol='%s'\n",
-					       kzorp->svc->name, kzorp->sid,
-					       &iph->saddr, ntohs(sport),
-					       (kzorp->czone != NULL) ? kzorp->czone->name : kz_log_null,
-					       &iph->daddr, ntohs(dport),
-					       (kzorp->szone != NULL) ? kzorp->szone->name : kz_log_null,
-					       l4proto_as_string(l4proto, _buf));
-				}
-					break;
-				default:
-					BUG();
-				}
+				kz_session_log("Starting forwarded session",
+						kzorp->svc->name, l3proto, l4proto,
+						kzorp->czone, kzorp->szone, skb,
+						sport, dport);
 			}
 			break;
 
