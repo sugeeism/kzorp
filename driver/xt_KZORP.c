@@ -1077,11 +1077,9 @@ kz_prerouting_verdict(struct sk_buff *skb,
 			if (!czone || !szone) {
 				kz_session_log("Dispatcher found without valid (client zone, server zone, service) triplet; dropping packet",
 					       NULL, l3proto, l4proto, NULL, NULL, skb, sport, dport);
-				} else  {
-				if (kz_log_ratelimit()) {
-					kz_session_log("No applicable service found for this client & server zone, dropping packet",
-						       NULL, l3proto, l4proto, czone, szone, skb, sport, dport);
-				}
+			} else  {
+				kz_session_log("No applicable service found for this client & server zone, dropping packet",
+					       NULL, l3proto, l4proto, czone, szone, skb, sport, dport);
 			}
 
 			verdict = NF_DROP;
@@ -1136,7 +1134,7 @@ kz_forward_newconn_verdict(struct sk_buff *skb,
 		switch (svc->type) {
 		case KZ_SERVICE_FORWARD:
 			/* log new sessions */
-			if (new_session && kz_log_ratelimit()) {
+			if (new_session) {
 				kz_session_log("Starting forwarded session",
 						kzorp->svc->name, l3proto, l4proto,
 						kzorp->czone, kzorp->szone, skb,
