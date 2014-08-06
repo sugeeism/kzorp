@@ -1047,7 +1047,7 @@ kz_prerouting_verdict(struct sk_buff *skb,
 					verdict = NF_DROP;
 
 					kz_session_log("Proxy service found for non TCP/UDP traffic, dropping packet",
-						       NULL, l3proto, l4proto, czone, szone, skb, sport, dport);
+						       svc->name, l3proto, l4proto, czone, szone, skb, sport, dport);
 				} else
 					verdict = process_proxy_session(NF_INET_PRE_ROUTING, skb, in,
 									l3proto, l4proto, sport, dport,
