@@ -683,6 +683,46 @@ extern void kz_nfnetlink_cleanup(void);
 	} \
 }
 
+#define L4PROTOCOL_STRING_SIZE 4 /* "100" plus trailing zero */
+
+/**
+ * l4proto_as_string() - return name of protocol from number
+ * @protocol: protocol number
+ * @buf: temporary buffer to use if no interned string representation is known
+ *
+ * Return a string representation of the protocol number: either the
+ * protocol name for well-known protocols or the number itself
+ * converted to a string.
+ */
+static inline const char *
+l4proto_as_string(u8 protocol, char buf[L4PROTOCOL_STRING_SIZE])
+{
+	switch (protocol) {
+	case IPPROTO_TCP:
+		return "TCP";
+		break;
+	case IPPROTO_UDP:
+		return "UDP";
+		break;
+	case IPPROTO_ICMP:
+		return "ICMP";
+		break;
+	default:
+		snprintf(buf, L4PROTOCOL_STRING_SIZE, "%hhu", protocol);
+		return buf;
+	}
+}
+
+enum kz_verdict {
+	KZ_VERDICT_ACCEPTED                  = 0,
+	KZ_VERDICT_DENIED_BY_POLICY          = 1,
+	KZ_VERDICT_DENIED_BY_LIMIT           = 2,
+	KZ_VERDICT_DENIED_BY_CONNECTION_FAIL = 3,
+	KZ_VERDICT_DENIED_BY_UNKNOWN_FAIL    = 4
+};
+
+void kz_log_session_verdict(enum kz_verdict verdict, const char *info, const struct nf_conn *ct, const struct nf_conntrack_kzorp *kzorp);
+
 /* Bitfield */
 enum {
 	KZL_NONE		= 0,    /* supress log message */

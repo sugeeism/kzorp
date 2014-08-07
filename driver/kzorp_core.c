@@ -1807,6 +1807,100 @@ bool kz_log_session_verdict_enabled(void) {
 }
 EXPORT_SYMBOL_GPL(kz_log_session_verdict_enabled);
 
+static inline const char *
+verdict_as_string(enum kz_verdict verdict)
+{
+	switch (verdict) {
+	case KZ_VERDICT_ACCEPTED:
+		return "ACCEPTED";
+	case KZ_VERDICT_DENIED_BY_POLICY:
+		return "DENIED_BY_POLICY";
+	case KZ_VERDICT_DENIED_BY_LIMIT:
+		return "DENIED_BY_LIMIT";
+	case KZ_VERDICT_DENIED_BY_CONNECTION_FAIL:
+		return "DENIED_BY_CONNECTION_FAIL";
+	case KZ_VERDICT_DENIED_BY_UNKNOWN_FAIL:
+		return "DENIED_BY_UNKNOWN_FAIL";
+	}
+
+	// there is no other case than drop and accept as verdict
+	BUG();
+	return NULL;
+}
+
+void
+kz_log_session_verdict(enum kz_verdict verdict,
+		       const char *info,
+		       const struct nf_conn *ct,
+		       const struct nf_conntrack_kzorp *kzorp)
+{
+	char _buf[L4PROTOCOL_STRING_SIZE];
+	const char *verdict_str;
+	const char *l4proto_str;
+	const char *client_zone_name = (kzorp->czone && kzorp->czone->name) ? kzorp->czone->name : kz_log_null;
+	const char *server_zone_name = (kzorp->szone && kzorp->szone->name) ? kzorp->szone->name : kz_log_null;
+	const char *service_name = (kzorp->svc && kzorp->svc->name) ? kzorp->svc->name : kz_log_null;
+	const struct nf_conntrack_tuple *ct_orig_tuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+
+	if (!kz_log_session_verdict_enabled() ||
+	    !kz_log_ratelimit())
+		return;
+
+	verdict_str = verdict_as_string(verdict);
+	l4proto_str = l4proto_as_string(nf_ct_protonum(ct), _buf);
+	switch (nf_ct_l3num(ct)) {
+	case NFPROTO_IPV4: {
+		printk(KERN_INFO "kzorp (svc/%s): Connection summary; "
+				 "client_proto='%s', "
+				 "client_address='%pI4', "
+				 "client_port='%u', "
+				 "client_zone='%s', "
+				 "server_proto='%s', "
+				 "server_address='%pI4', "
+				 "server_port='%u', "
+				 "server_zone='%s', "
+				 "verdict='%s', "
+				 "info='%s'\n",
+				 service_name,
+				 l4proto_str,
+				 &ct_orig_tuple->src.u3.all, ntohs(ct_orig_tuple->src.u.all),
+				 client_zone_name,
+				 l4proto_str,
+				 &ct_orig_tuple->dst.u3.all, ntohs(ct_orig_tuple->dst.u.all),
+				 server_zone_name,
+				 verdict_str,
+				 info);
+	}
+		break;
+	case NFPROTO_IPV6: {
+		printk(KERN_INFO "kzorp (svc/%s): Connection summary; "
+				 "client_proto='%s', "
+				 "client_address='%pI6', "
+				 "client_port='%u', "
+				 "client_zone='%s', "
+				 "server_proto='%s', "
+				 "server_address='%pI6', "
+				 "server_port='%u', "
+				 "server_zone='%s', "
+				 "verdict='%s', "
+				 "info='%s'\n",
+				 service_name,
+				 l4proto_str,
+				 ct_orig_tuple->src.u3.all, ntohs(ct_orig_tuple->src.u.all),
+				 client_zone_name,
+				 l4proto_str,
+				 ct_orig_tuple->dst.u3.all, ntohs(ct_orig_tuple->dst.u.all),
+				 server_zone_name,
+				 verdict_str,
+				 info);
+	}
+		break;
+	default:
+		BUG();
+	}
+}
+EXPORT_SYMBOL_GPL(kz_log_session_verdict);
+
 
 /***********************************************************
  * Conntrack extension

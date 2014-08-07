@@ -116,9 +116,7 @@ static void kz_extension_destroy(struct nf_conn *ct)
 				       acct[IP_CT_DIR_ORIGINAL].packets,
 				       acct[IP_CT_DIR_REPLY].bytes,
 				       acct[IP_CT_DIR_REPLY].packets);
-			else
-				printk(KERN_INFO "kzorp (svc/%s:%lu) Ending forwarded session;\n",
-				       kzorp->svc->name, kzorp->sid);
+			kz_log_session_verdict(KZ_VERDICT_ACCEPTED, "Ending forwarded session", ct, kzorp);
 		}
 	}
 
