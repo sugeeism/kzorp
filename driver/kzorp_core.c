@@ -48,6 +48,7 @@ static const char *const kz_log_null = "(NULL)";
 
 extern int sysctl_kzorp_log_ratelimit_msg_cost;
 extern int sysctl_kzorp_log_ratelimit_burst;
+extern int sysctl_kzorp_log_session_verdict;
 
 /***********************************************************
  * Instances
@@ -1499,6 +1500,13 @@ static ctl_table kzorp_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec
 	},
+	{
+		.procname	= "log_session_verdict",
+		.data		= &sysctl_kzorp_log_session_verdict,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
 	{ }
 };
 
@@ -1791,6 +1799,14 @@ int kz_log_ratelimit(void)
 			       sysctl_kzorp_log_ratelimit_burst);
 }
 EXPORT_SYMBOL_GPL(kz_log_ratelimit);
+
+int sysctl_kzorp_log_session_verdict = false;
+
+bool kz_log_session_verdict_enabled(void) {
+	return !!sysctl_kzorp_log_session_verdict;
+}
+EXPORT_SYMBOL_GPL(kz_log_session_verdict_enabled);
+
 
 /***********************************************************
  * Conntrack extension

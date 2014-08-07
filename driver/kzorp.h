@@ -504,6 +504,7 @@ kz_dispatcher_put(struct kz_dispatcher *dispatcher)
 }
 
 int kz_log_ratelimit(void);
+bool kz_log_session_verdict_enabled(void);
 
 /***********************************************************
  * Conntrack structure extension
