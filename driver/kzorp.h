@@ -633,11 +633,12 @@ kz_traffic_props_init(struct kz_traffic_props *traffic_props)
 	traffic_props->proto_subtype = -1;
 }
 
-extern void kz_lookup_session(const struct kz_config *cfg,
-			      struct kz_traffic_props * const traffic_props,
-			      struct kz_dispatcher **dispatcher,
-			      struct kz_zone **clientzone, struct kz_zone **serverzone,
-			      struct kz_service **service, int reply);
+extern u_int32_t kz_lookup_session(const struct kz_config *cfg,
+				   struct kz_traffic_props * const traffic_props,
+				   struct kz_zone **clientzone, struct kz_zone **serverzone,
+				   struct kz_service **service,
+				   struct kz_dispatcher **dispatcher,
+				   int reply);
 
 /***********************************************************
  * Netlink functions

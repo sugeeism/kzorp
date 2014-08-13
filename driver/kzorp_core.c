@@ -479,7 +479,8 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 	}
 	kz_lookup_session(*p_cfg,
 			  &traffic_props,
-			  &dpt, &czone, &szone, &svc,
+			  &czone, &szone,
+			  &svc, &dpt,
 			  (ctinfo >= IP_CT_IS_REPLY));
 
 done:

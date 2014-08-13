@@ -3758,9 +3758,9 @@ error:
 
 static int
 kznl_build_query_resp(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
-		      enum kznl_msg_types msg, const struct kz_dispatcher *dispatcher,
+		      enum kznl_msg_types msg,
 		      const struct kz_zone *client_zone, const struct kz_zone *server_zone,
-		      const struct kz_service *service)
+		      const struct kz_service *service, const struct kz_dispatcher *dispatcher)
 {
 	void *hdr;
 
@@ -3897,7 +3897,8 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 
 	kz_lookup_session(rcu_dereference(kz_config_rcu),
 			  &traffic_props,
-			  &dispatcher, &client_zone, &server_zone, &service,
+			  &client_zone, &server_zone,
+			  &service, &dispatcher,
 			  0);
 
 	local_bh_enable();
@@ -3906,8 +3907,8 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 	if (kznl_build_query_resp(nskb, get_genetlink_sender(info),
 				  info->snd_seq, 0,
 				  KZNL_MSG_QUERY_REPLY,
-				  dispatcher, client_zone, server_zone,
-				  service) < 0) {
+				  client_zone, server_zone,
+				  service, dispatcher) < 0) {
 		res = -ENOMEM;
 		goto error_put_dev;
 	}
