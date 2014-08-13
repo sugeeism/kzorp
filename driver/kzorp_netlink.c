@@ -783,6 +783,11 @@ kznl_parse_dispatcher_n_dimension_rule(const struct nlattr *attr,
 	struct kza_n_dimension_rule_params *a = nla_data(attr);
 
 	rule->id = ntohl(a->id);
+	if (rule->id == 0) {
+		kz_err("invalid rule id; id='%u'\n", rule->id);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
