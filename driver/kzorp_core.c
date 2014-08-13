@@ -1861,6 +1861,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 	switch (nf_ct_l3num(ct)) {
 	case NFPROTO_IPV4: {
 		printk(KERN_INFO "kzorp (svc/%s:%lu): Connection summary; "
+				 "rule_id='%u', "
 				 "client_proto='%s', "
 				 "client_address='%pI4', "
 				 "client_port='%u', "
@@ -1872,6 +1873,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "verdict='%s', "
 				 "info='%s'\n",
 				 service_name, kzorp->sid,
+				 kzorp->rule_id,
 				 l4proto_str,
 				 &ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
@@ -1884,6 +1886,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 		break;
 	case NFPROTO_IPV6: {
 		printk(KERN_INFO "kzorp (svc/%s:%lu): Connection summary; "
+				 "rule_id='%u', "
 				 "client_proto='%s', "
 				 "client_address='%pI6', "
 				 "client_port='%u', "
@@ -1895,6 +1898,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "verdict='%s', "
 				 "info='%s'\n",
 				 service_name, kzorp->sid,
+				 kzorp->rule_id,
 				 l4proto_str,
 				 ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
