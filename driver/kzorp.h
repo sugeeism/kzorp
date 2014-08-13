@@ -59,6 +59,7 @@ struct nf_conntrack_kzorp {
 	struct kz_zone *szone;		/* server zone */
 	struct kz_dispatcher *dpt;	/* dispatcher */
 	struct kz_service *svc;		/* service */
+	u_int32_t rule_id;
 };
 
 #define NF_CT_EXT_KZ_TYPE struct nf_conntrack_kzorp

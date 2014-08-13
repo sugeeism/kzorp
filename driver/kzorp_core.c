@@ -342,6 +342,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 	const struct kz_config **p_cfg)
 {
 	struct kz_traffic_props traffic_props;
+	u_int32_t rule_id = 0;
 	struct kz_zone *czone = NULL;
 	struct kz_zone *szone = NULL;
 	struct kz_dispatcher *dpt = NULL;
@@ -477,11 +478,11 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 	default:
 		break;
 	}
-	kz_lookup_session(*p_cfg,
-			  &traffic_props,
-			  &czone, &szone,
-			  &svc, &dpt,
-			  (ctinfo >= IP_CT_IS_REPLY));
+	rule_id = kz_lookup_session(*p_cfg,
+				    &traffic_props,
+				    &czone, &szone,
+				    &svc, &dpt,
+				    (ctinfo >= IP_CT_IS_REPLY));
 
 done:
 #define REPLACE_PTR(name, type) \
@@ -497,6 +498,9 @@ done:
 	REPLACE_PTR(svc, service);
 
 #undef REPLACE_PTR
+
+	if (kzorp->rule_id != rule_id)
+		kzorp->rule_id = rule_id;
 
 	kz_debug("kzorp lookup result; dpt='%s', client_zone='%s', server_zone='%s', svc='%s'\n",
 		 kzorp->dpt ? kzorp->dpt->name : kz_log_null,
