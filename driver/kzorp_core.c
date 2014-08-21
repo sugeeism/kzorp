@@ -512,69 +512,105 @@ done:
 }
 EXPORT_SYMBOL_GPL(nfct_kzorp_lookup_rcu);
 
-
-const struct nf_conntrack_kzorp * nfct_kzorp_cached_lookup_rcu(
-	struct nf_conn *ct,
-	enum ip_conntrack_info ctinfo,
-	const struct sk_buff *skb,
-	const struct net_device * const in,
-	const u8 l3proto,
-	const struct kz_config **p_cfg)
+static struct nf_conntrack_kzorp *
+kz_extension_add(struct nf_conn *ct,
+		 enum ip_conntrack_info ctinfo,
+		 const struct sk_buff *skb,
+		 const struct net_device * const in,
+		 const u8 l3proto,
+		 const struct kz_config **p_cfg)
 {
 	struct nf_conntrack_kzorp *kzorp;
-	const struct kz_config * loc_cfg;
 
-	if (p_cfg == NULL)
-		p_cfg = &loc_cfg;
+	/* if the conntrack is confirmed extension must not be added */
+	if (unlikely(nf_ct_is_confirmed(ct))) {
+		switch (l3proto) {
+		case NFPROTO_IPV4:
+		{
+			const struct iphdr * const iph = ip_hdr(skb);
+			kz_debug("can't add kzorp to ct for packet: src='%pI4', dst='%pI4'\n",
+				 &iph->saddr, &iph->daddr);
+		}
+			break;
+		case NFPROTO_IPV6:
+		{
+			const struct ipv6hdr * const iph = ipv6_hdr(skb);
+			kz_debug("can't add kzorp to ct for packet: src='%pI6', dst='%pI6'\n",
+				 &iph->saddr, &iph->daddr);
+		}
+			break;
+		default:
+			BUG();
+		}
+		return NULL;
+	}
 
-	*p_cfg = rcu_dereference(kz_config_rcu);
+	kzorp = kz_extension_create(ct);
+	if (unlikely(!kzorp))
+		return NULL;
 
+	/* implicit:  kzorp->sid = 0; */
+	nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto, p_cfg);
+	return kzorp;
+}
+
+const struct nf_conntrack_kzorp *
+kz_extension_update(struct nf_conn *ct,
+		    enum ip_conntrack_info ctinfo,
+		    const struct sk_buff *skb,
+		    const struct net_device * const in,
+		    const u8 l3proto,
+		    const struct kz_config **p_cfg)
+{
+	struct nf_conntrack_kzorp *kzorp;
+	const struct kz_config *kzorp_config;
+
+	kzorp_config = rcu_dereference(kz_config_rcu);
 	kzorp = kz_extension_find(ct);
-
-	if (!kzorp) { /* no kzorp yet, add a fresh one */
-		/* no kzorp extension, we need to try and add it only
-		 * if the conntrack is not yet confirmed */
-		if (unlikely(nf_ct_is_confirmed(ct))) {
-			switch (l3proto) {
-			case NFPROTO_IPV4:
-			{
-				const struct iphdr * const iph = ip_hdr(skb);
-				kz_debug("can't add kzorp to ct for packet: src='%pI4', dst='%pI4'\n",
-					 &iph->saddr, &iph->daddr);
-			}
-				break;
-			case NFPROTO_IPV6:
-			{
-				const struct ipv6hdr * const iph = ipv6_hdr(skb);
-				kz_debug("can't add kzorp to ct for packet: src='%pI6', dst='%pI6'\n",
-					 &iph->saddr, &iph->daddr);
-			}
-				break;
-			default:
-				BUG();
-			}
-			return NULL;
-		}
-
-		kzorp = kz_extension_create(ct);
-		if (unlikely(!kzorp)) {
-			kz_debug("allocation failed creating kzorp\n");
-			return NULL;
-		}
-		/* implicit:  kzorp->sid = 0; */
-		nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto, p_cfg);
-		return kzorp;
+	if (kzorp) {
+		if (unlikely(!kz_generation_valid(kzorp_config, kzorp->generation)))
+			nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto, &kzorp_config);
+	} else {
+		kzorp = kz_extension_add(ct, ctinfo, skb, in, l3proto, &kzorp_config);
 	}
-	
-	/* use existing kzorp, make sure it is okay */
 
-	if (unlikely(!kz_generation_valid(*p_cfg, kzorp->generation))) {
-		nfct_kzorp_lookup_rcu(kzorp, ctinfo, skb, in, l3proto, p_cfg);
-	}
+	if (p_cfg)
+		*p_cfg = kzorp_config;
 
 	return kzorp;
 }
-EXPORT_SYMBOL_GPL(nfct_kzorp_cached_lookup_rcu);
+EXPORT_SYMBOL_GPL(kz_extension_update);
+
+void
+kz_extension_get_from_ct_or_lookup(const struct sk_buff *skb,
+				   const struct net_device * const in,
+				   u8 l3proto,
+				   struct nf_conntrack_kzorp *local_kzorp,
+				   const struct nf_conntrack_kzorp **kzorp,
+				   const struct kz_config **cfg)
+{
+	struct nf_conn *ct;
+	enum ip_conntrack_info ctinfo;
+
+	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
+	if (ct) {
+		// ctinfo filled by nf_ct_get
+		*kzorp = kz_extension_update(ct, ctinfo, skb, in, l3proto, cfg);
+	} else {
+		ctinfo = IP_CT_NEW;
+		*kzorp = NULL;
+	}
+
+	if (*kzorp == NULL) {
+		kz_debug("cannot add kzorp extension, doing local lookup\n");
+
+		memset(local_kzorp, 0, sizeof(struct nf_conntrack_kzorp));
+		nfct_kzorp_lookup_rcu(local_kzorp, ctinfo, skb, in, l3proto, cfg);
+
+		*kzorp = local_kzorp;
+	}
+}
+EXPORT_SYMBOL_GPL(kz_extension_get_from_ct_or_lookup);
 
 /***********************************************************
  * Common macros

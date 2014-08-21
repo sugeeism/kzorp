@@ -1315,14 +1315,7 @@ kzorp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 		return NF_ACCEPT;
 
 	rcu_read_lock();
-	kzorp = nfct_kzorp_cached_lookup_rcu(ct, ctinfo, skb, in, par->family, &cfg);
-
-	if (kzorp == NULL)
-	{
-		kzorp = &local_kzorp;
-		memset(&local_kzorp, 0, sizeof(local_kzorp));
-		nfct_kzorp_lookup_rcu(&local_kzorp, ctinfo, skb, in, par->family, &cfg);
-	}
+	kz_extension_get_from_ct_or_lookup(skb, in, par->family, &local_kzorp, &kzorp, &cfg);
 
 	kz_debug("lookup data for kzorp hook; dpt='%s', client_zone='%s', server_zone='%s', svc='%s'\n",
 		 kzorp->dpt ? kzorp->dpt->name : kz_log_null,
