@@ -5,7 +5,7 @@ Maintainer: Magosányi Árpád <mag@balabit.hu>
 Build-Depends: debhelper (>= 8.0.0),
                dh-autoreconf,
                dkms (>= 1.95),
-               python
+               python-all (>= 2.7)
 Standards-Version: 3.9.5
 Homepage: https://github.com/balabit/kzorp/
 
@@ -14,7 +14,7 @@ Architecture: all
 Section: python
 Depends: ${python:Depends},
          ${misc:Depends},
-         python-prctl
+         python-all (>= 2.7)
 Conflicts: zorp-common (<< 3.5)
 Description: Python bindings for kzorp.
  Zorp is a new generation firewall. It is essentially a transparent proxy
@@ -27,10 +27,10 @@ Package: kzorp-utils
 Architecture: all
 Section: kernel
 Depends: ${misc:Depends},
-         python-all (>= 2.6.6-3),
+         ${python:Depends},
+         python-all (>= 2.7),
          python-support (>= 0.90),
-         kzorp-dkms,
-         python
+         kzorp-dkms
 Description: mixed packet filter/application level gateway 
  Kzorp is a open source set of mechanisms to implement mixed
  packet filter/application level gateway functionality on Linux.
@@ -39,7 +39,7 @@ Description: mixed packet filter/application level gateway
 Package: kzorp-dkms
 Architecture: all
 Section: kernel
-Depends: ${misc:Depends}, dkms (>= 1.95), libglib2.0-dev
+Depends: ${misc:Depends}, dkms (>= 1.95)
 Description: mixed packet filter/application level gateway, kernel module
  Kzorp is a open source set of mechanisms to implement mixed
  packet filter/application level gateway functionality on Linux.
@@ -50,12 +50,15 @@ Description: mixed packet filter/application level gateway, kernel module
 Package: kzorpd
 Architecture: all
 Section: python
-Depends: ${python:Depends},
-         ${misc:Depends},
-         python-daemon,
+Depends: ${misc:Depends},
+         ${python:Depends},
+         python-all (>= 2.7),
+         python-support (>= 0.90),
          python-prctl,
-         python-radix,
-         python-zorp-common (= ${Source-Version})
+         python-daemon,
+         kzorp-dkms (= ${source:Version}),
+         python-kzorp (= ${source:Version}),
+         python-zorp-base
 Description: Python bindings for kzorp.
  Zorp is a new generation firewall. It is essentially a transparent proxy
  firewall, with strict protocol analyzing proxies, a modular architecture,
