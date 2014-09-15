@@ -482,7 +482,8 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 				    &traffic_props,
 				    &czone, &szone,
 				    &svc, &dpt,
-				    (ctinfo >= IP_CT_IS_REPLY));
+				    (ctinfo >= IP_CT_IS_REPLY),
+				    true);
 
 done:
 #define REPLACE_PTR(name, type) \
@@ -648,6 +649,7 @@ kz_zone_new(void)
 		return NULL;
 
 	atomic_set(&zone->refcnt, 1);
+	atomic64_set(&zone->count, 0);
 	zone->depth = 1;
 
 	return zone;
@@ -706,6 +708,8 @@ kz_zone_clone(const struct kz_zone * const o)
 
 	if (o->admin_parent != NULL)
 		zone->admin_parent = kz_zone_get(o->admin_parent);
+
+	atomic64_set(&zone->count, atomic64_read(&o->count));
 
 	return zone;
 
@@ -1127,6 +1131,7 @@ kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
 	rule->id = rule_params->id;
 	rule->service = kz_service_get(service);
 	rule->dispatcher = d;
+	atomic64_set(&rule->count, 0);
 
 #define CALL_kz_alloc_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
 	kz_alloc_entry(DIM_NAME, rule, rule_params, error_free_dimensions)
@@ -1306,6 +1311,7 @@ kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
 	dst->id = src->id;
 	dst->service = kz_service_get(src->service);
 	dst->dispatcher = NULL;
+	atomic64_set(&dst->count, atomic64_read(&src->count));
 
 #define CALL_kz_alloc_rule_dimension(DIM_NAME, NL_ATTR_NAME, _, NL_TYPE, ...) \
 	kz_alloc_entry(DIM_NAME, dst, src, error)

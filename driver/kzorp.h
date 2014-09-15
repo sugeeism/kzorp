@@ -192,6 +192,7 @@ struct kz_dispatcher_n_dimension_rule_entry_params {
 
 struct kz_dispatcher_n_dimension_rule {
 	u_int32_t id;
+	atomic64_t count;
 
 	struct kz_service *service;
 	struct kz_dispatcher *dispatcher;
@@ -283,6 +284,7 @@ struct kz_zone {
 	struct list_head list;
 	struct hlist_node hlist;
 	atomic_t refcnt;
+	atomic64_t count;
 	/* static lookup helper data */
 	int depth;
 	unsigned int index;
@@ -648,7 +650,8 @@ extern u_int32_t kz_lookup_session(const struct kz_config *cfg,
 				   struct kz_zone **clientzone, struct kz_zone **serverzone,
 				   struct kz_service **service,
 				   struct kz_dispatcher **dispatcher,
-				   int reply);
+				   int reply,
+				   bool do_accounting);
 
 /***********************************************************
  * Netlink functions

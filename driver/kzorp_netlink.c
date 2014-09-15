@@ -3904,7 +3904,8 @@ kznl_recv_query(struct sk_buff *skb, struct genl_info *info)
 			  &traffic_props,
 			  &client_zone, &server_zone,
 			  &service, &dispatcher,
-			  0);
+			  0,
+			  false);
 
 	local_bh_enable();
 	rcu_read_unlock();
