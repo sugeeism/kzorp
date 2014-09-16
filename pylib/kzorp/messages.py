@@ -8,33 +8,35 @@ import Zorp.Common
 import itertools
 
 # message types
-KZNL_MSG_INVALID             = 0
-KZNL_MSG_GET_VERSION         = 1
-KZNL_MSG_START               = 2
-KZNL_MSG_COMMIT              = 3
-KZNL_MSG_FLUSH_ZONE          = 4
-KZNL_MSG_ADD_ZONE            = 5
-KZNL_MSG_GET_ZONE            = 6
-KZNL_MSG_FLUSH_SERVICE       = 7
-KZNL_MSG_ADD_SERVICE         = 8
-KZNL_MSG_ADD_SERVICE_NAT_SRC = 9
-KZNL_MSG_ADD_SERVICE_NAT_DST = 10
-KZNL_MSG_GET_SERVICE         = 11
-KZNL_MSG_FLUSH_DISPATCHER    = 12
-KZNL_MSG_ADD_DISPATCHER      = 13
-KZNL_MSG_GET_DISPATCHER      = 14
-KZNL_MSG_QUERY               = 15
-KZNL_MSG_ADD_RULE            = 16
-KZNL_MSG_ADD_RULE_ENTRY      = 17
-KZNL_MSG_ADD_BIND            = 18
-KZNL_MSG_GET_BIND            = 19
-KZNL_MSG_FLUSH_BIND          = 20
-KZNL_MSG_QUERY_REPLY         = 21
-KZNL_MSG_GET_VERSION_REPLY   = 22
-KZNL_MSG_ADD_ZONE_SUBNET     = 23
-KZNL_MSG_LOOKUP_ZONE         = 24
-KZNL_MSG_DELETE_ZONE         = 25
-KZNL_MSG_MAX                 = 26
+KZNL_MSG_INVALID                = 0
+KZNL_MSG_GET_VERSION            = 1
+KZNL_MSG_START                  = 2
+KZNL_MSG_COMMIT                 = 3
+KZNL_MSG_FLUSH_ZONE             = 4
+KZNL_MSG_ADD_ZONE               = 5
+KZNL_MSG_GET_ZONE               = 6
+KZNL_MSG_FLUSH_SERVICE          = 7
+KZNL_MSG_ADD_SERVICE            = 8
+KZNL_MSG_ADD_SERVICE_NAT_SRC    = 9
+KZNL_MSG_ADD_SERVICE_NAT_DST    = 10
+KZNL_MSG_GET_SERVICE            = 11
+KZNL_MSG_FLUSH_DISPATCHER       = 12
+KZNL_MSG_ADD_DISPATCHER         = 13
+KZNL_MSG_GET_DISPATCHER         = 14
+KZNL_MSG_QUERY                  = 15
+KZNL_MSG_ADD_RULE               = 16
+KZNL_MSG_ADD_RULE_ENTRY         = 17
+KZNL_MSG_ADD_BIND               = 18
+KZNL_MSG_GET_BIND               = 19
+KZNL_MSG_FLUSH_BIND             = 20
+KZNL_MSG_QUERY_REPLY            = 21
+KZNL_MSG_GET_VERSION_REPLY      = 22
+KZNL_MSG_ADD_ZONE_SUBNET        = 23
+KZNL_MSG_LOOKUP_ZONE            = 24
+KZNL_MSG_DELETE_ZONE            = 25
+KZNL_MSG_GET_RULE_COUNTER       = 26
+KZNL_MSG_GET_RULE_COUNTER_REPLY = 27
+KZNL_MSG_MAX                    = 28
 
 # attribute types
 KZNL_ATTR_INVALID                       = 0
@@ -96,7 +98,8 @@ KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE    = 55
 KZNL_ATTR_ZONE_SUBNET                   = 56
 KZNL_ATTR_ZONE_SUBNET_NUM               = 57
 KZNL_ATTR_ZONE_LOOKUP_PARAM_IP          = 58
-KZNL_ATTR_MAX                           = 59
+KZNL_ATTR_RULE_COUNT_NUM                = 59
+KZNL_ATTR_MAX                           = 60
 
 # list of attributes in an N dimension rule
 N_DIMENSION_ATTRS = [
@@ -1290,32 +1293,68 @@ class KZorpLookupZoneMessage(GenericNetlinkMessage):
     def __str__(self):
         raise NotImplementedError
 
+class KZorpGetRuleCounterMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_GET_RULE_COUNTER
+
+    def __init__(self, rule_id=None):
+        super(KZorpGetRuleCounterMessage, self).__init__(self.command, version = 1)
+
+        self.rule_id = rule_id
+
+        self._build_payload()
+
+    def _build_payload(self):
+        if self.rule_id:
+	    self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_N_DIMENSION_RULE_ID, self.rule_id))
+
+class KZorpGetRuleCounterReplyMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_GET_RULE_COUNTER_REPLY
+
+    def __init__(self, rule_id, count):
+        super(KZorpGetRuleCounterReplyMessage, self).__init__(self.command, version = 1)
+
+	self.rule_id = rule_id
+	self.count = count
+
+    @staticmethod
+    def parse(version, data):
+        attr = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
+        (rule_id, ) = struct.unpack('>I', attr[KZNL_ATTR_N_DIMENSION_RULE_ID].get_data()[:4])
+	(count, ) = struct.unpack('Q', attr[KZNL_ATTR_RULE_COUNT_NUM].get_data()[:8])
+
+        return KZorpGetRuleCounterReplyMessage(rule_id, count)
+
+    def __str__(self):
+        raise NotImplementedError
+
 class KZorpMessageFactory(object):
     known_classes = {
-      KZNL_MSG_ADD_BIND            : KZorpAddBindMessage,
-      KZNL_MSG_ADD_DISPATCHER      : KZorpAddDispatcherMessage,
-      KZNL_MSG_ADD_RULE            : KZorpAddRuleMessage,
-      KZNL_MSG_ADD_RULE_ENTRY      : KZorpAddRuleEntryMessage,
-      KZNL_MSG_ADD_SERVICE         : KZorpAddServiceMessage,
-      KZNL_MSG_ADD_SERVICE_NAT_DST : KZorpAddServiceDestinationNATMappingMessage,
-      KZNL_MSG_ADD_SERVICE_NAT_SRC : KZorpAddServiceSourceNATMappingMessage,
-      KZNL_MSG_ADD_ZONE            : KZorpAddZoneMessage,
-      KZNL_MSG_ADD_ZONE_SUBNET     : KZorpAddZoneSubnetMessage,
-      KZNL_MSG_FLUSH_BIND          : KZorpFlushBindsMessage,
-      KZNL_MSG_FLUSH_DISPATCHER    : KZorpFlushDispatchersMessage,
-      KZNL_MSG_FLUSH_SERVICE       : KZorpFlushServicesMessage,
-      KZNL_MSG_FLUSH_ZONE          : KZorpFlushZonesMessage,
-      KZNL_MSG_GET_BIND            : KZorpGetBindMessage,
-      KZNL_MSG_GET_DISPATCHER      : KZorpGetDispatcherMessage,
-      KZNL_MSG_GET_SERVICE         : KZorpGetServiceMessage,
-      KZNL_MSG_GET_ZONE            : KZorpGetZoneMessage,
-      KZNL_MSG_COMMIT              : KZorpCommitTransactionMessage,
-      KZNL_MSG_START               : KZorpStartTransactionMessage,
-      KZNL_MSG_QUERY               : KZorpQueryMessage,
-      KZNL_MSG_QUERY_REPLY         : KZorpQueryReplyMessage,
-      KZNL_MSG_GET_VERSION_REPLY   : KZorpGetVersionReplyMessage,
-      KZNL_MSG_LOOKUP_ZONE         : KZorpLookupZoneMessage,
-      KZNL_MSG_DELETE_ZONE         : KZorpDeleteZoneMessage,
+      KZNL_MSG_ADD_BIND               : KZorpAddBindMessage,
+      KZNL_MSG_ADD_DISPATCHER         : KZorpAddDispatcherMessage,
+      KZNL_MSG_ADD_RULE               : KZorpAddRuleMessage,
+      KZNL_MSG_ADD_RULE_ENTRY         : KZorpAddRuleEntryMessage,
+      KZNL_MSG_ADD_SERVICE            : KZorpAddServiceMessage,
+      KZNL_MSG_ADD_SERVICE_NAT_DST    : KZorpAddServiceDestinationNATMappingMessage,
+      KZNL_MSG_ADD_SERVICE_NAT_SRC    : KZorpAddServiceSourceNATMappingMessage,
+      KZNL_MSG_ADD_ZONE               : KZorpAddZoneMessage,
+      KZNL_MSG_ADD_ZONE_SUBNET        : KZorpAddZoneSubnetMessage,
+      KZNL_MSG_FLUSH_BIND             : KZorpFlushBindsMessage,
+      KZNL_MSG_FLUSH_DISPATCHER       : KZorpFlushDispatchersMessage,
+      KZNL_MSG_FLUSH_SERVICE          : KZorpFlushServicesMessage,
+      KZNL_MSG_FLUSH_ZONE             : KZorpFlushZonesMessage,
+      KZNL_MSG_GET_BIND               : KZorpGetBindMessage,
+      KZNL_MSG_GET_DISPATCHER         : KZorpGetDispatcherMessage,
+      KZNL_MSG_GET_SERVICE            : KZorpGetServiceMessage,
+      KZNL_MSG_GET_ZONE               : KZorpGetZoneMessage,
+      KZNL_MSG_COMMIT                 : KZorpCommitTransactionMessage,
+      KZNL_MSG_START                  : KZorpStartTransactionMessage,
+      KZNL_MSG_QUERY                  : KZorpQueryMessage,
+      KZNL_MSG_QUERY_REPLY            : KZorpQueryReplyMessage,
+      KZNL_MSG_GET_VERSION_REPLY      : KZorpGetVersionReplyMessage,
+      KZNL_MSG_LOOKUP_ZONE            : KZorpLookupZoneMessage,
+      KZNL_MSG_DELETE_ZONE            : KZorpDeleteZoneMessage,
+      KZNL_MSG_GET_RULE_COUNTER       : KZorpGetRuleCounterMessage,
+      KZNL_MSG_GET_RULE_COUNTER_REPLY : KZorpGetRuleCounterReplyMessage,
     }
 
     @staticmethod

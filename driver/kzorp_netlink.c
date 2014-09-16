@@ -2746,6 +2746,7 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 		case KZNL_ATTR_ZONE_SUBNET:
 		case KZNL_ATTR_ZONE_SUBNET_NUM:
 		case KZNL_ATTR_ZONE_IP:
+		case KZNL_ATTR_RULE_COUNT_NUM:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -3022,6 +3023,7 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 		case KZNL_ATTR_ZONE_SUBNET:
 		case KZNL_ATTR_ZONE_SUBNET_NUM:
 		case KZNL_ATTR_ZONE_IP:
+		case KZNL_ATTR_RULE_COUNT_NUM:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -4047,6 +4049,173 @@ error_unlock_zone:
 
 error:
 	return res;
+}
+
+static int
+kznl_build_rule_count(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
+		      const struct kz_dispatcher_n_dimension_rule *rule)
+{
+	unsigned char *msg_start, *msg_rollback;
+	void *hdr;
+	u_int64_t count = 0;
+
+	msg_start = skb_tail_pointer(skb);
+	msg_rollback = msg_start;
+
+	kz_debug("rule_id=%d", rule->id);
+
+	hdr = genlmsg_put(skb, pid, seq, &kznl_family, flags, KZNL_MSG_GET_RULE_COUNTER_REPLY);
+	if (!hdr)
+		goto nla_put_failure;
+
+        if (nla_put_be32(skb, KZNL_ATTR_N_DIMENSION_RULE_ID, htonl(rule->id)))
+		goto nla_put_failure;
+
+	count = atomic64_read(&rule->count);
+
+	NLA_PUT_U64(skb, KZNL_ATTR_RULE_COUNT_NUM, count);
+
+	if (genlmsg_end(skb, hdr) < 0)
+		goto nlmsg_failure;
+
+	return skb_tail_pointer(skb) - msg_start;
+
+nla_put_failure:
+	genlmsg_cancel(skb, hdr);
+
+nlmsg_failure:
+	skb_trim(skb, msg_rollback - skb->data);
+	return -1;
+}
+
+static int
+kznl_recv_get_rule_counter(struct sk_buff *skb, struct genl_info *info)
+{
+	int res = 0;
+	struct kz_dispatcher_n_dimension_rule rule;
+	struct kz_dispatcher_n_dimension_rule *found_rule = NULL;
+	struct sk_buff *nskb = NULL;
+	const struct kz_config * cfg;
+	const struct kz_dispatcher *dispatcher;
+	unsigned int i;
+
+	/* parse attributes */
+	if (!info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID]) {
+		kz_err("required rule id missing\n");
+		res = -EINVAL;
+		goto error;
+	}
+
+	/* parse attributes */
+	memset(&rule, 0, sizeof(struct kz_dispatcher_n_dimension_rule));
+
+	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule);
+	if (res < 0) {
+		kz_err("failed to parse rule id\n");
+		goto error;
+	}
+
+	rcu_read_lock();
+
+	cfg = rcu_dereference(kz_config_rcu);
+
+	dispatcher = list_first_entry(&cfg->dispatchers.head, struct kz_dispatcher, list);
+        for (i = 0; i < dispatcher->num_rule; i++) {
+		if (dispatcher->rule[i].id == rule.id) {
+			found_rule = &dispatcher->rule[i];
+			break;
+		}
+	}
+
+	if (found_rule == NULL) {
+		kz_debug("no such rule found\n");
+		res = -ENOENT;
+		goto error_unlock_rule_counter;
+	}
+
+	/* create skb and dump */
+	nskb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+	if (!nskb) {
+		kz_err("failed to allocate reply message\n");
+		res = -ENOMEM;
+		goto error_unlock_rule_counter;
+	}
+
+	if (kznl_build_rule_count(nskb, get_genetlink_sender(info),
+				  info->snd_seq, 0, found_rule) < 0) {
+		kz_err("failed to create rule counter messages\n");
+		res = -ENOMEM;
+		goto error_free_skb;
+	}
+
+	rcu_read_unlock();
+
+	return genlmsg_reply(nskb, info);
+
+error_free_skb:
+	nlmsg_free(nskb);
+
+error_unlock_rule_counter:
+	rcu_read_unlock();
+
+error:
+	return res;
+}
+
+enum {
+	RULE_COUNTERS_DUMP_ARG_CURRENT_RULE,
+	RULE_COUNTERS_DUMP_ARG_STATE,
+	RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION,
+};
+
+enum {
+	RULE_COUNTERS_DUMP_STATE_FIRST_CALL,
+	RULE_COUNTERS_DUMP_STATE_HAVE_CONFIG,
+	RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK,
+};
+
+static int
+kznl_dump_rule_counters(struct sk_buff *skb, struct netlink_callback *cb)
+{
+	const struct kz_config * cfg;
+	unsigned int i = 0;
+	const struct kz_dispatcher *dispatcher;
+	struct kz_dispatcher_n_dimension_rule *rule;
+
+	/* check if we've finished the dump */
+	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] == RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK)
+		return skb->len;
+
+	rcu_read_lock();
+	cfg = rcu_dereference(kz_config_rcu);
+	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] == RULE_COUNTERS_DUMP_STATE_FIRST_CALL ||
+	    !kz_generation_valid(cfg, cb->args[RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION])) {
+		cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE] = 0;
+		cb->args[RULE_COUNTERS_DUMP_ARG_STATE] = RULE_COUNTERS_DUMP_STATE_HAVE_CONFIG;
+		cb->args[RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
+	}
+
+	i = cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE];
+
+	kz_debug("current_rule=%ld, arg_state=%ld", cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE], cb->args[RULE_COUNTERS_DUMP_ARG_STATE]);
+	dispatcher = list_first_entry(&cfg->dispatchers.head, struct kz_dispatcher, list);
+        for (; i < dispatcher->num_rule; i++) {
+		rule = &dispatcher->rule[i];
+		if (kznl_build_rule_count(skb, get_skb_portid(NETLINK_CB(cb->skb)),
+				  cb->nlh->nlmsg_seq, 0, rule) < 0) {
+			/* rule counter dump failed, try to continue from here next time */
+			cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE] = i;
+			goto out;
+		}
+	}
+
+	/* done */
+	cb->args[RULE_COUNTERS_DUMP_ARG_STATE] = RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK;
+
+out:
+	rcu_read_unlock();
+
+	return skb->len;
 }
 
 /***********************************************************
