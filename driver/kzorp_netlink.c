@@ -2746,7 +2746,7 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 		case KZNL_ATTR_ZONE_SUBNET:
 		case KZNL_ATTR_ZONE_SUBNET_NUM:
 		case KZNL_ATTR_ZONE_IP:
-		case KZNL_ATTR_RULE_COUNT_NUM:
+		case KZNL_ATTR_ACCOUNTING_COUNTER_NUM:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -3023,7 +3023,7 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 		case KZNL_ATTR_ZONE_SUBNET:
 		case KZNL_ATTR_ZONE_SUBNET_NUM:
 		case KZNL_ATTR_ZONE_IP:
-		case KZNL_ATTR_RULE_COUNT_NUM:
+		case KZNL_ATTR_ACCOUNTING_COUNTER_NUM:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -4073,7 +4073,7 @@ kznl_build_rule_count(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int fla
 
 	count = atomic64_read(&rule->count);
 
-	NLA_PUT_U64(skb, KZNL_ATTR_RULE_COUNT_NUM, count);
+	NLA_PUT_U64(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, count);
 
 	if (genlmsg_end(skb, hdr) < 0)
 		goto nlmsg_failure;
@@ -4211,6 +4211,167 @@ kznl_dump_rule_counters(struct sk_buff *skb, struct netlink_callback *cb)
 
 	/* done */
 	cb->args[RULE_COUNTERS_DUMP_ARG_STATE] = RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK;
+
+out:
+	rcu_read_unlock();
+
+	return skb->len;
+}
+
+static int
+kznl_build_zone_counter(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
+			const struct kz_zone *zone)
+{
+	unsigned char *msg_start, *msg_rollback;
+	void *hdr;
+	u_int64_t count = 0;
+
+	msg_start = skb_tail_pointer(skb);
+	msg_rollback = msg_start;
+
+	hdr = genlmsg_put(skb, pid, seq, &kznl_family, flags, KZNL_MSG_GET_ZONE_COUNTER_REPLY);
+	if (!hdr)
+		goto nla_put_failure;
+
+	if (kznl_dump_name(skb, KZNL_ATTR_ZONE_NAME, zone->name) < 0)
+		goto nla_put_failure;
+
+	count = atomic64_read(&zone->count);
+
+	NLA_PUT_U64(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, count);
+
+	if (genlmsg_end(skb, hdr) < 0)
+		goto nlmsg_failure;
+
+	return skb_tail_pointer(skb) - msg_start;
+
+nla_put_failure:
+	genlmsg_cancel(skb, hdr);
+
+nlmsg_failure:
+	skb_trim(skb, msg_rollback - skb->data);
+	return -1;
+}
+
+static int
+kznl_recv_get_zone_counter(struct sk_buff *skb, struct genl_info *info)
+{
+	int res = 0;
+	char *zone_name = NULL;
+	struct kz_zone *zone;
+	struct sk_buff *nskb = NULL;
+	const struct kz_config * cfg;
+
+	/* parse attributes */
+	if (!info->attrs[KZNL_ATTR_ZONE_UNAME]) {
+		kz_err("required name attribute missing\n");
+		res = -EINVAL;
+		goto error;
+	}
+
+	res = kznl_parse_name_alloc(info->attrs[KZNL_ATTR_ZONE_UNAME], &zone_name);
+	if (res < 0) {
+		kz_err("failed to parse zone name\n");
+		goto error;
+	}
+
+	rcu_read_lock();
+	cfg = rcu_dereference(kz_config_rcu);
+
+	zone = kz_zone_lookup_name(cfg, zone_name);
+	if (zone == NULL) {
+		kz_debug("no such zone found\n");
+		res = -ENOENT;
+		goto error_unlock_zone;
+	}
+
+	/* create skb and dump */
+	nskb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+	if (!nskb) {
+		kz_err("failed to allocate reply message\n");
+		res = -ENOMEM;
+		goto error_unlock_zone;
+	}
+
+	if (kznl_build_zone_counter(nskb, get_genetlink_sender(info),
+				    info->snd_seq, 0, zone) < 0) {
+		/* data did not fit in a single entry -- for now no support of continuation
+		   we could loop and multicast; we chose not to send the partial info */
+		kz_err("failed to create zone counter messages\n");
+		res = -ENOMEM;
+		goto error_free_skb;
+	}
+
+	rcu_read_unlock();
+
+	return genlmsg_reply(nskb, info);
+
+error_free_skb:
+	nlmsg_free(nskb);
+
+error_unlock_zone:
+	rcu_read_unlock();;
+
+	if (zone_name != NULL)
+		kfree(zone_name);
+error:
+	return res;
+}
+
+enum {
+	ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE,
+	ZONE_COUNTERS_DUMP_ARG_STATE,
+	ZONE_COUNTERS_DUMP_ARG_CONFIG_GENERATION,
+};
+
+enum {
+	ZONE_COUNTERS_DUMP_STATE_FIRST_CALL,
+	ZONE_COUNTERS_DUMP_STATE_HAVE_CONFIG,
+	ZONE_COUNTERS_DUMP_STATE_NO_MORE_WORK,
+};
+
+static int
+kznl_dump_zone_counters(struct sk_buff *skb, struct netlink_callback *cb)
+{
+	const struct kz_zone *i = NULL;
+	const struct kz_config * cfg;
+
+	/*
+	 * race condition recovery: restart dump
+	 * (if this turns to be a problem, cfg shall be refcounted!)
+	 *
+	 * on first entry cb->args is all-0
+	 */
+
+	/* check if we've finished the dump */
+	if (cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] == ZONE_COUNTERS_DUMP_STATE_NO_MORE_WORK)
+		return skb->len;
+
+	rcu_read_lock();
+	cfg = rcu_dereference(kz_config_rcu);
+	if (cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] == ZONE_COUNTERS_DUMP_STATE_FIRST_CALL ||
+	    !kz_generation_valid(cfg, cb->args[ZONE_COUNTERS_DUMP_ARG_CONFIG_GENERATION])) {
+		cb->args[ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE] = 0;
+		cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] = ZONE_COUNTERS_DUMP_STATE_HAVE_CONFIG;
+		cb->args[ZONE_COUNTERS_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
+	}
+
+	if (cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] != ZONE_COUNTERS_DUMP_STATE_FIRST_CALL)
+		list_find(i, &cfg->zones.head, list, (struct kz_zone *) cb->args[ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE]);
+
+	list_prepare_entry(i, &cfg->zones.head, list);
+	list_for_each_entry_continue(i, &cfg->zones.head, list) {
+		kz_debug("zone name: '%s'", i->name);
+		if (kznl_build_zone_counter(skb, get_skb_portid(NETLINK_CB(cb->skb)),
+					    cb->nlh->nlmsg_seq, 0, i) < 0) {
+			/* zone dump failed, try to continue from here next time */
+			cb->args[ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE] = (long) i;
+			goto out;
+		}
+	}
+
+	/* done */
+	cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] = ZONE_COUNTERS_DUMP_STATE_NO_MORE_WORK;
 
 out:
 	rcu_read_unlock();

@@ -36,7 +36,9 @@ KZNL_MSG_LOOKUP_ZONE            = 24
 KZNL_MSG_DELETE_ZONE            = 25
 KZNL_MSG_GET_RULE_COUNTER       = 26
 KZNL_MSG_GET_RULE_COUNTER_REPLY = 27
-KZNL_MSG_MAX                    = 28
+KZNL_MSG_GET_ZONE_COUNTER       = 28
+KZNL_MSG_GET_ZONE_COUNTER_REPLY = 29
+KZNL_MSG_MAX                    = 30
 
 # attribute types
 KZNL_ATTR_INVALID                       = 0
@@ -98,7 +100,7 @@ KZNL_ATTR_QUERY_PARAMS_PROTO_SUBTYPE    = 55
 KZNL_ATTR_ZONE_SUBNET                   = 56
 KZNL_ATTR_ZONE_SUBNET_NUM               = 57
 KZNL_ATTR_ZONE_LOOKUP_PARAM_IP          = 58
-KZNL_ATTR_RULE_COUNT_NUM                = 59
+KZNL_ATTR_ACCOUNTING_COUNTER_NUM        = 59
 KZNL_ATTR_MAX                           = 60
 
 # list of attributes in an N dimension rule
@@ -1320,9 +1322,43 @@ class KZorpGetRuleCounterReplyMessage(GenericNetlinkMessage):
     def parse(version, data):
         attr = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
         (rule_id, ) = struct.unpack('>I', attr[KZNL_ATTR_N_DIMENSION_RULE_ID].get_data()[:4])
-	(count, ) = struct.unpack('Q', attr[KZNL_ATTR_RULE_COUNT_NUM].get_data()[:8])
+	(count, ) = struct.unpack('Q', attr[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].get_data()[:8])
 
         return KZorpGetRuleCounterReplyMessage(rule_id, count)
+
+    def __str__(self):
+        raise NotImplementedError
+
+class KZorpGetZoneCounterMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_GET_ZONE_COUNTER
+
+    def __init__(self, name=None):
+        super(KZorpGetZoneCounterMessage, self).__init__(self.command, version = 1)
+
+        self.name = name
+
+        self._build_payload()
+
+    def _build_payload(self):
+        if self.name:
+            self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_UNAME, self.name))
+
+class KZorpGetZoneCounterReplyMessage(GenericNetlinkMessage):
+    command = KZNL_MSG_GET_ZONE_COUNTER_REPLY
+
+    def __init__(self, name, count):
+        super(KZorpGetZoneCounterReplyMessage, self).__init__(self.command, version = 1)
+
+	self.name = name
+	self.count = count
+
+    @staticmethod
+    def parse(version, data):
+        attr = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
+	name = parse_name_attr(attr[KZNL_ATTR_ZONE_NAME])
+	(count, ) = struct.unpack('Q', attr[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].get_data()[:8])
+
+        return KZorpGetZoneCounterReplyMessage(name, count)
 
     def __str__(self):
         raise NotImplementedError
@@ -1355,6 +1391,9 @@ class KZorpMessageFactory(object):
       KZNL_MSG_DELETE_ZONE            : KZorpDeleteZoneMessage,
       KZNL_MSG_GET_RULE_COUNTER       : KZorpGetRuleCounterMessage,
       KZNL_MSG_GET_RULE_COUNTER_REPLY : KZorpGetRuleCounterReplyMessage,
+      KZNL_MSG_GET_ZONE_COUNTER       : KZorpGetZoneCounterMessage,
+      KZNL_MSG_GET_ZONE_COUNTER_REPLY : KZorpGetZoneCounterReplyMessage,
+
     }
 
     @staticmethod
