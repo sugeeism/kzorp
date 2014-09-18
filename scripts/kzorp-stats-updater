@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2006-2014, BalaBit IT Ltd.
+# This program/include file is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program/include file is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
+import sys
+sys.dont_write_bytecode = True
+import time
+import csv
+import os
+import kzorp.communication
+
+class DumpBase():
+    def __init__(self, msg):
+        self.msg = msg
+        self.replies = []
+
+    def dump(self):
+        try:
+            handle = kzorp.communication.Handle()
+            for reply in handle.dump(self.msg):
+                self.replies.append(reply)
+        except netlink.NetlinkException as e:
+            res = int(e.detail)
+            sys.stderr.write("Dump failed: result='%d' error='%s'\n" % (res, os.strerror(-res)))
+            return 1
+
+        return 0
+
+    def get_data(self, index, old_counters, count, timestamp):
+        if index in old_counters:
+            if old_counters[index]['count'] == count or count == 0:
+                timestamp = old_counters[index]['timestamp']
+        return [index, timestamp, count]
+
+class DumpRuleCounters(DumpBase):
+    def __init__(self, old_rule_counters, timestamp):
+        DumpBase.__init__(self, kzorp.messages.KZorpGetRuleCounterMessage())
+        self.old_rule_counters = old_rule_counters
+        self.timestamp = timestamp
+
+    def dump(self):
+        if DumpBase.dump(self):
+            return None
+
+        replies = []
+        for reply in self.replies:
+            replies.append(self.get_data(str(reply.rule_id), self.old_rule_counters, reply.count, self.timestamp))
+        return replies
+
+class DumpZoneCounters(DumpBase):
+    def __init__(self, old_zone_counters, timestamp):
+        DumpBase.__init__(self, kzorp.messages.KZorpGetZoneCounterMessage())
+        self.old_zone_counters = old_zone_counters
+        self.timestamp = timestamp
+
+    def dump(self):
+        if DumpBase.dump(self):
+            return None
+
+        replies = []
+        for reply in self.replies:
+            replies.append(self.get_data(reply.name, self.old_zone_counters, reply.count, self.timestamp))
+        return replies
+
+def write_counters(filename, counter_data, current_time):
+    try:
+        with open(filename+".new", 'w') as f:
+            csvwriter = csv.writer(f)
+            for data in counter_data:
+                csvwriter.writerow([data[0], data[1], data[2]])
+    except IOError, e:
+        sys.stderr.write("Error writing file; file='%s', error='%s'", (filename, e.strerror()))
+        return
+
+    os.rename(filename+".new", filename)
+
+def read_counters(filename):
+    counters = {}
+    try:
+        with open(filename, 'r') as f:
+            csvreader = csv.reader(f)
+            try:
+                for row in csvreader:
+                    counters[row[0]] = {'timestamp':row[1], 'count':long(row[2])}
+            except csv.Error, e:
+                sys.stderr.write("Error reading file; file='%s', line='%d', error='%s'" % (filename, csvreader.line_num, e))
+
+    except IOError, e:
+        sys.stderr.write("Error reading file; file='%s', error='%s'", (filename, e.strerror()))
+
+    return counters
+
+def main(args):
+    rule_filename = "/var/lib/zorp/kzorp/rule_statistics"
+    zone_filename = "/var/lib/zorp/kzorp/zone_statistics"
+
+    old_rule_counters = {}
+    old_zone_counters = {}
+    if os.path.isfile(rule_filename):
+        old_rule_counters = read_counters(rule_filename)
+        if not old_rule_counters:
+            return 1
+
+    if os.path.isfile(zone_filename):
+        old_zone_counters = read_counters(zone_filename)
+        if not old_zone_counters:
+            return 1
+
+    current_time = time.time()
+    rule_counters = DumpRuleCounters(old_rule_counters, current_time).dump()
+    if not rule_counters:
+        return 1
+    zone_counters = DumpZoneCounters(old_zone_counters, current_time).dump()
+    if not zone_counters:
+        return 1
+
+    write_counters(rule_filename, rule_counters, current_time)
+    write_counters(zone_filename, zone_counters, current_time)
+
+if __name__ == "__main__":
+    res = main(sys.argv)
+    sys.exit(res)
