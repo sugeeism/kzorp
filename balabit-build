@@ -1,0 +1,34 @@
+#!/bin/bash
+	set -e
+
+	cmd=$1
+	shift
+	case "$cmd" in
+	get_version)
+		head -1 debian/changelog | sed -e 's/.*(\([^)]*\)).*/\1/'
+		;;
+	build-exclude-list|dist-exclude-list)
+		## These lists can be used to delegate build-time and dist-time exclude lists
+		## For example (syslog-ng-agent):
+		##
+		##    echo "out obj *.aqt *.ncb *.suo *.vcproj.*.user"
+		##
+		;;
+	prepare-dist)
+		;;
+	bootstrap)
+		autoreconf -i
+		echo "No need to bootstrap"
+		;;
+	configure)
+		autoreconf -i
+        ./configure "$@"
+		;;
+	make)
+		make "$@"
+		;;
+	*)
+		echo "Unknown command: $cmd" >&2
+		exit 1
+		;;
+	esac
