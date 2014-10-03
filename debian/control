@@ -5,6 +5,7 @@ Maintainer: Magosányi Árpád <mag@balabit.hu>
 Build-Depends: debhelper (>= 8.0.0),
                dh-autoreconf,
                dkms (>= 1.95),
+               python
 Standards-Version: 3.9.5
 Homepage: https://github.com/balabit/kzorp/
 
