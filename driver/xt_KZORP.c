@@ -138,38 +138,36 @@ v4_get_socket_to_redirect_to(const struct kz_dispatcher *dpt,
 	return sk;
 }
 
-static inline unsigned int
+static inline bool
 redirect_v4(struct sk_buff *skb, u8 l4proto,
 	    __be16 sport, __be16 dport,
 	    const struct kz_dispatcher *dpt,
 	    const struct xt_kzorp_target_info * tgi)
 {
-	unsigned int verdict = NF_DROP;
 	struct sock *sk = NULL;
 	const struct iphdr * const iph = ip_hdr(skb);
 
 	kz_debug("transparent dispatcher, trying to redirect; dpt='%s'\n", dpt->name);
 
 	sk = v4_get_socket_to_redirect_to(dpt, skb, l4proto, sport, dport);
-	if (sk != NULL) {
-		nf_tproxy_assign_sock(skb, sk);
-		skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
-
-		kz_debug("transparent proxy session redirected; socket='%p'\n", sk);
-		verdict = NF_ACCEPT;
-	} else {
+	if (sk == NULL) {
 		/* FIXME: we've found no socket to divert to,
 		   so we simply drop the packet.  We should
 		   really implement the possibility of
 		   REJECT-ing the packet instead of silently
 		   dropping it.
 		*/
-		kz_debug("socket not found, dropped packet; src='%pI4:%u', dst='%pI4:%u'\n",
+		kz_debug("socket not found, trasparent proxy not redirected; src='%pI4:%u', dst='%pI4:%u'\n",
 			 &iph->saddr, ntohs(sport), &iph->daddr, ntohs(dport));
-		verdict = NF_DROP;
+		return false;
 	}
 
-	return verdict;
+	nf_tproxy_assign_sock(skb, sk);
+	skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
+
+	kz_debug("transparent proxy session redirected; socket='%p'\n", sk);
+
+	return true;
 }
 
 static inline const struct in6_addr *
@@ -249,7 +247,7 @@ relookup_time_wait6(struct sk_buff *skb, int l4proto, int thoff,
 	return sk;
 }
 
-static inline unsigned int
+static inline bool
 redirect_v6(struct sk_buff *skb, u8 l4proto,
 	    __be16 sport, __be16 dport,
 	    const struct kz_dispatcher *dpt,
@@ -273,13 +271,13 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 	if (unlikely(thoff < 0)) {
 		kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6', dst='%pI6'\n",
 			 &iph->saddr, &iph->daddr);
-		return NF_DROP;
+		return false;
 	}
 
 	hp = skb_header_pointer(skb, thoff, sizeof(_hdr), &_hdr);
 	if (hp == NULL) {
 		kz_debug("unable to grab transport header contents in IPv6 packet, dropping\n");
-		return NF_DROP;
+		return false;
 	}
 
 	/* check if there's an ongoing connection on the packet
@@ -331,45 +329,47 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 		}
 
 		nf_tproxy_assign_sock(skb, sk);
-		return NF_ACCEPT;
+		return false;
 	}
 
-	pr_debug("no socket, dropping: proto %hhu %pI6:%hu -> %pI6:%hu, mark: %x\n",
-		 tproto, &iph->saddr, ntohs(hp->source),
-		 &iph->daddr, ntohs(hp->dest), skb->mark);
-
-	return NF_DROP;
+	return false;
 }
 
-static inline unsigned int
-process_proxy_session(unsigned int hooknum, struct sk_buff *skb, const struct net_device *in,
-		      u8 l3proto, u8 l4proto,
-		      __be16 sport, __be16 dport, const struct kz_dispatcher *dpt,
-		      const struct xt_kzorp_target_info * tgi)
+static inline bool
+is_protocol_hanlded_by_proxy(u8 l3proto, u8 l4proto)
 {
-	unsigned int verdict = NF_DROP;
-
 	if (unlikely((l4proto != IPPROTO_TCP) && (l4proto != IPPROTO_UDP))) {
-		/* This is an internal error: we should never call process_proxy_session() for
-		   non TCP/UDP frames. */
+		/* this is a config problem: a proxy service configured for
+		 * non TCP/UDP traffic -> we cannot do much but drop the packet */
 		char _buf[L4PROTOCOL_STRING_SIZE];
 
 		kz_debug("non TCP or UDP frame, dropping; protocol='%s'\n", l4proto_as_string(l4proto, _buf));
-		return NF_DROP;
+		return false;
 	}
+
+	return true;
+}
+
+static inline bool
+redirect_to_proxy(struct sk_buff *skb,
+		  u8 l3proto, u8 l4proto, __be16 sport, __be16 dport,
+		  const struct kz_dispatcher *dpt,
+		  const struct xt_kzorp_target_info * tgi)
+{
+	bool res = false;
 
 	switch (l3proto) {
 	case NFPROTO_IPV4:
-		verdict = redirect_v4(skb, l4proto, sport, dport, dpt, tgi);
+		res = redirect_v4(skb, l4proto, sport, dport, dpt, tgi);
 		break;
 	case NFPROTO_IPV6:
-		verdict = redirect_v6(skb, l4proto, sport, dport, dpt, tgi);
+		res = redirect_v6(skb, l4proto, sport, dport, dpt, tgi);
 		break;
 	default:
 		BUG();
 	}
 
-	return verdict;
+	return res;
 }
 
 static inline unsigned int
@@ -985,18 +985,15 @@ kz_prerouting_verdict(struct sk_buff *skb,
 
 			switch (svc->type) {
 			case KZ_SERVICE_PROXY:
-
-				if ((l4proto != IPPROTO_TCP) && (l4proto != IPPROTO_UDP)) {
-					/* this is a config problem: a proxy service configured for
-					 * non TCP/UDP traffic -> we cannot do much but drop the packet */
+				if (!is_protocol_hanlded_by_proxy(l3proto, l4proto)) {
 					verdict = NF_DROP;
-
-					kz_session_log("Proxy service found for non TCP/UDP traffic, dropping packet",
-						       svc, l3proto, l4proto, czone, szone, skb, sport, dport);
-				} else
-					verdict = process_proxy_session(NF_INET_PRE_ROUTING, skb, in,
-									l3proto, l4proto, sport, dport,
-									dpt, tgi);
+					kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Unacceptable protocol for proxy",
+							       ct, kzorp);
+				} else if (!redirect_to_proxy(skb, l3proto, l4proto, sport, dport, dpt, tgi)) {
+					verdict = NF_DROP;
+					kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Redirection to proxy has failed",
+							       ct, kzorp);
+				}
 				break;
 
 			case KZ_SERVICE_FORWARD:
