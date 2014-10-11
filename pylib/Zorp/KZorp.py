@@ -25,6 +25,8 @@ import kzorp.messages
 import kzorp.communication
 from Zorp import *
 
+_kzorp_handle = None
+
 def downloadServices(h):
     # download services
     kzorp.communication.exchangeMessage(h, kzorp.messages.KZorpFlushServicesMessage())
@@ -82,50 +84,95 @@ def downloadStaticZones(zones):
         h.close()
         raise
 
+
+class ZoneDownload(kzorp.communication.Adapter):
+    def __init__(self):
+        super(ZoneDownload, self).__init__()
+
+    def initial(self, messages):
+        self.send_messages_in_transaction([kzorp.messages.KZorpFlushZonesMessage(), ] + messages)
+
+    def update(self, messages):
+        self.send_messages_in_transaction(messages)
+
+
+class RuleDownload(kzorp.communication.Adapter):
+    def __init__(self, instance_name):
+        super(RuleDownload, self).__init__(instance_name)
+
+    def initial(self, messages):
+        self.send_messages_in_transaction([kzorp.messages.KZorpFlushDispatchersMessage(), ] + messages)
+
+    def update(self, messages):
+        self.send_messages_in_transaction(messages)
+
+
+class ServiceDownload(kzorp.communication.Adapter):
+    def __init__(self, instance_name):
+        super(ServiceDownload, self).__init__(instance_name)
+
+    def initial(self, messages):
+        self.send_messages_in_transaction([kzorp.messages.KZorpFlushServicesMessage(), ] + messages)
+
+    def update(self, messages):
+        self.send_messages_in_transaction(messages)
+
+
+class BindDownload(kzorp.communication.Adapter):
+    def __init__(self, instance_name):
+        super(BindDownload, self).__init__(instance_name)
+
+    def initial(self, messages):
+        self.send_messages_in_transaction([kzorp.messages.KZorpFlushBindsMessage(), ] + messages)
+
+    def update(self, messages):
+        self.send_messages_in_transaction(messages)
+
+    def __del__(self):
+        """kZorp handle must not be closed as the kZorp removes the
+        downloaded values when it notices that the handle has been closed.
+        """
+        self.kzorp_handle = None
+
+
 def downloadKZorpConfig(instance_name, is_master):
+    with RuleDownload(instance_name) as rule_download:
+        messages = []
+        for service in Globals.services.values():
+            message = service.buildKZorpMessage()
+            messages.extend(message)
+        for dispatch in Globals.dispatches:
+            messages.append(kzorp.messages.KZorpAddDispatcherMessage(dispatch.session_id, Globals.rules.length))
+            for rule in Globals.rules:
+                message = rule.buildKZorpMessage(dispatch.session_id)
+                messages.extend(message)
+        rule_download.initial(messages)
 
-    random.seed()
-    h = kzorp.communication.Handle()
+    with BindDownload(instance_name) as bind_download:
+        messages = []
+        for dispatch in Globals.dispatches:
+            messages.extend(dispatch.buildKZorpBindMessage())
+        bind_download.initial(messages)
 
-    # start transaction
-    kzorp.communication.startTransaction(h, instance_name)
-
-    try:
-        if is_master:
-            downloadServices(h)
-            downloadDispatchers(h)
-        downloadBindAddresses(h)
-        kzorp.communication.commitTransaction(h)
-    except:
-        h.close()
-        raise
-
-    Globals.kzorp_netlink_handle = h
+        # Acquire the kZorp handle to close it during deinitialisation.
+        global _kzorp_handle
+        _kzorp_handle = bind_download.kzorp_handle
 
 def flushKZorpConfig(instance_name):
+    log(None, CORE_DEBUG, 6, "Flush kZorp config; instance='%s'" % (instance_name))
 
-    random.seed()
-
-    h = getattr(Globals, "kzorp_netlink_handle", None)
-    if not h:
-        h = kzorp.communication.Handle()
-
-    # flush dispatchers and services
-    kzorp.communication.startTransaction(h, instance_name)
-    try:
-        kzorp.communication.exchangeMessage(h, kzorp.messages.KZorpFlushDispatchersMessage())
-        kzorp.communication.exchangeMessage(h, kzorp.messages.KZorpFlushServicesMessage())
-        kzorp.communication.commitTransaction(h)
-    except:
-        h.close()
-        raise
-
-    h.close()
+    with RuleDownload(instance_name) as rule_download:
+        rule_download.initial([])
+    with ServiceDownload(instance_name) as service_download:
+        service_download.initial([])
 
 def closeKZorpHandle():
+    log(None, CORE_DEBUG, 6, "Close kZorp handle")
+
     h = getattr(Globals, "kzorp_netlink_handle", None)
     if h:
-        Globals.kzorp_netlink_handle = None
+        global _kzorp_handle
+        _kzorp_handle = None
         h.close()
 
 Globals.deinit_callbacks.append(closeKZorpHandle)
