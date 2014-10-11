@@ -54,8 +54,9 @@ def commitTransaction(h):
 
 
 class Adapter(object):
-    def __init__(self):
+    def __init__(self, instance_name=kzorp_messages.KZ_INSTANCE_GLOBAL):
         self.kzorp_handle = Handle()
+        self.instance_name = instance_name
 
     def __enter__(self):
         self.__acquire_caps()
@@ -89,7 +90,7 @@ class Adapter(object):
 
     def send_messages_in_transaction(self, messages):
         try:
-            startTransaction(self.kzorp_handle, kzorp_messages.KZ_INSTANCE_GLOBAL)
+            startTransaction(self.kzorp_handle, self.instance_name)
 
             for message in messages:
                 self.kzorp_handle.exchange(message)
