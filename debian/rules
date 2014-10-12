@@ -49,7 +49,11 @@ install-indep: build-indep debian/kzorp-dkms.dkms
 binary-indep: build-indep install-indep
 	dh $@  --with autotools-dev
 
+build-arch:
+	dh $@  --with autotools-dev -- -C driver
 
+binary-arch: build-arch
+	dh $@  --with autotools-dev -- -C driver
 
-binary: binary-indep
-.PHONY: build build-indep clean install install-indep binary-indep binary
+binary: binary-indep binary-arch
+.PHONY: build build-indep build-arch clean install install-indep binary-indep binary-arch binary
