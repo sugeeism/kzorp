@@ -1,5 +1,8 @@
 #!/usr/bin/make -f
+
 version := $(shell dpkg-parsechangelog | sed -n 's/^Version: *\([^-]\+\)/\1/p')
+kernel_version := $(shell apt-cache policy linux-headers-generic | grep "\*\*\*" | sed 's% *\*\*\* *\(.*\)\.\(.*\)\..*%\1-\2%')
+kernel_release := $(kernel_version)-generic
 
 # Uncomment this to turn on verbose mode.
 export DH_VERBOSE=1
@@ -21,7 +24,7 @@ clean:
 	dh_testdir
 	dh_testroot
 
-	dh_auto_clean
+	KERNELRELEASE=$(kernel_release) dh_auto_clean
 	dh_autoreconf_clean
 	dh_clean build-indep-stamp debian/kzorp-dkms.dkms
 
@@ -50,10 +53,10 @@ binary-indep: build-indep install-indep
 	dh $@  --with autotools-dev
 
 build-arch:
-	dh $@  --with autotools-dev -- -C driver
+	KERNELRELEASE=$(kernel_release) dh $@  --with autotools-dev -- -C driver
 
 binary-arch: build-arch
-	dh $@  --with autotools-dev -- -C driver
+	KERNELRELEASE=$(kernel_release) dh $@  --with autotools-dev -- -C driver
 
 binary: binary-indep binary-arch
 .PHONY: build build-indep build-arch clean install install-indep binary-indep binary-arch binary
