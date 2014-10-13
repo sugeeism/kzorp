@@ -120,4 +120,9 @@ dist:
 		cp $$file $(distdir)/$$file || exit 1; \
 	done
 
-.PHONY: all modules clean install config_check dist
+distclean:
+	@for file in $(DISTFILES); do \
+		rm -f $(distdir)/$$file; \
+	done
+
+.PHONY: all modules clean install config_check dist distclean
