@@ -928,16 +928,14 @@ patch_kzorp(const struct nf_conntrack_kzorp *kzorp)
 }
 
 static bool
-service_assign_session_id(struct sk_buff *skb,
-			  u8 l3proto, u8 l4proto,
-			  u16 sport, u16 dport,
+service_assign_session_id(const struct nf_conn *ct,
 			  const struct nf_conntrack_kzorp *kzorp)
 {
 	struct kz_service *svc = kzorp->svc;
 
 	if  (svc->flags & KZF_SERVICE_CNT_LOCKED) {
-		kz_session_log("Service is locked during reload, dropping packet",
-			       svc, l3proto, l4proto, NULL, NULL, skb, sport, dport);
+		kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Service is locked during reload",
+				       ct, kzorp);
 		return false;
 	}
 	else
@@ -969,7 +967,7 @@ kz_prerouting_verdict(struct sk_buff *skb,
 	if (ctinfo == IP_CT_NEW) {
 		/* proxy sessions have their session id assigned on prerouting */
 		if ((svc != NULL) && (svc->type == KZ_SERVICE_PROXY) && (kzorp->sid == 0))
-			if (!service_assign_session_id(skb, l3proto, l4proto, sport, dport, kzorp))
+			if (!service_assign_session_id(ct, kzorp))
 				return NF_DROP;
 	}
 
@@ -1067,7 +1065,7 @@ kz_forward_newconn_verdict(struct sk_buff *skb,
 
 		/* forwarded and denied session have their session id assigned on forward */
 		if (kzorp->sid == 0) {
-			if (!service_assign_session_id(skb, l3proto, l4proto, sport, dport, kzorp))
+			if (!service_assign_session_id(ct, kzorp))
 				return NF_DROP;
 
 			new_session = true;
@@ -1117,7 +1115,7 @@ kz_postrouting_newconn_verdict(struct sk_buff *skb,
 
 	/* assign session id and do SNAT on new connections */
 	if ((svc != NULL) && (kzorp->sid == 0))
-		if (!service_assign_session_id(skb, l3proto, l4proto, sport, dport, kzorp))
+		if (!service_assign_session_id(ct, kzorp))
 			return NF_DROP;
 
 	if (dpt != NULL && svc != NULL) {
