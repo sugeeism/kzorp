@@ -70,6 +70,12 @@ config_check:
 		echo "kZorp will not work properly."; \
 		echo; echo; \
 	fi
+	@if [ -z "$(CONFIG_NF_CONNTRACK_TIMESTAMP)" ]; then \
+		echo; echo; \
+		echo "*** WARNING: This kernel lacks TPROXY Netfilter target."; \
+		echo "kZorp will not work properly."; \
+		echo; echo; \
+	fi
 	@if [ -z "$(CONFIG_NETFILTER_NETLINK)" ]; then \
 		echo; echo; \
 		echo "*** WARNING: This kernel lacks Netfilter netlink support."; \

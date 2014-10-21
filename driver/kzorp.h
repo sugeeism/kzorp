@@ -60,6 +60,7 @@ struct nf_conntrack_kzorp {
 	struct kz_dispatcher *dpt;	/* dispatcher */
 	struct kz_service *svc;		/* service */
 	u_int32_t rule_id;
+	u_int64_t session_start;
 };
 
 #define NF_CT_EXT_KZ_TYPE struct nf_conntrack_kzorp

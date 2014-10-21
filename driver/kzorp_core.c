@@ -344,6 +344,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 {
 	struct kz_traffic_props traffic_props;
 	u_int32_t rule_id = 0;
+	struct timespec now;
 	struct kz_zone *czone = NULL;
 	struct kz_zone *szone = NULL;
 	struct kz_dispatcher *dpt = NULL;
@@ -503,6 +504,10 @@ done:
 
 	if (kzorp->rule_id != rule_id)
 		kzorp->rule_id = rule_id;
+
+	getnstimeofday(&now);
+	if (kzorp->session_start != now.tv_sec)
+		kzorp->session_start = now.tv_sec;
 
 	kz_debug("kzorp lookup result; dpt='%s', client_zone='%s', server_zone='%s', svc='%s'\n",
 		 kzorp->dpt ? kzorp->dpt->name : kz_log_null,
@@ -1849,6 +1854,8 @@ kz_log_session_verdict(enum kz_verdict verdict,
 	const char *service_name = (kzorp->svc && kzorp->svc->name) ? kzorp->svc->name : kz_log_null;
 	const struct nf_conntrack_tuple *ct_orig_tuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 	const struct nf_conntrack_tuple *ct_reply_tuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+	u_int64_t session_end;
+	struct timespec now;
 
 	if (!kz_log_session_verdict_enabled() ||
 	    !kz_log_ratelimit())
@@ -1875,12 +1882,15 @@ kz_log_session_verdict(enum kz_verdict verdict,
 		snprintf(server_local_str, sizeof(server_local_str), "%s", kz_log_null);
 	}
 
+	getnstimeofday(&now);
+        session_end = now.tv_sec;
 	verdict_str = verdict_as_string(verdict);
 	l4proto_str = l4proto_as_string(nf_ct_protonum(ct), _buf);
 	switch (l3proto) {
 	case NFPROTO_IPV4: {
 		printk(KERN_INFO "kzorp (svc/%s:%lu): Connection summary; "
 				 "rule_id='%u', "
+				 "session_start='%llu', session_end='%llu', "
 				 "client_proto='%s', "
 				 "client_address='%pI4', "
 				 "client_port='%u', "
@@ -1897,6 +1907,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "info='%s'\n",
 				 service_name, kzorp->sid,
 				 kzorp->rule_id,
+				 kzorp->session_start, session_end,
 				 l4proto_str,
 				 &ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
@@ -1912,6 +1923,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 	case NFPROTO_IPV6: {
 		printk(KERN_INFO "kzorp (svc/%s:%lu): Connection summary; "
 				 "rule_id='%u', "
+				 "session_start='%llu', session_end='%llu', "
 				 "client_proto='%s', "
 				 "client_address='%pI6', "
 				 "client_port='%u', "
@@ -1928,6 +1940,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "info='%s'\n",
 				 service_name, kzorp->sid,
 				 kzorp->rule_id,
+				 kzorp->session_start, session_end,
 				 l4proto_str,
 				 ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
