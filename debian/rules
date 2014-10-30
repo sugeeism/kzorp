@@ -52,11 +52,16 @@ install-indep: build-indep debian/kzorp-dkms.dkms
 binary-indep: build-indep install-indep
 	dh $@  --with autotools-dev
 
-build-arch:
-	KERNELRELEASE=$(kernel_release) dh $@  --with autotools-dev -- -C driver
+install:
+	KERNELRELEASE=$(kernel_release) dh_auto_install --destdir=debian/kzorp --sourcedirectory=driver
 
-binary-arch: build-arch
-	KERNELRELEASE=$(kernel_release) dh $@  --with autotools-dev -- -C driver
+build-arch:
+	KERNELRELEASE=$(kernel_release) dh $@  --with autotools-dev --sourcedirectory=driver
+
+binary-arch: build-arch install
+	KERNELRELEASE=$(kernel_release) dh $@  --with autotools-dev --sourcedirectory=driver
+
+override_dh_auto_test:
 
 binary: binary-indep binary-arch
 .PHONY: build build-indep build-arch clean install install-indep binary-indep binary-arch binary
