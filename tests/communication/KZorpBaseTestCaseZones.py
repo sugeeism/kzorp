@@ -18,7 +18,7 @@
 from KZorpComm import KZorpComm
 import testutil
 import kzorp.netlink as netlink
-import kzorp.kzorp_netlink as kzorp_netlink
+import kzorp.messages as messages
 import socket
 
 
@@ -26,7 +26,7 @@ class KZorpBaseTestCaseZones(KZorpComm):
     _dumped_zones = []
 
     def _dump_zone_handler(self, message):
-        if message.command is not kzorp_netlink.KZNL_MSG_ADD_ZONE:
+        if message.command is not messages.KZNL_MSG_ADD_ZONE:
             return
 
         self._dumped_zones.append(message)
@@ -37,7 +37,7 @@ class KZorpBaseTestCaseZones(KZorpComm):
         if in_transaction == True:
             self.start_transaction()
 
-        self.send_message(kzorp_netlink.KZorpGetZoneMessage(None), message_handler = self._dump_zone_handler, dump = True)
+        self.send_message(messages.KZorpGetZoneMessage(), message_handler = self._dump_zone_handler, dump = True)
 
         if in_transaction == True:
             self.end_transaction()
@@ -45,7 +45,7 @@ class KZorpBaseTestCaseZones(KZorpComm):
         self.assertEqual(num_zones, len(self._dumped_zones))
 
     def get_zone_attrs(self, message):
-        self.assertEqual(message.command, kzorp_netlink.KZNL_MSG_ADD_ZONE)
+        self.assertEqual(message.command, messages.KZNL_MSG_ADD_ZONE)
 
         attrs = message.get_attributes()
 

@@ -20,7 +20,8 @@ class Handle(netlink.Handle):
         elif reply_num == 1:
             return replies[0]
         else:
-            raise netlink.NetlinkException, "Netlink message has more than one reply: command='%d'" % (msg.command)
+            return replies
+            raise netlink.NetlinkException, "Netlink message has more than one reply: command='%d'" % (message.command)
 
 def exchangeMessage(h, payload):
     try:

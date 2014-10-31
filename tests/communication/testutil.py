@@ -22,7 +22,7 @@ import unittest
 import socket
 import struct
 
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages as messages
 import kzorp.netlink as netlink
 
 def inet_aton(a):
@@ -123,14 +123,14 @@ def netmask_packed(addr):
 
 
 attrmap = {
-            kznl.KZNL_ATTR_SVC_NAME: (kznl.create_name_attr, kznl.parse_name_attr),
-            kznl.KZNL_ATTR_SVC_PARAMS: (kznl.create_service_params_attr, kznl.parse_service_params_attr),
-            kznl.KZNL_ATTR_SVC_ROUTER_DST_ADDR: (kznl.create_inet_addr_attr, kznl.parse_inet_addr_attr),
-            kznl.KZNL_ATTR_SVC_ROUTER_DST_PORT: (kznl.create_port_attr, kznl.parse_port_attr),
-            kznl.KZNL_ATTR_SVC_NAT_SRC: (kznl.create_nat_range_attr, kznl.parse_nat_range_attr),
-            kznl.KZNL_ATTR_SVC_NAT_DST: (kznl.create_nat_range_attr, kznl.parse_nat_range_attr),
-            kznl.KZNL_ATTR_SVC_NAT_MAP: (kznl.create_nat_range_attr, kznl.parse_nat_range_attr),
-            kznl.KZNL_ATTR_SVC_SESSION_COUNT: (netlink.NetlinkAttribute.create_be32, netlink.NetlinkAttribute.parse_be32),
+            messages.KZNL_ATTR_SVC_NAME: (messages.create_name_attr, messages.parse_name_attr),
+            messages.KZNL_ATTR_SVC_PARAMS: (messages.create_service_params_attr, messages.parse_service_params_attr),
+            messages.KZNL_ATTR_SVC_ROUTER_DST_ADDR: (messages.create_inet_addr_attr, messages.parse_inet_addr_attr),
+            messages.KZNL_ATTR_SVC_ROUTER_DST_PORT: (messages.create_port_attr, messages.parse_port_attr),
+            messages.KZNL_ATTR_SVC_NAT_SRC: (messages.create_nat_range_attr, messages.parse_nat_range_attr),
+            messages.KZNL_ATTR_SVC_NAT_DST: (messages.create_nat_range_attr, messages.parse_nat_range_attr),
+            messages.KZNL_ATTR_SVC_NAT_MAP: (messages.create_nat_range_attr, messages.parse_nat_range_attr),
+            messages.KZNL_ATTR_SVC_SESSION_COUNT: (netlink.NetlinkAttribute.create_be32, netlink.NetlinkAttribute.parse_be32),
           }
 
 def create_attr(type, *attr):

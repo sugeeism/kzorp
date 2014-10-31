@@ -17,8 +17,7 @@
 #
 from KZorpBaseTestCaseDispatchers import KZorpBaseTestCaseDispatchers
 from KZorpBaseTestCaseZones import KZorpBaseTestCaseZones
-import kzorp.netlink as netlink
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages as messages
 import errno
 import socket
 import testutil
@@ -30,41 +29,41 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
                                    { 'rule_id' : 1, 'service' : 'A_A',
                                      'entry_nums' :
                                                  {
-                                                   kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 2,
-                                                   kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 2
+                                                   messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 2,
+                                                   messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 2
 
                                                  },
                                      'entry_values' :
                                                  {
-                                                   kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(12,12), (23, 44)],
-                                                   kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ["AAA", "ZZZ"]
+                                                   messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(12,12), (23, 44)],
+                                                   messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ["AAA", "ZZZ"]
                                                  }
                                    }
                                  ]
                      },
                      { 'name' : 'n_dimension_with_rules', 'num_rules' : 3,
                        'rules' : [ { 'rule_id'      : 1, 'service' : 'A_A',
-                                     'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 1 },
-                                     'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(5,6)] }
+                                     'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 1 },
+                                     'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(5,6)] }
                                    },
                                    { 'rule_id'      : 2, 'service' : 'A_A',
-                                     'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : 2, kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 3 },
-                                     'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : ['eth0', 'eth1'], kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(3,3), (4,4), (50000,65534)]}
+                                     'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_IFACE : 2, messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 3 },
+                                     'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : ['eth0', 'eth1'], messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(3,3), (4,4), (50000,65534)]}
                                    },
                                    { 'rule_id'      : 3, 'service' : 'A_A',
-                                     'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : 1, kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 4, kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 2 },
-                                     'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(1,2)], kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['AAA', 'AZA', 'AA', 'A'], kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(10000,10000), (20000, 30000)] }
+                                     'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : 1, messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 4, messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 2 },
+                                     'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(1,2)], messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['AAA', 'AZA', 'AA', 'A'], messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(10000,10000), (20000, 30000)] }
                                    }
                                  ]
                      },
                      { 'name' : 'n_dimension_with_ALL_rules', 'num_rules' : 2,
                        'rules' : [ { 'rule_id'      : 1, 'service' : 'Z_Z',
-                                     'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : 2, kznl.KZNL_ATTR_N_DIMENSION_PROTO : 1, kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : 2, kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 1, kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : 2, kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 3, kznl.KZNL_ATTR_N_DIMENSION_DST_IP : 2, kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1, kznl.KZNL_ATTR_N_DIMENSION_IFGROUP : 1},
-                                     'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : ['eth4', 'eth2'], kznl.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP], kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(2,3), (4,5)], kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(5,6)], kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : ['1.2.3.4', '2.3.4.5/24'], kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['ZZZ', 'ZZ', 'Z'], kznl.KZNL_ATTR_N_DIMENSION_DST_IP : ['3.4.5.6/16', '4.5.6.7/8'], kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 'AAA', kznl.KZNL_ATTR_N_DIMENSION_IFGROUP : [1]},
+                                     'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_IFACE : 2, messages.KZNL_ATTR_N_DIMENSION_PROTO : 1, messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : 2, messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 1, messages.KZNL_ATTR_N_DIMENSION_SRC_IP : 2, messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 3, messages.KZNL_ATTR_N_DIMENSION_DST_IP : 2, messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1, messages.KZNL_ATTR_N_DIMENSION_IFGROUP : 1},
+                                     'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : ['eth4', 'eth2'], messages.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP], messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(2,3), (4,5)], messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(5,6)], messages.KZNL_ATTR_N_DIMENSION_SRC_IP : ['1.2.3.4', '2.3.4.5/24'], messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['ZZZ', 'ZZ', 'Z'], messages.KZNL_ATTR_N_DIMENSION_DST_IP : ['3.4.5.6/16', '4.5.6.7/8'], messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 'AAA', messages.KZNL_ATTR_N_DIMENSION_IFGROUP : [1]},
                                    },
                                    { 'rule_id'      : 2, 'service' : 'Z_Z',
-                                     'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 2, kznl.KZNL_ATTR_N_DIMENSION_DST_IP : 3, kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 1, kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : 2, kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 2, kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : 2, kznl.KZNL_ATTR_N_DIMENSION_PROTO : 1, kznl.KZNL_ATTR_N_DIMENSION_IFACE : 3 },
-                                     'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : ['AZA', 'ZAZ'], kznl.KZNL_ATTR_N_DIMENSION_DST_IP : ['8.7.6.5', '7.6.5.4/31', '9.8.7.6/25'], kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 'ZZ', kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : ['5.4.3.2/32', '6.5.4.3/30'], kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(66,66),(100,200)], kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(23,24), (30, 40)], kznl.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP], kznl.KZNL_ATTR_N_DIMENSION_IFACE : ['eth0', 'eth1', 'eth2'] }
+                                     'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 2, messages.KZNL_ATTR_N_DIMENSION_DST_IP : 3, messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 1, messages.KZNL_ATTR_N_DIMENSION_SRC_IP : 2, messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 2, messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : 2, messages.KZNL_ATTR_N_DIMENSION_PROTO : 1, messages.KZNL_ATTR_N_DIMENSION_IFACE : 3 },
+                                     'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : ['AZA', 'ZAZ'], messages.KZNL_ATTR_N_DIMENSION_DST_IP : ['8.7.6.5', '7.6.5.4/31', '9.8.7.6/25'], messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 'ZZ', messages.KZNL_ATTR_N_DIMENSION_SRC_IP : ['5.4.3.2/32', '6.5.4.3/30'], messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(66,66),(100,200)], messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(23,24), (30, 40)], messages.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP], messages.KZNL_ATTR_N_DIMENSION_IFACE : ['eth0', 'eth1', 'eth2'] }
                                    }
                                  ]
                      }
@@ -100,16 +99,17 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
         dispatchers = [{ 'name' : 'n_dimension_4k', 'num_rules' : 1,
                          'rules' : [ { 'rule_id'      : 1, 'service' : 'A_A',
-                                       'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : _iface_num, kznl.KZNL_ATTR_N_DIMENSION_PROTO : 1, kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : 2, kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 1, kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : 2, kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 3, kznl.KZNL_ATTR_N_DIMENSION_DST_IP : 2, kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1, kznl.KZNL_ATTR_N_DIMENSION_IFGROUP : 1},
-                                       'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : _iface_list, kznl.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP], kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(2,3), (4,5)], kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(5,6)], kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : ['1.2.3.4', '2.3.4.5/24'], kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['ZZZ', 'ZZ', 'Z'], kznl.KZNL_ATTR_N_DIMENSION_DST_IP : ['3.4.5.6/16', '4.5.6.7/8'], kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 'AAA', kznl.KZNL_ATTR_N_DIMENSION_IFGROUP : [1]},
+                                       'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_IFACE : _iface_num, messages.KZNL_ATTR_N_DIMENSION_PROTO : 1, messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : 2, messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 1, messages.KZNL_ATTR_N_DIMENSION_SRC_IP : 2, messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 3, messages.KZNL_ATTR_N_DIMENSION_DST_IP : 2, messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1, messages.KZNL_ATTR_N_DIMENSION_IFGROUP : 1},
+                                       'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : _iface_list, messages.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP], messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(2,3), (4,5)], messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(5,6)], messages.KZNL_ATTR_N_DIMENSION_SRC_IP : ['1.2.3.4', '2.3.4.5/24'], messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['ZZZ', 'ZZ', 'Z'], messages.KZNL_ATTR_N_DIMENSION_DST_IP : ['3.4.5.6/16', '4.5.6.7/8'], messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 'AAA', messages.KZNL_ATTR_N_DIMENSION_IFGROUP : [1]},
                                      }
                                    ]
                      }]
 
         self.setup_service_dispatcher(services, dispatchers, False, False);
-        self.send_message(kznl.KZorpGetDispatcherMessage("n_dimension_4k"), message_handler = self._get_dispatchers_message_handler)
+        self.send_message(messages.KZorpGetDispatcherMessage("n_dimension_4k"), message_handler = self._get_dispatchers_message_handler)
         self._check_dispatcher_params(self._add_dispatcher_messages[0], dispatchers[0])
         self._check_ndim_params(dispatchers)
+
     def test_n_dimension_errors(self):
         error_dup_dispatchers=[
                             { 'name' : 'n_dimension_error', 'num_rules' : 0,
@@ -117,7 +117,7 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
                             { 'name' : 'n_dimension_error2', 'num_rules' : 2,
                               'rules' : [{ 'rule_id' : 1, 'service' : 'A_A',
-                                           'entry_nums' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : 2},
+                                           'entry_nums' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : 2},
                                            'errno' : 0
                                          }
                                         ]
@@ -126,18 +126,18 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
         error_num_rules_dispatchers=[
                             { 'name' : 'n_dimension_error3', 'num_rules' : 1,
                               'rules' : [{ 'rule_id' : 2, 'service' : 'A_A',
-                                           'entry_nums' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : 2},
+                                           'entry_nums' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : 2},
                                            'errno' : 0
                                          },
                                          { 'rule_id' : 3, 'service' : 'A_A',
-                                           'entry_nums' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : 2},
+                                           'entry_nums' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : 2},
                                            'errno' : -errno.EINVAL
                                          }
                                         ]
                             },
                             { 'name' : 'n_dimension_error4', 'num_rules' : 1,
                               'rules' : [{ 'rule_id' : 3, 'service' : 'A_A',
-                                           'entry_nums' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : 2},
+                                           'entry_nums' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : 2},
                                            #FIXME: this shouldbe: -errno.EEXIST
                                            'errno' : 0
                                          }
@@ -147,43 +147,43 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
         error_num_rule_entries=[
                             { 'name' : 'n_dimension_error5', 'num_rules' : 8,
                               'rules' : [{ 'rule_id' : 4, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_IFACE : ['eth4', 'eth2'] },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_IFACE : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_IFACE : ['eth4', 'eth2'] },
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          },
                                          { 'rule_id' : 5, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_PROTO : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP, socket.IPPROTO_UDP] },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_PROTO : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_PROTO : [socket.IPPROTO_TCP, socket.IPPROTO_UDP] },
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          },
                                          { 'rule_id' : 6, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(1,1), (2,2)] },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_SRC_PORT : [(1,1), (2,2)] },
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          },
                                          { 'rule_id' : 7, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_DST_PORT : [(3,3),(4,5)] },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_DST_PORT : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_DST_PORT : [(3,3),(4,5)] },
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          },
                                          { 'rule_id' : 8, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_SRC_IP : ['1.2.3.4', '2.3.4.5'] },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_SRC_IP : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_SRC_IP : ['1.2.3.4', '2.3.4.5'] },
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          },
                                          { 'rule_id' : 9, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['ZZZ', 'ZZ'] },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : ['ZZZ', 'ZZ'] },
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          },
                                          { 'rule_id' : 10, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_DST_IP : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_DST_IP : ['3.4.5.6', '4.5.6.7'] },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_DST_IP : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_DST_IP : ['3.4.5.6', '4.5.6.7'] },
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          },
                                          { 'rule_id' : 11, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1},
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : ['AAA', 'AA']},
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1},
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : ['AAA', 'AA']},
                                            'rule_entry_errnos' : [0, -errno.ENOMEM]
                                          }
                                         ]
@@ -192,13 +192,13 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
         error_zones_exist=[
                             { 'name' : 'n_dimension_error6', 'num_rules' : 2,
                               'rules' : [{ 'rule_id' : 12, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 'BBB' },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_SRC_ZONE : 'BBB' },
                                            'rule_entry_errnos' : [-errno.ENOENT]
                                          },
                                          { 'rule_id' : 13, 'service' : 'A_A',
-                                           'entry_nums'   : { kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1 },
-                                           'entry_values' : { kznl.KZNL_ATTR_N_DIMENSION_DST_ZONE : 'CCC' },
+                                           'entry_nums'   : { messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 1 },
+                                           'entry_values' : { messages.KZNL_ATTR_N_DIMENSION_DST_ZONE : 'CCC' },
                                            'rule_entry_errnos' : [-errno.ENOENT]
                                          }
                                         ]
@@ -207,7 +207,7 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
         #Check add_dispatcher without starting a transaction
         dispatcher = error_dup_dispatchers[0]
-        message_add_dispatcher = kznl.KZorpAddDispatcherMessage(dispatcher['name'],
+        message_add_dispatcher = messages.KZorpAddDispatcherMessage(dispatcher['name'],
                                                            dispatcher['num_rules']
                                                           )
 
@@ -216,7 +216,7 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
         #check duplicated add_dispatcher
         self.start_transaction()
-        message_add_dispatcher = kznl.KZorpAddDispatcherMessage(dispatcher['name'],
+        message_add_dispatcher = messages.KZorpAddDispatcherMessage(dispatcher['name'],
                                                            dispatcher['num_rules']
                                                            )
         res = self.send_message(message_add_dispatcher, assert_on_error = False)
@@ -228,7 +228,7 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
         #check if num_rules > number of rule_entries
         dispathcer = error_dup_dispatchers[1]
         self.start_transaction()
-        message_add_dispatcher = kznl.KZorpAddDispatcherMessage(dispatcher['name'],
+        message_add_dispatcher = messages.KZorpAddDispatcherMessage(dispatcher['name'],
                                                            dispatcher['num_rules']
                                                            )
         res = self.send_message(message_add_dispatcher, assert_on_error = False)
@@ -239,13 +239,13 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
         self.start_transaction()
         for i in range(len(error_num_rules_dispatchers)):
             dispatcher = error_num_rules_dispatchers[i]
-            message_add_dispatcher = kznl.KZorpAddDispatcherMessage(dispatcher['name'],
+            message_add_dispatcher = messages.KZorpAddDispatcherMessage(dispatcher['name'],
                                                                dispatcher['num_rules']
                                                               )
             res = self.send_message(message_add_dispatcher, assert_on_error = False)
 
             for rule in dispatcher['rules']:
-                message_add_rule = kznl.KZorpAddRuleMessage(dispatcher['name'],
+                message_add_rule = messages.KZorpAddRuleMessage(dispatcher['name'],
                                                        rule['rule_id'],
                                                        rule['service'],
                                                        rule['entry_nums']
@@ -260,14 +260,14 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
         for i in range(len(error_num_rule_entries)):
             dispatcher = error_num_rule_entries[i]
-            message_add_dispatcher = kznl.KZorpAddDispatcherMessage(dispatcher['name'],
+            message_add_dispatcher = messages.KZorpAddDispatcherMessage(dispatcher['name'],
                                                                dispatcher['num_rules']
                                                               )
             res = self.send_message(message_add_dispatcher, assert_on_error = False)
 
             for rule in dispatcher['rules']:
                 _max = 2
-                message_add_rule = kznl.KZorpAddRuleMessage(dispatcher['name'],
+                message_add_rule = messages.KZorpAddRuleMessage(dispatcher['name'],
                                                         rule['rule_id'],
                                                         rule['service'],
                                                         rule['entry_nums']
@@ -277,13 +277,13 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
                     self.assertEqual(res, rule['errno'])
                 for i in range(_max):
                     data = {}
-                    for dim_type in kznl.N_DIMENSION_ATTRS:
+                    for dim_type in messages.N_DIMENSION_ATTRS:
                         if dim_type in rule['entry_nums']:
-                            if dim_type in [kznl.KZNL_ATTR_N_DIMENSION_SRC_IP, kznl.KZNL_ATTR_N_DIMENSION_DST_IP, kznl.KZNL_ATTR_N_DIMENSION_SRC_IP6, kznl.KZNL_ATTR_N_DIMENSION_DST_IP6]:
+                            if dim_type in [messages.KZNL_ATTR_N_DIMENSION_SRC_IP, messages.KZNL_ATTR_N_DIMENSION_DST_IP, messages.KZNL_ATTR_N_DIMENSION_SRC_IP6, messages.KZNL_ATTR_N_DIMENSION_DST_IP6]:
                                 data[dim_type] = (testutil.addr_packed(rule['entry_values'][dim_type][i]), testutil.netmask_packed(rule['entry_values'][dim_type][i]))
                             else:
                                 data[dim_type] = rule['entry_values'][dim_type][i]
-                    message_add_rule_entry = kznl.KZorpAddRuleEntryMessage(dispatcher['name'], rule['rule_id'], data)
+                    message_add_rule_entry = messages.KZorpAddRuleEntryMessage(dispatcher['name'], rule['rule_id'], data)
                     res = self.send_message(message_add_rule_entry, assert_on_error = False)
                     self.assertEqual(res, rule['rule_entry_errnos'][i])
 
@@ -293,14 +293,14 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
         #check zones exist
         for i in range(len(error_zones_exist)):
             dispatcher = error_zones_exist[i]
-            message_add_dispatcher = kznl.KZorpAddDispatcherMessage(dispatcher['name'],
+            message_add_dispatcher = messages.KZorpAddDispatcherMessage(dispatcher['name'],
                                                                dispatcher['num_rules']
                                                               )
             res = self.send_message(message_add_dispatcher, assert_on_error = False)
 
             for rule in dispatcher['rules']:
                 _max = 1
-                message_add_rule = kznl.KZorpAddRuleMessage(dispatcher['name'],
+                message_add_rule = messages.KZorpAddRuleMessage(dispatcher['name'],
                                                         rule['rule_id'],
                                                         rule['service'],
                                                         rule['entry_nums']
@@ -310,13 +310,13 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
                     self.assertEqual(res, rule['errno'])
                 for i in range(_max):
                     data = {}
-                    for dim_type in kznl.N_DIMENSION_ATTRS:
+                    for dim_type in messages.N_DIMENSION_ATTRS:
                         if dim_type in rule['entry_nums']:
-                            if dim_type == kznl.KZNL_ATTR_N_DIMENSION_SRC_IP or dim_type == kznl.KZNL_ATTR_N_DIMENSION_DST_IP:
+                            if dim_type == messages.KZNL_ATTR_N_DIMENSION_SRC_IP or dim_type == messages.KZNL_ATTR_N_DIMENSION_DST_IP:
                                 data[dim_type] = (struct.pack('I', rule['entry_values'][dim_type][i].ip), struct.pack('I', rule['entry_values'][dim_type][i].mask))
                             else:
                                 data[dim_type] = rule['entry_values'][dim_type][i]
-                    message_add_rule_entry = kznl.KZorpAddRuleEntryMessage(dispatcher['name'], rule['rule_id'], data)
+                    message_add_rule_entry = messages.KZorpAddRuleEntryMessage(dispatcher['name'], rule['rule_id'], data)
                     res = self.send_message(message_add_rule_entry, assert_on_error = False)
                     self.assertEqual(res, rule['rule_entry_errnos'][i])
 
@@ -339,7 +339,7 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
     def test_get_dispatcher_by_name(self):
         #get a not existent dispatcher
-        res = self.send_message(kznl.KZorpGetDispatcherMessage('nonexistentdispatchername'), assert_on_error = False)
+        res = self.send_message(messages.KZorpGetDispatcherMessage('nonexistentdispatchername'), assert_on_error = False)
         self.assertEqual(res, -errno.ENOENT)
 
     def _get_dispatchers_message_handler(self, msg):
@@ -351,21 +351,21 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
             attrs = add_dispatcher_message.get_attributes()
 
             command = add_dispatcher_message.command
-            if (command == kznl.KZNL_MSG_ADD_DISPATCHER or command == kznl.KZNL_MSG_ADD_RULE):
-                dispatcher_name = kznl.parse_name_attr(attrs[kznl.KZNL_ATTR_DPT_NAME])
+            if (command == messages.KZNL_MSG_ADD_DISPATCHER or command == messages.KZNL_MSG_ADD_RULE):
+                dispatcher_name = messages.parse_name_attr(attrs[messages.KZNL_ATTR_DPT_NAME])
 
             for i in range(len(dispatchers)):
-                if command == kznl.KZNL_MSG_ADD_DISPATCHER and dispatcher_name == dispatchers[i]['name']:
+                if command == messages.KZNL_MSG_ADD_DISPATCHER and dispatcher_name == dispatchers[i]['name']:
                     rule_index = 0
                     self._check_dispatcher_params(add_dispatcher_message, dispatchers[i])
                     break
-                elif command == kznl.KZNL_MSG_ADD_RULE and dispatcher_name == dispatchers[i]['name']:
+                elif command == messages.KZNL_MSG_ADD_RULE and dispatcher_name == dispatchers[i]['name']:
                     self._check_add_rule_params(add_dispatcher_message, dispatchers[i]['rules'][rule_index])
                     rule_entry_dispatcher_name = dispatcher_name
                     rule_index = rule_index + 1
                     rule_entry_index = 0
                     break
-                elif command == kznl.KZNL_MSG_ADD_RULE_ENTRY and dispatchers[i]['name'] == rule_entry_dispatcher_name:
+                elif command == messages.KZNL_MSG_ADD_RULE_ENTRY and dispatchers[i]['name'] == rule_entry_dispatcher_name:
                     self._check_add_rule_entry_params(add_dispatcher_message, dispatchers[i]['rules'][rule_index - 1], rule_entry_index)
                     rule_entry_index = rule_entry_index + 1
                     break
@@ -375,7 +375,7 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
     def test_get_dispatcher_with_dump(self):
         #get the dump of dispatchers
-        self.send_message(kznl.KZorpGetDispatcherMessage(None), message_handler = self._get_dispatchers_message_handler, dump = True)
+        self.send_message(messages.KZorpGetDispatcherMessage(None), message_handler = self._get_dispatchers_message_handler, dump = True)
         self._check_ndim_params(self._dispatchers)
         #self.assertEqual(len(self._add_dispatcher_messages), len(self._dispatchers))
 

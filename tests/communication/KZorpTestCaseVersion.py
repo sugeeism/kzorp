@@ -17,7 +17,7 @@
 #
 import testutil
 from KZorpComm import *
-import kzorp.kzorp_netlink as kzorp_netlink
+import kzorp.messages as messages
 
 class KZorpTestCaseGetVersion(KZorpComm):
     def _get_version_message_handler(self, msg):
@@ -25,12 +25,12 @@ class KZorpTestCaseGetVersion(KZorpComm):
         self._compat_version = msg.compat
 
     def setUp(self):
-        get_version_message = kzorp_netlink.KZorpGetVersionMessage()
+        get_version_message = messages.KZorpGetVersionMessage()
         self.send_message(get_version_message, message_handler = self._get_version_message_handler)
 
     def test_get_version(self):
         self.assertEqual(self._major_version, 4)
-        self.assertEqual(self._compat_version, 3)
+        self.assertEqual(self._compat_version, 5)
 
 if __name__ == "__main__":
     testutil.main()
