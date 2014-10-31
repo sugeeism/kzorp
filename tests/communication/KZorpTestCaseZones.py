@@ -17,8 +17,7 @@
 #
 import testutil
 from KZorpBaseTestCaseZones import KZorpBaseTestCaseZones
-import kzorp.netlink as netlink
-import kzorp.kzorp_netlink as kzorp_netlink
+import kzorp.messages as messages
 import errno
 import socket
 
@@ -40,11 +39,11 @@ class KZorpTestCaseZones(KZorpBaseTestCaseZones):
         self.start_transaction()
 
         for zone in self._zones:
-            add_zone_message = kzorp_netlink.KZorpAddZoneMessage(zone['name'], pname = zone['pname'], subnet_num = 1)
+            add_zone_message = messages.KZorpAddZoneMessage(zone['name'], pname = zone['pname'], subnet_num = 1)
             self.send_message(add_zone_message)
 
             family = zone['family']
-            add_zone_subnet_message = kzorp_netlink.KZorpAddZoneSubnetMessage(zone['name'],
+            add_zone_subnet_message = messages.KZorpAddZoneSubnetMessage(zone['name'],
                                                                 family = family,
                                                                 address = socket.inet_pton(family, zone['address']),
                                                                 mask = socket.inet_pton(family, testutil.size_to_mask(family, zone['mask'])))
@@ -79,36 +78,46 @@ class KZorpTestCaseZones(KZorpBaseTestCaseZones):
                   {'desc' : 'empty parent',       'name' : 'fake',  'pname' :   '', 'error' : -errno.EINVAL},
                 ]
 
-        add_zone_message = kzorp_netlink.KZorpAddZoneMessage('a');
-        res = self.send_message(add_zone_message, assert_on_error = False)
-        self.assertEqual(res, -errno.ENOENT)
-
-        self.start_transaction()
+        #add_zone_message = messages.KZorpAddZoneMessage('a');
+        #res = self.send_message(add_zone_message, assert_on_error = False)
+        #self.assertEqual(res, -errno.ENOENT)
+        #import pdb
+        #pdb.set_trace()
         for zone in zones:
-            add_zone_message = kzorp_netlink.KZorpAddZoneMessage(zone['name'], pname = zone['pname'])
+            self.start_transaction()
+            add_zone_message = messages.KZorpAddZoneMessage(zone['name'], pname = zone['pname'])
 
             res = self.send_message(add_zone_message, assert_on_error = False)
-            self.assertEqual(res, zone['error'])
-        self.end_transaction()
+            tr_res = self.end_transaction(assert_on_error=False)
+            expected_result = zone['error']
+            if expected_result == 0:
+                self.assertEqual(res, 0)
+                self.assertEqual(tr_res, 0)
+            else:
+                if res != 0:
+                    self.assertEqual(res, expected_result)
+                else:
+                    self.assertEqual(tr_res, expected_result)
 
     def test_zero_subnet_is_valid(self):
         self.start_transaction()
-        self.send_message(kzorp_netlink.KZorpAddZoneMessage('name', None, subnet_num = 0))
+        self.send_message(messages.KZorpAddZoneMessage('name', None, subnet_num = 0))
         self.end_transaction()
 
     def _add_zone_subnet_handler(self, msg):
-        if msg.command is kzorp_netlink.KZNL_MSG_ADD_ZONE_SUBNET:
+        print msg
+        if msg.command is messages.KZNL_MSG_ADD_ZONE_SUBNET:
             self._add_zone_subnet_msg = msg
 
     def _create_add_zone_subnet_internet(self, name):
-        return kzorp_netlink.KZorpAddZoneSubnetMessage(name,
+        return messages.KZorpAddZoneSubnetMessage(name,
                                          self.internet_subnet_family,
                                          self.internet_subnet_addr,
                                          self.internet_subnet_mask)
 
     def _add_zone_with_internet_subnet(self):
         self.start_transaction()
-        self.send_message(kzorp_netlink.KZorpAddZoneMessage(self.internet_zone_name, None, subnet_num = 1))
+        self.send_message(messages.KZorpAddZoneMessage(self.internet_zone_name, None, subnet_num = 1))
         add_zone_subnet_msg = self._create_add_zone_subnet_internet(self.internet_zone_name)
         self.send_message(add_zone_subnet_msg)
         self.end_transaction()
@@ -116,17 +125,16 @@ class KZorpTestCaseZones(KZorpBaseTestCaseZones):
         self._check_add_zone_subnet_internet(add_zone_subnet_msg)
 
     def _check_add_zone_subnet_internet(self, msg):
-        self.send_message(kzorp_netlink.KZorpGetZoneMessage(msg.zone_name),
+        self.send_message(messages.KZorpGetZoneMessage(msg.zone_name),
                           message_handler = self._add_zone_subnet_handler)
         self.assertEqual(self._add_zone_subnet_msg, msg)
 
     def test_add_zone_subnet_in_same_transaction(self):
         self._add_zone_with_internet_subnet()
 
-
     def __test_add_zone_subnet_different_transaction(self):
         self.start_transaction()
-        self.send_message(kzorp_netlink.KZorpAddZoneMessage(self.internet_zone_name, None, subnet_num = 0))
+        self.send_message(messages.KZorpAddZoneMessage(self.internet_zone_name, None, subnet_num = 0))
         self.end_transaction()
 
         self.start_transaction()
@@ -139,7 +147,7 @@ class KZorpTestCaseZones(KZorpBaseTestCaseZones):
     def test_add_subnet_to_zone_with_zero_subnet_num(self):
         self.start_transaction()
 
-        self.send_message(kzorp_netlink.KZorpAddZoneMessage('name', None, subnet_num = 0))
+        self.send_message(messages.KZorpAddZoneMessage('name', pname = None, subnet_num = 0))
 
         res = self.send_message(self._create_add_zone_subnet_internet('name'),
                                 assert_on_error = False)
@@ -149,7 +157,7 @@ class KZorpTestCaseZones(KZorpBaseTestCaseZones):
 
     def _get_zone_message_handler(self, msg):
         self._add_zone_message = msg
-        if msg.command is not kzorp_netlink.KZNL_MSG_ADD_ZONE:
+        if msg.command is not messages.KZNL_MSG_ADD_ZONE:
             return
 
         self._index += 1
@@ -161,16 +169,16 @@ class KZorpTestCaseZones(KZorpBaseTestCaseZones):
         #get each created zone
         for zone in self._zones:
             zone_name = zone['name']
-            self.send_message(kzorp_netlink.KZorpGetZoneMessage(zone_name), message_handler = self._get_zone_message_handler)
+            self.send_message(messages.KZorpGetZoneMessage(zone_name), message_handler = self._get_zone_message_handler)
         self.assertNotEqual(self._index, len(self._zones))
 
         #get a not existent zone
         self.assertNotEqual(self._zones[0]['name'], 'nonexistent zone name')
-        res = self.send_message(kzorp_netlink.KZorpGetZoneMessage('nonexistent zone name'), assert_on_error = False)
+        res = self.send_message(messages.KZorpGetZoneMessage('nonexistent zone name'), assert_on_error = False)
         self.assertEqual(res, -errno.ENOENT)
 
     def _get_zones_message_handler(self, msg):
-        if msg.command is not kzorp_netlink.KZNL_MSG_ADD_ZONE:
+        if msg.command is not messages.KZNL_MSG_ADD_ZONE:
             return
 
         self._add_zone_messages.append(msg)
@@ -178,7 +186,7 @@ class KZorpTestCaseZones(KZorpBaseTestCaseZones):
     def test_get_zone_with_dump(self):
         self.newSetUp()
         #get the dump of zones
-        self.send_message(kzorp_netlink.KZorpGetZoneMessage(None), message_handler = self._get_zones_message_handler, dump = True)
+        self.send_message(messages.KZorpGetZoneMessage(None), message_handler = self._get_zones_message_handler, dump = True)
         self.assertEqual(len(self._add_zone_messages), len(self._zones))
         for add_zone_message in self._add_zone_messages:
             for i in range(len(self._zones)):

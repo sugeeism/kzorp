@@ -17,16 +17,18 @@
 
 import unittest
 import kzorp.netlink as netlink
-import kzorp.kzorp_netlink as kzorp_netlink
+import kzorp.messages as messages
+import kzorp.communication as communication
 import testutil
+import os
 
 class KZorpComm(unittest.TestCase):
     handle = None
     _flushables = [
-                    kzorp_netlink.KZorpFlushZonesMessage,
-                    kzorp_netlink.KZorpFlushServicesMessage,
-                    kzorp_netlink.KZorpFlushDispatchersMessage,
-                    kzorp_netlink.KZorpFlushBindsMessage
+                    messages.KZorpFlushZonesMessage,
+                    messages.KZorpFlushServicesMessage,
+                    messages.KZorpFlushDispatchersMessage,
+                    messages.KZorpFlushBindsMessage
                   ]
 
     def __init__(self, *args):
@@ -39,7 +41,7 @@ class KZorpComm(unittest.TestCase):
 
     def create_handle(self):
         if self.handle == None:
-            self.handle = kzorp_netlink.Handle()
+            self.handle = communication.Handle()
             self.assertNotEqual(self.handle, None)
 
     def close_handle(self):
@@ -54,31 +56,39 @@ class KZorpComm(unittest.TestCase):
     def send_message(self, message, assert_on_error = True, message_handler = None, dump = False, error_handler=None):
         self.assertNotEqual(message, None)
         self.assertNotEqual(self.handle, None)
+        #print "send_message: ", message
 
         try:
             res = 0
-            for reply_message in self.handle.talk(message, dump, factory=kzorp_netlink.KZorpMessageFactory):
-                if message_handler is not None:
-                    message_handler(reply_message)
-                else:
-                    pass
+            if dump:
+                for reply_message in self.handle.dump(message):
+                    if message_handler is not None:
+                        message_handler(reply_message)
+            else:
+                reply_message = self.handle.exchange(message)
+                reply_messages = reply_message if isinstance(reply_message, list) else [reply_message, ]
+                for reply_message in reply_messages:
+                    if message_handler is not None:
+                        message_handler(reply_message)
         except netlink.NetlinkException as e:
+            #print "exception", e
             res = e.detail
             if assert_on_error:
                 if error_handler:
                     error_handler(e.detail)
                 else:
-                    self.assertTrue(res, "talk with KZorp failed")
+                    self.assertEqual(res, 0, "talk with KZorp failed: result='%d' error='%s'" % (res, os.strerror(-res)))
 
         return res
 
-    def start_transaction(self, instance_name = kzorp_netlink.KZ_INSTANCE_GLOBAL, cookie = 0L):
-        self.send_message(kzorp_netlink.KZorpStartTransactionMessage(instance_name))
+    def start_transaction(self, assert_on_error = True, instance_name = messages.KZ_INSTANCE_GLOBAL, cookie = 0L):
+        self.send_message(messages.KZorpStartTransactionMessage(instance_name), assert_on_error=assert_on_error)
         self._in_transaction = True
 
-    def end_transaction(self, instance_name = kzorp_netlink.KZ_INSTANCE_GLOBAL):
-        self.send_message(kzorp_netlink.KZorpCommitTransactionMessage())
+    def end_transaction(self, assert_on_error = True, instance_name = messages.KZ_INSTANCE_GLOBAL):
+        res = self.send_message(messages.KZorpCommitTransactionMessage(), assert_on_error=assert_on_error)
         self._in_transaction = False
+        return res
 
     def flush_all(self):
         if self._in_transaction:

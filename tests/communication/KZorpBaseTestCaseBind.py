@@ -18,18 +18,18 @@
 import testutil
 from KZorpComm import KZorpComm
 
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages as messages
 import socket
 
 class KZorpBaseTestCaseBind(KZorpComm):
 
     _bind_addrs = [
-                    { 'instance' : kznl.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.1'), 'port' : 50080, 'proto' : socket.IPPROTO_UDP },
-                    { 'instance' : kznl.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.1'), 'port' : 50080, 'proto' : socket.IPPROTO_TCP },
-                    { 'instance' : kznl.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.2'), 'port' : 50080, 'proto' : socket.IPPROTO_TCP },
-                    { 'instance' : kznl.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET6, 'addr' : socket.inet_pton(socket.AF_INET6, 'fec0::1'),   'port' : 50080, 'proto' : socket.IPPROTO_TCP },
-                    { 'instance' : kznl.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET6, 'addr' : socket.inet_pton(socket.AF_INET6, 'fec0::2'),   'port' : 50080, 'proto' : socket.IPPROTO_TCP },
-                    { 'instance' : kznl.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.1'), 'port' : 50081, 'proto' : socket.IPPROTO_TCP },
+                    { 'instance' : messages.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.1'), 'port' : 50080, 'proto' : socket.IPPROTO_UDP },
+                    { 'instance' : messages.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.1'), 'port' : 50080, 'proto' : socket.IPPROTO_TCP },
+                    { 'instance' : messages.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.2'), 'port' : 50080, 'proto' : socket.IPPROTO_TCP },
+                    { 'instance' : messages.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET6, 'addr' : socket.inet_pton(socket.AF_INET6, 'fec0::1'),   'port' : 50080, 'proto' : socket.IPPROTO_TCP },
+                    { 'instance' : messages.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET6, 'addr' : socket.inet_pton(socket.AF_INET6, 'fec0::2'),   'port' : 50080, 'proto' : socket.IPPROTO_TCP },
+                    { 'instance' : messages.KZ_INSTANCE_GLOBAL, 'family' : socket.AF_INET,  'addr' : socket.inet_pton(socket.AF_INET,  '127.0.0.1'), 'port' : 50081, 'proto' : socket.IPPROTO_TCP },
                   ]
     _dumped_bind_addrs = []
 
@@ -38,7 +38,7 @@ class KZorpBaseTestCaseBind(KZorpComm):
     def setUp(self):
         self.start_transaction()
         for bind_addr in self._bind_addrs:
-            msg_add_bind = kznl.KZorpAddBindMessage(**bind_addr)
+            msg_add_bind = messages.KZorpAddBindMessage(**bind_addr)
             self.send_message(msg_add_bind)
         self.end_transaction()
 
@@ -49,11 +49,11 @@ class KZorpBaseTestCaseBind(KZorpComm):
         self.flush_all()
         self.start_transaction()
         for bind_addr in self._bind_addrs:
-            msg_add_bind = kznl.KZorpAddBindMessage(**bind_addr)
+            msg_add_bind = messages.KZorpAddBindMessage(**bind_addr)
             self.send_message(msg_add_bind)
 
             try:
-                msg_add_bind = kznl.KZorpAddBindMessage(**bind_addr)
+                msg_add_bind = messages.KZorpAddBindMessage(**bind_addr)
                 self.send_message(msg_add_bind)
             except AssertionError as e:
                 if e.args[0] != "talk with KZorp failed: result='-17' error='File exists'":
@@ -65,12 +65,12 @@ class KZorpBaseTestCaseBind(KZorpComm):
         self.flush_all()
         self.start_transaction()
         for bind_addr in self._bind_addrs:
-            msg_add_bind = kznl.KZorpAddBindMessage(**bind_addr)
+            msg_add_bind = messages.KZorpAddBindMessage(**bind_addr)
             self.send_message(msg_add_bind)
 
         for bind_addr in self._bind_addrs:
             try:
-                msg_add_bind = kznl.KZorpAddBindMessage(**bind_addr)
+                msg_add_bind = messages.KZorpAddBindMessage(**bind_addr)
                 self.send_message(msg_add_bind)
             except AssertionError as e:
                 if e.args[0] != "talk with KZorp failed: result='-17' error='File exists'":
@@ -82,7 +82,7 @@ class KZorpBaseTestCaseBind(KZorpComm):
         self._dumped_binds.append(message)
 
     def get_bind(self):
-        msg_get_bind = kznl.KZorpGetBindMessage()
+        msg_get_bind = messages.KZorpGetBindMessage()
         self.send_message(msg_get_bind, message_handler = self._dump_bind_handler, dump = True)
 
     def test_flush(self):
@@ -100,7 +100,7 @@ class KZorpBaseTestCaseBind(KZorpComm):
         self.assertEqual(len(self._dumped_binds), len(self._bind_addrs))
 
         for i in range(len(self._bind_addrs)):
-            msg_add_bind = kznl.KZorpAddBindMessage(**self._bind_addrs[i])
+            msg_add_bind = messages.KZorpAddBindMessage(**self._bind_addrs[i])
             self.assertEqual(vars(msg_add_bind), vars(self._dumped_binds[i]))
 
     def test_auto_flush(self):
@@ -111,7 +111,7 @@ class KZorpBaseTestCaseBind(KZorpComm):
         # check binds set up with the original handle
         self.assertEqual(len(self._dumped_binds), len(self._bind_addrs))
         for i in range(bind_addr_num):
-            msg_add_bind = kznl.KZorpAddBindMessage(**self._bind_addrs[i])
+            msg_add_bind = messages.KZorpAddBindMessage(**self._bind_addrs[i])
             self.assertEqual(vars(msg_add_bind), vars(self._dumped_binds[i]))
 
         # set up a new set of binds with a new handle
@@ -141,7 +141,7 @@ class KZorpBaseTestCaseBind(KZorpComm):
 
         self.assertEqual(len(self._dumped_binds), len(self._bind_addrs))
         for i in range(bind_addr_num):
-            msg_add_bind = kznl.KZorpAddBindMessage(**self._bind_addrs[i])
+            msg_add_bind = messages.KZorpAddBindMessage(**self._bind_addrs[i])
             self.assertEqual(vars(msg_add_bind), vars(self._dumped_binds[i]))
 
         self.reopen_handle()

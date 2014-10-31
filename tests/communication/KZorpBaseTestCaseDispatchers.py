@@ -18,7 +18,7 @@
 from KZorpComm import KZorpComm
 import socket
 import testutil
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages as messages
 import types
 import os
 import errno
@@ -26,40 +26,40 @@ import errno
 class KZorpBaseTestCaseDispatchers(KZorpComm):
     _dumped_dispatchers = []
     _zones = [
-               #{'name' : 'a6', 'uname' :   'k6', 'pname' :   None, 'address' : 'fc00:0:101:1::', 'mask' : 64, 'family' : socket.AF_INET6},
-               {'family' : socket.AF_INET, 'uname' : 'internet', 'subnets' : ['0.0.0.0/0'], 'admin_parent' : None},
-               {'family' : socket.AF_INET, 'uname' : 'A',        'subnets' : ['10.99.101.0/25',   '10.99.201.0/25'], 'admin_parent' : None},
-               {'family' : socket.AF_INET, 'uname' : 'AA',       'subnets' : ['10.99.101.0/28',   '10.99.201.0/28'],                  'admin_parent' : 'A'},
-               {'family' : socket.AF_INET, 'uname' : 'AAA',      'subnets' : ['10.99.101.0/30',   '10.99.201.0/30'],                  'admin_parent' : 'AA'},
-               {'family' : socket.AF_INET, 'uname' : 'AAZ',      'subnets' : ['10.99.101.4/30',   '10.99.201.4/30'],                 'admin_parent' : 'AA'},
-               {'family' : socket.AF_INET, 'uname' : 'AB',       'subnets' : ['10.99.101.64/28',  '10.99.201.64/28'],                 'admin_parent' : 'A'},
-               {'family' : socket.AF_INET, 'uname' : 'ABA',      'subnets' : ['10.99.101.64/30',  '10.99.201.64/30'],                  'admin_parent' : 'AB'},
-               {'family' : socket.AF_INET, 'uname' : 'ABZ',      'subnets' : ['10.99.101.68/30',  '10.99.201.68/30'],                 'admin_parent' : 'AB'},
-               {'family' : socket.AF_INET, 'uname' : 'AY',       'subnets' : ['10.99.101.80/28',  '10.99.201.80/28'],                 'admin_parent' : 'A'},
-               {'family' : socket.AF_INET, 'uname' : 'AYA',      'subnets' : ['10.99.101.80/30',  '10.99.201.80/30'],                  'admin_parent' : 'AY'},
-               {'family' : socket.AF_INET, 'uname' : 'AYZ',      'subnets' : ['10.99.101.84/30',  '10.99.201.84/30'],                 'admin_parent' : 'AY'},
-               {'family' : socket.AF_INET, 'uname' : 'AZ',       'subnets' : ['10.99.101.16/28',  '10.99.201.16/28'],                 'admin_parent' : 'A'},
-               {'family' : socket.AF_INET, 'uname' : 'AZA',      'subnets' : ['10.99.101.16/30',  '10.99.201.16/30'],                  'admin_parent' : 'AZ'},
-               {'family' : socket.AF_INET, 'uname' : 'AZZ',      'subnets' : ['10.99.101.20/30',  '10.99.201.20/30'],                 'admin_parent' : 'AZ'},
-               {'family' : socket.AF_INET, 'uname' : 'Z',        'subnets' : ['10.99.101.128/25', '10.99.201.128/25'], 'admin_parent' : None},
-               {'family' : socket.AF_INET, 'uname' : 'ZA',       'subnets' : ['10.99.101.128/28', '10.99.201.128/28'],                  'admin_parent' : 'Z'},
-               {'family' : socket.AF_INET, 'uname' : 'ZAA',      'subnets' : ['10.99.101.128/30', '10.99.201.128/30'],                  'admin_parent' : 'ZA'},
-               {'family' : socket.AF_INET, 'uname' : 'ZAZ',      'subnets' : ['10.99.101.132/30', '10.99.201.132/30'],                 'admin_parent' : 'ZA'},
-               {'family' : socket.AF_INET, 'uname' : 'ZB',       'subnets' : ['10.99.101.192/28', '10.99.201.192/28'],                    'admin_parent' : 'Z'},
-               {'family' : socket.AF_INET, 'uname' : 'ZBA',      'subnets' : ['10.99.101.192/30', '10.99.201.192/30'],                  'admin_parent' : 'ZB'},
-               {'family' : socket.AF_INET, 'uname' : 'ZBZ',      'subnets' : ['10.99.101.196/30', '10.99.201.196/30'],                 'admin_parent' : 'ZB'},
-               {'family' : socket.AF_INET, 'uname' : 'ZY',       'subnets' : ['10.99.101.208/28', '10.99.201.208/28'],                'admin_parent' : 'Z'},
-               {'family' : socket.AF_INET, 'uname' : 'ZYA',      'subnets' : ['10.99.101.208/30', '10.99.201.208/30'],                  'admin_parent' : 'ZY'},
-               {'family' : socket.AF_INET, 'uname' : 'ZYZ',      'subnets' : ['10.99.101.212/30', '10.99.201.212/30'],                 'admin_parent' : 'ZY'},
-               {'family' : socket.AF_INET, 'uname' : 'ZZ',       'subnets' : ['10.99.101.144/28', '10.99.201.144/28'],                 'admin_parent' : 'Z'},
-               {'family' : socket.AF_INET, 'uname' : 'ZZA',      'subnets' : ['10.99.101.144/30', '10.99.201.144/30'],                  'admin_parent' : 'ZZ'},
-               {'family' : socket.AF_INET, 'uname' : 'ZZZ',      'subnets' : ['10.99.101.148/30', '10.99.201.148/30'],                 'admin_parent' : 'ZZ'},
+               #{'name' : 'a6', 'name' :   'k6', 'pname' :   None, 'address' : 'fc00:0:101:1::', 'mask' : 64, 'family' : socket.AF_INET6},
+               {'family' : socket.AF_INET, 'name' : 'internet', 'subnets' : ['0.0.0.0/0'], 'admin_parent' : None},
+               {'family' : socket.AF_INET, 'name' : 'A',        'subnets' : ['10.99.101.0/25',   '10.99.201.0/25'], 'admin_parent' : None},
+               {'family' : socket.AF_INET, 'name' : 'AA',       'subnets' : ['10.99.101.0/28',   '10.99.201.0/28'],                  'admin_parent' : 'A'},
+               {'family' : socket.AF_INET, 'name' : 'AAA',      'subnets' : ['10.99.101.0/30',   '10.99.201.0/30'],                  'admin_parent' : 'AA'},
+               {'family' : socket.AF_INET, 'name' : 'AAZ',      'subnets' : ['10.99.101.4/30',   '10.99.201.4/30'],                 'admin_parent' : 'AA'},
+               {'family' : socket.AF_INET, 'name' : 'AB',       'subnets' : ['10.99.101.64/28',  '10.99.201.64/28'],                 'admin_parent' : 'A'},
+               {'family' : socket.AF_INET, 'name' : 'ABA',      'subnets' : ['10.99.101.64/30',  '10.99.201.64/30'],                  'admin_parent' : 'AB'},
+               {'family' : socket.AF_INET, 'name' : 'ABZ',      'subnets' : ['10.99.101.68/30',  '10.99.201.68/30'],                 'admin_parent' : 'AB'},
+               {'family' : socket.AF_INET, 'name' : 'AY',       'subnets' : ['10.99.101.80/28',  '10.99.201.80/28'],                 'admin_parent' : 'A'},
+               {'family' : socket.AF_INET, 'name' : 'AYA',      'subnets' : ['10.99.101.80/30',  '10.99.201.80/30'],                  'admin_parent' : 'AY'},
+               {'family' : socket.AF_INET, 'name' : 'AYZ',      'subnets' : ['10.99.101.84/30',  '10.99.201.84/30'],                 'admin_parent' : 'AY'},
+               {'family' : socket.AF_INET, 'name' : 'AZ',       'subnets' : ['10.99.101.16/28',  '10.99.201.16/28'],                 'admin_parent' : 'A'},
+               {'family' : socket.AF_INET, 'name' : 'AZA',      'subnets' : ['10.99.101.16/30',  '10.99.201.16/30'],                  'admin_parent' : 'AZ'},
+               {'family' : socket.AF_INET, 'name' : 'AZZ',      'subnets' : ['10.99.101.20/30',  '10.99.201.20/30'],                 'admin_parent' : 'AZ'},
+               {'family' : socket.AF_INET, 'name' : 'Z',        'subnets' : ['10.99.101.128/25', '10.99.201.128/25'], 'admin_parent' : None},
+               {'family' : socket.AF_INET, 'name' : 'ZA',       'subnets' : ['10.99.101.128/28', '10.99.201.128/28'],                  'admin_parent' : 'Z'},
+               {'family' : socket.AF_INET, 'name' : 'ZAA',      'subnets' : ['10.99.101.128/30', '10.99.201.128/30'],                  'admin_parent' : 'ZA'},
+               {'family' : socket.AF_INET, 'name' : 'ZAZ',      'subnets' : ['10.99.101.132/30', '10.99.201.132/30'],                 'admin_parent' : 'ZA'},
+               {'family' : socket.AF_INET, 'name' : 'ZB',       'subnets' : ['10.99.101.192/28', '10.99.201.192/28'],                    'admin_parent' : 'Z'},
+               {'family' : socket.AF_INET, 'name' : 'ZBA',      'subnets' : ['10.99.101.192/30', '10.99.201.192/30'],                  'admin_parent' : 'ZB'},
+               {'family' : socket.AF_INET, 'name' : 'ZBZ',      'subnets' : ['10.99.101.196/30', '10.99.201.196/30'],                 'admin_parent' : 'ZB'},
+               {'family' : socket.AF_INET, 'name' : 'ZY',       'subnets' : ['10.99.101.208/28', '10.99.201.208/28'],                'admin_parent' : 'Z'},
+               {'family' : socket.AF_INET, 'name' : 'ZYA',      'subnets' : ['10.99.101.208/30', '10.99.201.208/30'],                  'admin_parent' : 'ZY'},
+               {'family' : socket.AF_INET, 'name' : 'ZYZ',      'subnets' : ['10.99.101.212/30', '10.99.201.212/30'],                 'admin_parent' : 'ZY'},
+               {'family' : socket.AF_INET, 'name' : 'ZZ',       'subnets' : ['10.99.101.144/28', '10.99.201.144/28'],                 'admin_parent' : 'Z'},
+               {'family' : socket.AF_INET, 'name' : 'ZZA',      'subnets' : ['10.99.101.144/30', '10.99.201.144/30'],                  'admin_parent' : 'ZZ'},
+               {'family' : socket.AF_INET, 'name' : 'ZZZ',      'subnets' : ['10.99.101.148/30', '10.99.201.148/30'],                 'admin_parent' : 'ZZ'},
 
                # imported Zone from Zorp.Zone
-               {'family' : socket.AF_INET6, 'uname' : 'IPv6_Zone_80',  'subnets' : ['fd00:bb:1030:1100:cc::/80'], 'admin_parent' : None},
-               {'family' : socket.AF_INET6, 'uname' : 'IPv6_Zone_96',  'subnets' : ['fd00:bb:1030:1100:cc:aa::/96'], 'admin_parent' : None},
-               {'family' : socket.AF_INET6, 'uname' : 'IPv6_Zone_96_2',  'subnets' : ['fd00:bb:1030:1100:cc:22::/96'], 'admin_parent' : None},
-               {'family' : socket.AF_INET6, 'uname' : 'IPv6_Zone_128',  'subnets' : ['fd00:bb:1030:1100:cc:aa:bb:dd/128'], 'admin_parent' : None},
+               {'family' : socket.AF_INET6, 'name' : 'IPv6_Zone_80',  'subnets' : ['fd00:bb:1030:1100:cc::/80'], 'admin_parent' : None},
+               {'family' : socket.AF_INET6, 'name' : 'IPv6_Zone_96',  'subnets' : ['fd00:bb:1030:1100:cc:aa::/96'], 'admin_parent' : None},
+               {'family' : socket.AF_INET6, 'name' : 'IPv6_Zone_96_2',  'subnets' : ['fd00:bb:1030:1100:cc:22::/96'], 'admin_parent' : None},
+               {'family' : socket.AF_INET6, 'name' : 'IPv6_Zone_128',  'subnets' : ['fd00:bb:1030:1100:cc:aa:bb:dd/128'], 'admin_parent' : None},
 
              ]
 
@@ -73,43 +73,16 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
       for zone in self._zones:
           #print "zone=%s\n"%(zone,)
           subnets = zone['subnets']
-          if len(subnets) == 0 :
-               self.send_message(kznl.KZorpAddZoneMessage(
-                  zone['uname'],
-                  family=zone['family'],
-                  uname=zone['name'],
-                  pname=zone['admin_parent']))
-          elif len(subnets) == 1 :
-               self.send_message(kznl.KZorpAddZoneMessage(
-                  zone['uname'],
-                  family=zone['family'],
-                  uname=zone['uname'],
-                  pname=zone['admin_parent'],
-                  address = testutil.subnet_base(zone['family'], zone['subnets'][0]),
-                  mask = testutil.subnet_mask(zone['family'], zone['subnets'][0])))
-          else:
-              self.send_message(kznl.KZorpAddZoneMessage(
-                  zone['uname'],
-                  family=zone['family'],
-                  uname=zone['uname'],
-                  pname=zone['admin_parent']))
-              for index,subnet in enumerate(subnets):
-                self.send_message(kznl.KZorpAddZoneMessage(
-                  zone['uname'],
-                  family=zone['family'],
-                  uname="%s-#%u" % (zone['uname'], index+1),
-                  pname=zone['uname'],
-                  address = testutil.subnet_base(zone['family'], subnet),
-                  mask = testutil.subnet_mask(zone['family'], subnet)))
-
-#          family = zone['family']
-#          add_zone_message = KZorpAddZoneMessage(zone['name'],
-#                                                 family = family,
-#                                                 uname = zone['uname'],
-#                                                 pname = zone['pname'],
-#                                                 address = socket.inet_pton(family, zone['address']),
-#                                                 mask = socket.inet_pton(family, size_to_mask(family, zone['mask'])))
-#          self.send_message(add_zone_message)
+          self.send_message(messages.KZorpAddZoneMessage(
+                            zone['name'],
+                            pname=zone['admin_parent'],
+                            subnet_num=len(subnets)))
+          for subnet in subnets:
+            self.send_message(messages.KZorpAddZoneSubnetMessage(
+                              zone['name'],
+                              family=zone['family'],
+                              address = testutil.subnet_base(zone['family'], subnet),
+                              mask = testutil.subnet_mask(zone['family'], subnet)))
 
     def _dump_dispatcher_handler(self, message):
         self._dumped_dispatchers.append(message)
@@ -119,7 +92,7 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
 
         if in_transaction == True:
             self.start_transaction()
-        self.send_message(kznl.KZorpGetDispatcherMessage(None), message_handler = self._dump_dispatcher_handler, dump = True)
+        self.send_message(messages.KZorpGetDispatcherMessage(None), message_handler = self._dump_dispatcher_handler, dump = True)
         if in_transaction == True:
             self.end_transaction()
 
@@ -132,8 +105,8 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
 
     def get_dispatcher_name(self, message):
         attrs = self.get_dispatcher_attrs(message)
-        if attrs.has_key(kznl.KZNL_ATTR_DPT_NAME) == True:
-            return kznl.parse_name_attr(attrs[kznl.KZNL_ATTR_DPT_NAME])
+        if attrs.has_key(messages.KZNL_ATTR_DPT_NAME) == True:
+            return messages.parse_name_attr(attrs[messages.KZNL_ATTR_DPT_NAME])
 
         return None
 
@@ -142,13 +115,13 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
 
         attrs = self.get_dispatcher_attrs(add_dispatcher_message)
 
-        num_rules = kznl.parse_n_dimension_attr(attrs[kznl.KZNL_ATTR_DISPATCHER_N_DIMENSION_PARAMS])
+        num_rules = messages.parse_n_dimension_attr(attrs[messages.KZNL_ATTR_DISPATCHER_N_DIMENSION_PARAMS])
         self.assertEqual(dispatcher_data['num_rules'], num_rules)
 
     def _check_add_rule_params(self, add_dispatcher_message, rule_data):
 
         attrs = add_dispatcher_message.get_attributes()
-        dpt_name, rule_id, service, rules = kznl.parse_rule_attrs(attrs)
+        dpt_name, rule_id, service, rules = messages.parse_rule_attrs(attrs)
 
         self.assertEqual(rule_data['rule_id'], rule_id)
         self.assertEqual(rule_data['service'], service)
@@ -162,16 +135,16 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
     def _check_add_rule_entry_params(self, add_dispatcher_message, rule_entry_data, rule_entry_index):
 
         attrs = add_dispatcher_message.get_attributes()
-        dpt_name, rule_id, rule_entries = kznl.parse_rule_entry_attrs(attrs)
+        dpt_name, rule_id, rule_entries = messages.parse_rule_entry_attrs(attrs)
         self.assertEqual(rule_entry_data['rule_id'], rule_id)
         for k, v in rule_entry_data['entry_values'].items():
             if rule_entry_data['entry_nums'][k] > rule_entry_index:
                 self.assertEqual(k in rule_entries, True)
-                if k in [kznl.KZNL_ATTR_N_DIMENSION_SRC_IP, kznl.KZNL_ATTR_N_DIMENSION_DST_IP, kznl.KZNL_ATTR_N_DIMENSION_SRC_IP6, kznl.KZNL_ATTR_N_DIMENSION_DST_IP6]:
+                if k in [messages.KZNL_ATTR_N_DIMENSION_SRC_IP, messages.KZNL_ATTR_N_DIMENSION_DST_IP, messages.KZNL_ATTR_N_DIMENSION_SRC_IP6, messages.KZNL_ATTR_N_DIMENSION_DST_IP6]:
                     (addr, mask) = rule_entries[k]
                     self.assertEqual(testutil.addr_packed(rule_entry_data['entry_values'][k][rule_entry_index]), addr)
                     self.assertEqual(testutil.netmask_packed(rule_entry_data['entry_values'][k][rule_entry_index]), mask)
-                elif k == kznl.KZNL_ATTR_N_DIMENSION_SRC_PORT or k == kznl.KZNL_ATTR_N_DIMENSION_DST_PORT:
+                elif k == messages.KZNL_ATTR_N_DIMENSION_SRC_PORT or k == messages.KZNL_ATTR_N_DIMENSION_DST_PORT:
                     self.assertEqual(rule_entry_data['entry_values'][k][rule_entry_index], rule_entries[k])
                 else:
                     self.assertEqual(rule_entry_data['entry_values'][k][rule_entry_index], rule_entries[k])
@@ -188,10 +161,10 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
             for service in services:
                 if type(service) == types.DictType:
                     service = service['name']
-                self.send_message(kznl.KZorpAddProxyServiceMessage(service))
+                self.send_message(messages.KZorpAddProxyServiceMessage(service))
 
         for dispatcher in dispatchers:
-            message_add_dispatcher = kznl.KZorpAddDispatcherMessage(dispatcher['name'],
+            message_add_dispatcher = messages.KZorpAddDispatcherMessage(dispatcher['name'],
                                                                dispatcher['num_rules']
                                                               )
 
@@ -203,7 +176,7 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
                     if _max < value:
                         _max = value
 
-                message_add_rule = kznl.KZorpAddRuleMessage(dispatcher['name'],
+                message_add_rule = messages.KZorpAddRuleMessage(dispatcher['name'],
                                                        rule['rule_id'],
                                                        rule['service'],
                                                        rule['entry_nums']
@@ -212,18 +185,18 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
 
                 for i in range(_max):
                     data = {}
-                    for dim_type in kznl.N_DIMENSION_ATTRS:
+                    for dim_type in messages.N_DIMENSION_ATTRS:
                         if dim_type in rule['entry_nums'] and rule['entry_nums'][dim_type] > i:
-                            if dim_type in [kznl.KZNL_ATTR_N_DIMENSION_SRC_IP, kznl.KZNL_ATTR_N_DIMENSION_DST_IP]:
+                            if dim_type in [messages.KZNL_ATTR_N_DIMENSION_SRC_IP, messages.KZNL_ATTR_N_DIMENSION_DST_IP]:
                                 subnet = rule['entry_values'][dim_type][i]
                                 data[dim_type] = (testutil.addr_packed(subnet), testutil.netmask_packed(subnet))
-                            elif dim_type in [kznl.KZNL_ATTR_N_DIMENSION_SRC_IP6, kznl.KZNL_ATTR_N_DIMENSION_DST_IP6]:
+                            elif dim_type in [messages.KZNL_ATTR_N_DIMENSION_SRC_IP6, messages.KZNL_ATTR_N_DIMENSION_DST_IP6]:
                                 subnet = rule['entry_values'][dim_type][i]
                                 data[dim_type] = (testutil.addr_packed6(subnet), testutil.netmask_packed6(subnet))
                             else:
                                 data[dim_type] = rule['entry_values'][dim_type][i]
                     #print "rule=%s\ndispatcher=%s\ndata=%s\n"%(rule,dispatcher['name'],data)
-                    message_add_rule_entry = kznl.KZorpAddRuleEntryMessage(dispatcher['name'], rule['rule_id'], data)
+                    message_add_rule_entry = messages.KZorpAddRuleEntryMessage(dispatcher['name'], rule['rule_id'], data)
 
                     self.send_message(message_add_rule_entry)
 

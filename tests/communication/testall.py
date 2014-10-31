@@ -16,7 +16,6 @@
 # Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 from KZorpTestCaseDispatchers import KZorpTestCaseDispatchers
-from KZorpTestCaseQueryNDim import KZorpTestCaseQueryNDim
 from KZorpTestCaseServices import KZorpTestCaseServices
 from KZorpTestCaseTransaction import KZorpTestCaseTransaction
 from KZorpTestCaseZones import KZorpTestCaseZones
