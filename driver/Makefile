@@ -125,4 +125,7 @@ distclean:
 		rm -f $(distdir)/$$file; \
 	done
 
+check:
+	$(MAKE) -C tests check
+
 .PHONY: all modules clean install config_check dist distclean

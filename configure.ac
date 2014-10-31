@@ -20,12 +20,12 @@ AC_SUBST(ZORP_PYTHON_DIR)
 AC_CONFIG_FILES([
 Makefile
 daemon/Makefile
+driver/tests/Makefile
+driver/tests/communication/Makefile
+driver/tests/query/Makefile
 scripts/Makefile
 pylib/Makefile
 pylib/kzorp/Makefile
 pylib/Zorp/Makefile
-tests/Makefile
-tests/communication/Makefile
-tests/query/Makefile
 ])
 AC_OUTPUT
