@@ -1834,9 +1834,11 @@ kz_log_session_verdict(enum kz_verdict verdict,
 		       const struct nf_conn *ct,
 		       const struct nf_conntrack_kzorp *kzorp)
 {
+	u_int16_t l4proto;
 	char _buf[L4PROTOCOL_STRING_SIZE];
 	const char *verdict_str;
 	const char *l4proto_str;
+	u_int32_t client_port, server_port;
 	const char *client_zone_name = (kzorp->czone && kzorp->czone->name) ? kzorp->czone->name : kz_log_null;
 	const char *server_zone_name = (kzorp->szone && kzorp->szone->name) ? kzorp->szone->name : kz_log_null;
 	const char *service_name = (kzorp->svc && kzorp->svc->name) ? kzorp->svc->name : kz_log_null;
@@ -1845,6 +1847,14 @@ kz_log_session_verdict(enum kz_verdict verdict,
 	if (!kz_log_session_verdict_enabled() ||
 	    !kz_log_ratelimit())
 		return;
+
+	l4proto = nf_ct_protonum(ct);
+	if (l4proto == IPPROTO_TCP || l4proto == IPPROTO_UDP) {
+		client_port = ntohs(ct_orig_tuple->src.u.all);
+		server_port = ntohs(ct_orig_tuple->dst.u.all);
+	} else {
+		client_port = server_port = 0;
+	}
 
 	verdict_str = verdict_as_string(verdict);
 	l4proto_str = l4proto_as_string(nf_ct_protonum(ct), _buf);
@@ -1863,10 +1873,10 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "info='%s'\n",
 				 service_name,
 				 l4proto_str,
-				 &ct_orig_tuple->src.u3.all, ntohs(ct_orig_tuple->src.u.all),
+				 &ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
 				 l4proto_str,
-				 &ct_orig_tuple->dst.u3.all, ntohs(ct_orig_tuple->dst.u.all),
+				 &ct_orig_tuple->dst.u3.all, server_port,
 				 server_zone_name,
 				 verdict_str,
 				 info);
@@ -1886,10 +1896,10 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "info='%s'\n",
 				 service_name,
 				 l4proto_str,
-				 ct_orig_tuple->src.u3.all, ntohs(ct_orig_tuple->src.u.all),
+				 ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
 				 l4proto_str,
-				 ct_orig_tuple->dst.u3.all, ntohs(ct_orig_tuple->dst.u.all),
+				 ct_orig_tuple->dst.u3.all, server_port,
 				 server_zone_name,
 				 verdict_str,
 				 info);
