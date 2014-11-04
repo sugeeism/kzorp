@@ -594,7 +594,7 @@ kz_extension_get_from_ct_or_lookup(const struct sk_buff *skb,
 	enum ip_conntrack_info ctinfo;
 
 	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
-	if (ct) {
+	if (ct && !nf_ct_is_untracked(ct)) {
 		// ctinfo filled by nf_ct_get
 		*kzorp = kz_extension_update(ct, ctinfo, skb, in, l3proto, cfg);
 	} else {
