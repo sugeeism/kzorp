@@ -35,6 +35,19 @@
 #include <net/netfilter/nf_conntrack.h>
 #endif
 
+#include "kzorp_compat.h"
+
+#if ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0) )
+static void
+sock_gen_put(struct sock *sk)
+{
+        if (sk->sk_state == TCP_TIME_WAIT)
+                inet_twsk_put(inet_twsk(sk));
+        else
+                sock_put(sk);
+}
+#endif
+
 static int
 extract_icmp4_fields(const struct sk_buff *skb,
 		    u8 *protocol,
@@ -252,7 +265,9 @@ extract_icmp6_fields(const struct sk_buff *skb,
 	struct icmp6hdr *icmph, _icmph;
 	__be16 *ports, _ports[2];
 	u8 inside_nexthdr;
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) )
 	__be16 inside_fragoff;
+#endif
 	int inside_hdrlen;
 
 	icmph = skb_header_pointer(skb, outside_hdrlen,
@@ -269,7 +284,11 @@ extract_icmp6_fields(const struct sk_buff *skb,
 	inside_nexthdr = inside_iph->nexthdr;
 
 	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph),
-					 &inside_nexthdr, &inside_fragoff);
+					 &inside_nexthdr
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) )
+				         , &inside_fragoff
+#endif
+					);
 	if (inside_hdrlen < 0)
 		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
 
@@ -323,7 +342,11 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
 	int thoff = 0, uninitialized_var(tproto);
 	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
 
-	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
+	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0) )
+			       , NULL
+#endif
+			      );
 	if (tproto < 0) {
 		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
 		return NF_DROP;
@@ -361,7 +384,12 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
 		 */
 		wildcard = (!(info->flags & XT_SOCKET_NOWILDCARD) &&
 			    sk->sk_state != TCP_TIME_WAIT &&
-			    ipv6_addr_any(&sk->sk_v6_rcv_saddr));
+#if ( LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0) )
+			    ipv6_addr_any(&inet6_sk(sk)->rcv_saddr)
+#else
+			    ipv6_addr_any(&sk->sk_v6_rcv_saddr)
+#endif
+			   );
 
 		/* Ignore non-transparent sockets,
 		   if XT_SOCKET_TRANSPARENT is used */
