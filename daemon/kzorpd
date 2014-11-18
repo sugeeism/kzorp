@@ -29,7 +29,6 @@ import os
 import pwd
 
 import time
-import prctl
 import traceback
 import radix
 
@@ -44,6 +43,27 @@ from Zorp.Zone import Zone
 from Zorp.InstancesConf import InstancesConf
 from zorpctl.ZorpctlConf import ZorpctlConfig
 
+class ZoneDownloadFactory():
+    _instance = None
+    _manage_caps = None
+    _initialized = False
+
+    @classmethod
+    def init(cls, manage_caps):
+       cls._manage_caps = manage_caps
+       cls._initialized = True
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._initialized:
+            raise NotImplementedError
+
+        if not cls._instance:
+            cls._instance = super(ZoneDownloadFactory, cls).__new__(
+                                cls, *args, **kwargs)
+        return cls._instance
+
+    def makeZoneDownload(self):
+        return ZoneDownload(self.manage_caps)
 
 class ZoneDownload(kzorp.communication.Adapter):
 
@@ -63,11 +83,11 @@ class DynamicZoneHandler(kzorp.messages.ZoneUpdateMessageCreator):
         super(DynamicZoneHandler, self).__init__(zones, dnscache)
 
     def setup(self):
-        with ZoneDownload() as zone_download:
+        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
             messages = self.create_zone_static_address_initialization_messages()
             zone_download.initial(messages)
         self.setup_dns_cache()
-        with ZoneDownload() as zone_download:
+        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
             messages = self.create_zone_dynamic_address_initialization_messages()
             zone_download.update(messages)
 
@@ -132,15 +152,22 @@ class ConfigurationHandler():
     def reload(self):
         self.setup()
 
-class KeeperDaemonContext(daemon.DaemonContext):
+class CapabilityManagerDaemonContext(daemon.DaemonContext):
+    def __init__(self, **kwargs):
+        self.manage_caps = kwargs.pop('manage_caps', manage_caps)
+        super(CapabilityManagerDaemonContext, self).__init__(self, kwargs)
+
     def open(self):
-        #inherit capabilities with user change
-        try:
-            prctl.set_keepcaps(True)
-        except OSError, e:
-            Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
-            raise e
-        super(KeeperDaemonContext, self).open()
+        if (self.manage_caps)
+            #inherit capabilities with user change
+            try:
+                import prctl
+                prctl.set_keepcaps(False)
+            except OSError, e:
+                Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+                raise e
+
+        super(CapabilityManagerDaemonContext, self).open()
 
 class Daemon():
     min_sleep_in_sec = 60
@@ -154,7 +181,7 @@ class Daemon():
         zorp_gid = grp.getgrnam(group).gr_gid
 
         import signal
-        self.context = KeeperDaemonContext(
+        self.context = CapabilityManagerDaemonContext(
             working_directory='/etc/zorp',
             umask=0o002,
             uid=zorp_uid,
@@ -175,7 +202,7 @@ class Daemon():
     def sigint_handler(self, sig_num, frame):
         Common.log(None, Common.CORE_INFO, 1, "Received SIGINT, loading static zones")
         if self.zone_handler:
-            with ZoneDownload() as zone_download:
+            with ZoneDownloadFactory.makeZoneDownload() as zone_download:
                 messages = self.zone_handler.create_zone_static_address_initialization_messages()
                 zone_download.initial(messages)
         else:
@@ -194,7 +221,7 @@ class Daemon():
         try:
             self.context.pidfile.break_lock()
             if self.zone_handler:
-                with ZoneDownload() as zone_download:
+                with ZoneDownloadFactory.makeZoneDownload() as zone_download:
                     messages = self.zone_handler.create_zone_static_address_initialization_messages()
                     zone_download.initial(messages)
             else:
@@ -233,12 +260,14 @@ class Daemon():
             Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
             self.conf_handler.restore_state()
 
-        # drop capabilities
-        try:
-            prctl.set_caps((prctl.ALL_CAPS, prctl.CAP_EFFECTIVE, False))
-        except OSError, e:
-            Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
-            raise e
+        if (self.context.manage_caps)
+            # drop capabilities
+            try:
+                import prctl
+                prctl.set_caps((prctl.ALL_CAPS, prctl.CAP_EFFECTIVE, False))
+            except OSError, e:
+                Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+                raise e
 
     def reload(self):
         saved_dnscache = self.dnscache
@@ -287,17 +316,17 @@ class Daemon():
                     if expired_hostname is not None:
                         Common.log(None, Common.CORE_INFO, 4,
                                    "TTL for host expired, updating host; hostname='%s', ttl='%d'" % (expired_hostname, expiration_time))
-                        with ZoneDownload() as zone_download:
+                        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
                             messages = self.zone_handler.create_zone_update_messages(expired_hostname)
                             zone_download.update(messages)
                     else:
-                        with ZoneDownload() as zone_download:
+                        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
                             messages = self.zone_handler.create_zone_dynamic_address_initialization_messages()
                             zone_download.update(messages)
             time.sleep(sleep_sec)
 
-def run(foreground, log_verbosity, user, group):
-    DAEMON = Daemon(user, group)
+def run(foreground, log_verbosity, user, group, manage_caps):
+    DAEMON = Daemon(user, group, manage_caps)
 
     if foreground:
         DAEMON.do_main()
@@ -311,6 +340,8 @@ def process_command_line_arguments():
     parser = argparse.ArgumentParser(description='KZorp daemon')
     parser.add_argument("-F", "--foreground", action="store_true", dest="foreground", default=False,
                         help='do not go into the background after initialization (default: %(default)s)')
+    parser.add_argument('-N', '--no-caps', '--foreground', action="store_true", dest="do_not_manage_caps", default=False,
+                        help='Disable managing Linux capabilities (default: %(default)s)')
     parser.add_argument('-v', '--verbose', action='store', dest='verbose', type=int, default=3,
                         help='set verbosity level (default: %(default)d)')
     parser.add_argument('-u', '--user', action='store', dest='user', type=str, default="zorp",
@@ -321,4 +352,4 @@ def process_command_line_arguments():
 
 if __name__ == "__main__":
     args = process_command_line_arguments()
-    run(args.foreground, args.verbose, args.user, args.group)
+    run(args.foreground, args.verbose, args.user, args.group, not args.do_not_manage_caps)
