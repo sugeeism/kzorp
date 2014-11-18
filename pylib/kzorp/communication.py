@@ -3,6 +3,7 @@ import random, time
 import prctl
 import messages as kzorp_messages
 import Zorp.Common
+import Zorp.Globals
 
 class Handle(netlink.Handle):
     def __init__(self):
@@ -73,6 +74,7 @@ class Adapter(object):
     def __acquire_caps(self):
         """ aquire the CAP_NET_ADMIN capability """
         try:
+            import prctl
             prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, True))
         except OSError, e:
             Zorp.Common.log(None, Zorp.Common.CORE_ERROR, 1, "Unable to acquire NET_ADMIN capability; error='%s'" % (e))
@@ -81,6 +83,7 @@ class Adapter(object):
     def __drop_caps(self):
         """ drop the CAP_NET_ADMIN capability """
         try:
+            import prctl
             prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, False))
         except OSError, e:
             Zorp.Common.log(None, Zorp.Common.CORE_ERROR, 1, "Unable to drop NET_ADMIN capability; error='%s'" % (e))
