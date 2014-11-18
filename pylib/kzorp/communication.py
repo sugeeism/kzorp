@@ -1,5 +1,6 @@
 import netlink
 import random, time
+import prctl
 import messages as kzorp_messages
 import Zorp.Common
 
@@ -55,21 +56,22 @@ def commitTransaction(h):
 
 
 class Adapter(object):
-    def __init__(self, instance_name=kzorp_messages.KZ_INSTANCE_GLOBAL):
+    def __init__(self, instance_name=kzorp_messages.KZ_INSTANCE_GLOBAL, manage_caps=False):
         self.kzorp_handle = Handle()
         self.instance_name = instance_name
+        self.manage_capabilities = manage_caps
 
     def __enter__(self):
-        self.__acquire_caps()
+        if self.manage_capabilities:
+            self.__acquire_caps()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.__drop_caps()
+        if self.manage_capabilities:
+            self.__drop_caps()
 
     def __acquire_caps(self):
         """ aquire the CAP_NET_ADMIN capability """
-        import prctl
-
         try:
             prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, True))
         except OSError, e:
@@ -78,8 +80,6 @@ class Adapter(object):
 
     def __drop_caps(self):
         """ drop the CAP_NET_ADMIN capability """
-        import prctl
-
         try:
             prctl.set_caps((prctl.CAP_NET_ADMIN, prctl.CAP_EFFECTIVE, False))
         except OSError, e:

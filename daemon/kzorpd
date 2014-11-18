@@ -47,8 +47,8 @@ from zorpctl.ZorpctlConf import ZorpctlConfig
 
 class ZoneDownload(kzorp.communication.Adapter):
 
-    def __init__(self):
-        super(ZoneDownload, self).__init__()
+    def __init__(self, manage_caps=True):
+        super(ZoneDownload, self).__init__(manage_caps=manage_caps)
 
     def initial(self, messages):
         self.send_messages_in_transaction([kzorp.messages.KZorpFlushZonesMessage(), ] + messages)
