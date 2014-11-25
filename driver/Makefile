@@ -7,6 +7,8 @@ else
 KVERS_UNAME ?= $(KERNELRELEASE)
 endif
 
+$(info Build kZorp against kernel version $(KVERS_UNAME))
+
 # KBUILD is the path to the Linux kernel build tree.  It is usually the
 # same as the kernel source tree, except when the kernel was compiled in
 # a separate directory.
