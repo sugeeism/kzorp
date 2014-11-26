@@ -989,7 +989,7 @@ kz_prerouting_verdict(struct sk_buff *skb,
 							       ct, kzorp);
 				} else if (!redirect_to_proxy(skb, l3proto, l4proto, sport, dport, dpt, tgi)) {
 					verdict = NF_DROP;
-					kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Redirection to proxy has failed",
+					kz_log_session_verdict(KZ_VERDICT_DENIED_BY_UNKNOWN_FAIL, "Redirection to proxy has failed",
 							       ct, kzorp);
 				}
 				break;
