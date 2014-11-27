@@ -146,6 +146,7 @@ static bool
 socket_match(const struct sk_buff *skb, struct xt_action_param *par,
 	     const struct xt_socket_mtinfo1 *info)
 {
+	const struct net_device *dev = (par->hooknum == NF_INET_LOCAL_OUT) ? par->out : par->in;
 	const struct iphdr *iph = ip_hdr(skb);
 	struct udphdr _hdr, *hp = NULL;
 	struct sock *sk = skb->sk;
@@ -197,9 +198,9 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
 #endif
 
 	if (!sk)
-		sk = xt_socket_get_sock_v4(dev_net(skb->dev), protocol,
+		sk = xt_socket_get_sock_v4(dev_net(dev), protocol,
 					   saddr, daddr, sport, dport,
-					   par->in);
+					   dev);
 	if (sk) {
 		bool wildcard;
 		bool transparent = true;
@@ -534,7 +535,8 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.checkentry	= socket_mt_v3_check,
 		.matchsize	= sizeof(struct xt_socket_mtinfo3),
 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-				  (1 << NF_INET_LOCAL_IN),
+				  (1 << NF_INET_LOCAL_IN) |
+				  (1 << NF_INET_LOCAL_OUT),
 		.me		= THIS_MODULE,
 	},
 #ifdef XT_SOCKET_HAVE_IPV6
@@ -546,7 +548,8 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
 		.checkentry	= socket_mt_v3_check,
 		.matchsize	= sizeof(struct xt_socket_mtinfo3),
 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-				  (1 << NF_INET_LOCAL_IN),
+				  (1 << NF_INET_LOCAL_IN) |
+				  (1 << NF_INET_LOCAL_OUT),
 		.me		= THIS_MODULE,
 	},
 #endif
