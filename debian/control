@@ -1,7 +1,7 @@
 Source: kzorp
 Section: net
 Priority: extra
-Maintainer: Magosányi Árpád <mag@balabit.hu>
+Maintainer: BalaBit Development Team <devel@balabit.hu>
 Build-Depends: debhelper (>= 8.0.0),
                dh-autoreconf,
                dkms (>= 1.95),
