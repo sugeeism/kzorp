@@ -1,14 +1,5 @@
-EXTRA_DIST = setup.py
-SUBDIRS = kzorp
+pkgdatadir = @KZORP_PYTHON_DIR@
 
-bin_SCRIPTS = kzorp.py
+pkgdata_DATA = __init__.py communication.py messages.py netlink.py
 
-install-exec-hook:
-	cd $(DESTDIR)$(bindir) && \
-	mv kzorp.py kzorp
-
-clean-local:
-	$(PYTHON) $(top_srcdir)/pylib/kzorp/setup.py clean --all
-
-install-exec-local:
-	$(PYTHON) $(top_srcdir)/pylib/kzorp/setup.py install --prefix $(DESTDIR)/$(prefix) --install-layout=deb
+EXTRA_DIST = $(pkgdata_DATA)

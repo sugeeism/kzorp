@@ -1,0 +1,11 @@
+autoreconf.*
+files
+
+*.substvars
+*.debhelper
+
+kzorp-dkms.dkms
+
+kzorp-dkms
+kzorp-utils
+python-kzorp
