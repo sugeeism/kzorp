@@ -151,6 +151,11 @@ struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
 	struct nf_conntrack_kzorp *kzorp;
 
 	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
+	if (unlikely(!kzorp)) {
+		kz_debug("allocation failed creating kzorp extension\n");
+		return NULL;
+	}
+
 	kz_extension_copy_tuplehash(kzorp,ct);
 	kz_extension_fill(kzorp,ct);
 	kzorp->ct_zone = nf_ct_zone(ct);

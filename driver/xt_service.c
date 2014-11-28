@@ -21,8 +21,6 @@ static bool
 service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	struct ipt_service_info *info = (struct ipt_service_info *) par->matchinfo;
-	enum ip_conntrack_info ctinfo;
-	struct nf_conn *ct;
 	const struct kz_service *s_svc, *p_svc;
 	const struct nf_conntrack_kzorp *kzorp;
 	struct nf_conntrack_kzorp local_kzorp;
@@ -32,18 +30,8 @@ service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	/* NOTE: unlike previous version, we provide match even for invalid and --notrack packets */
 
 	rcu_read_lock();
-	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
-	if (ct == NULL) /* we're really only interested if REPLY or not... */
-		ctinfo = IP_CT_NEW;
-	kzorp = ct ? nfct_kzorp_cached_lookup_rcu(ct, ctinfo, skb, par->in, par->family, &cfg) : NULL;
 
-	if (kzorp == NULL)
-	{
-		kz_debug("cannot add kzorp extension, doing local lookup\n");
-		kzorp = &local_kzorp;
-		memset(&local_kzorp, 0, sizeof(local_kzorp));
-		nfct_kzorp_lookup_rcu(&local_kzorp, ctinfo, skb, par->in, par->family, &cfg);
-	}
+	kz_extension_get_from_ct_or_lookup(skb, par->in, par->family, &local_kzorp, &kzorp, &cfg);
 
 	if ((p_svc = kzorp->svc) == NULL) {
 		/* no service for this packet => no match */

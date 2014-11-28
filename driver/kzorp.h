@@ -59,6 +59,7 @@ struct nf_conntrack_kzorp {
 	struct kz_zone *szone;		/* server zone */
 	struct kz_dispatcher *dpt;	/* dispatcher */
 	struct kz_service *svc;		/* service */
+	u_int32_t rule_id;
 };
 
 #define NF_CT_EXT_KZ_TYPE struct nf_conntrack_kzorp
@@ -517,7 +518,7 @@ int kz_log_ratelimit(void);
    when ct gets destroyed
 */
 
-extern const struct nf_conntrack_kzorp * nfct_kzorp_cached_lookup_rcu(
+extern const struct nf_conntrack_kzorp * kz_extension_update(
 	struct nf_conn *ct,
 	enum ip_conntrack_info ctinfo,
 	const struct sk_buff *skb,
@@ -540,6 +541,15 @@ extern void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * pkzorp,
 	const struct net_device * const in,
 	const u8 l3proto,
 	const struct kz_config **p_cfg);
+
+extern void
+kz_extension_get_from_ct_or_lookup(const struct sk_buff *skb,
+				   const struct net_device * const in,
+				   u8 l3proto,
+				   struct nf_conntrack_kzorp *local_kzorp,
+				   const struct nf_conntrack_kzorp **kzorp,
+				   const struct kz_config **cfg);
+
 
 /* unreferences stuff inside
 */
@@ -633,11 +643,12 @@ kz_traffic_props_init(struct kz_traffic_props *traffic_props)
 	traffic_props->proto_subtype = -1;
 }
 
-extern void kz_lookup_session(const struct kz_config *cfg,
-			      struct kz_traffic_props * const traffic_props,
-			      struct kz_dispatcher **dispatcher,
-			      struct kz_zone **clientzone, struct kz_zone **serverzone,
-			      struct kz_service **service, int reply);
+extern u_int32_t kz_lookup_session(const struct kz_config *cfg,
+				   struct kz_traffic_props * const traffic_props,
+				   struct kz_zone **clientzone, struct kz_zone **serverzone,
+				   struct kz_service **service,
+				   struct kz_dispatcher **dispatcher,
+				   int reply);
 
 /***********************************************************
  * Netlink functions

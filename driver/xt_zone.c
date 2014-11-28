@@ -20,29 +20,17 @@
 static bool
 zone_mt_v1_eval(const struct sk_buff *skb, const struct ipt_zone_info_v1 *info, const struct xt_action_param *par)
 {
-	enum ip_conntrack_info ctinfo;
-	struct nf_conn *ct;
 	struct kz_zone *zone;
 	const struct nf_conntrack_kzorp *kzorp;
-	int reply;
 	struct nf_conntrack_kzorp local_kzorp;
+	int reply;
 	bool res;
 
 	rcu_read_lock();
-	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
-	if (ct == NULL) /* we're really only interested if REPLY or not... */
-		ctinfo = IP_CT_NEW;
-	kzorp = ct ? nfct_kzorp_cached_lookup_rcu(ct, ctinfo, skb, par->in, par->family, NULL) : NULL;
-
-	if (kzorp == NULL)
-	{
-		kzorp = &local_kzorp;
-		memset(&local_kzorp, 0, sizeof(local_kzorp));
-		nfct_kzorp_lookup_rcu(&local_kzorp, ctinfo, skb, par->in, par->family, NULL);
-	}
+	kz_extension_get_from_ct_or_lookup(skb, par->in, par->family, &local_kzorp, &kzorp, NULL);
 	rcu_read_unlock();
 
-	reply = ctinfo >= IP_CT_IS_REPLY;
+	reply = skb->nfctinfo >= IP_CT_IS_REPLY;
 	if (info->flags & IPT_ZONE_SRC)
 		zone = reply ? kzorp->szone : kzorp->czone;
 	else

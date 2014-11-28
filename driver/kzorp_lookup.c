@@ -1304,65 +1304,64 @@ kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 	return lenv->result_size = out_idx;
 }
 
-static void
-kz_ndim_lookup_set_result(struct kz_percpu_env *lenv,
-			  struct kz_dispatcher **dispatcher,
-			  struct kz_service **service) {
+static const struct kz_dispatcher_n_dimension_rule *
+kz_ndim_lookup_get_best_match(struct kz_percpu_env *lenv) {
+	const char *eval_result;
+	size_t result_rule_idx;
+	const struct kz_service *service;
+	const struct kz_dispatcher *dispatcher;
 	bool no_match = (lenv->result_size == 0);
 	bool exact_match = (lenv->result_size == 1);
+
 	if (no_match) {
-		*dispatcher = NULL;
-		*service = NULL;
 		kz_debug("evaluation performed; eval_result='no match'\n");
-	} else {
-		const char *eval_result;
-		size_t result_rule_idx;
-		if (exact_match) {
-			result_rule_idx = 0;
-			eval_result = "exact match";
-		} else {
-			size_t rule_idx;
-			result_rule_idx = 0;
-			for (rule_idx = 1; rule_idx < lenv->result_size; rule_idx++)
-				if (lenv->result_rules[rule_idx]->id < lenv->result_rules[result_rule_idx]->id)
-					result_rule_idx = rule_idx;
-			eval_result = "multiple match";
-		}
-		*service = lenv->result_rules[result_rule_idx]->service;
-		*dispatcher = lenv->result_rules[result_rule_idx]->dispatcher;
-		kz_debug("evaluation performed; eval_result='%s', rule_id='%u', service='%s, dispatcher='%s'\n",
-			 eval_result,
-			 lenv->result_rules[result_rule_idx]->id,
-			 (*service) ? (*service)->name : kz_log_null,
-			 (*dispatcher)->name);
+		return 0;
 	}
+
+	if (exact_match) {
+		result_rule_idx = 0;
+		eval_result = "exact match";
+	} else {
+		size_t rule_idx;
+		result_rule_idx = 0;
+		for (rule_idx = 1; rule_idx < lenv->result_size; rule_idx++)
+			if (lenv->result_rules[rule_idx]->id < lenv->result_rules[result_rule_idx]->id)
+				result_rule_idx = rule_idx;
+		eval_result = "multiple match";
+	}
+	service = lenv->result_rules[result_rule_idx]->service;
+	dispatcher = lenv->result_rules[result_rule_idx]->dispatcher;
+	kz_debug("evaluation performed; eval_result='%s', rule_id='%u', service='%s, dispatcher='%s'\n",
+		 eval_result,
+		 lenv->result_rules[result_rule_idx]->id,
+		 service ? service->name : kz_log_null,
+		 dispatcher->name);
+
+	return lenv->result_rules[result_rule_idx];
 }
 
 /**
- * kz_ndim_lookup -- look up service for a session by evaluating n-dimensional rules
- * @iface: input interface
- * @l3proto: L3 protocol number (IPv4/IPv6)
- * @src_addr: source address
- * @dst_addr: destination address
- * @l4proto: L4 protocol number (TCP/UDP/etc.)
- * @src_port: source TCP/UDP port (if meaningful for @proto)
- * @dst_port: destination TCP/UDP port (if meaningful for @proto)
- * @src_zone: the zone @src_addr belongs to
- * @dst_zone: the zone @dst_addr belongs to
- * @dispatcher: pointer to a kz_dispatcher pointer to return the dispatcher in (OUTPUT)
+ * \brief Look up a rule for a session by evaluating policy on the actual traffic.
  *
- * Evaluate our n-dimensional rules in all dispatchers and return the
- * resulting service as a result. If no matching rule was found or
- * there were more than one matching rule, we return NULL.
+ * Evaluates rules in all dispatchers and return the service and dispatcher
+ * resulting to the best matching rule.
+ *
+ * \param dispatchers[in]: list of dispatcher contain the rules
+ * \param traffic_props[in]: properties of the actual traffic
+ * \param[out] service: service related to the best matching rule
+ * \param[out] dispatcher: dispatcher related to the best matching rule
+ *
+ * \return the id of the best matching rule, 0 if there was no match
  */
-static struct kz_service *
-kz_ndim_lookup(const struct kz_config *cfg,
+static u_int32_t
+kz_ndim_lookup(const struct kz_head_d * const dispatchers,
 	       const struct kz_traffic_props * const traffic_props,
+	       struct kz_service **service,
 	       struct kz_dispatcher **dispatcher)
 {
 	struct kz_percpu_env *lenv;
-	const struct kz_head_d * const d = &cfg->dispatchers;
-	struct kz_service *service = NULL;
+	const struct kz_dispatcher_n_dimension_rule *rule;
+	u_int32_t rule_id;
 
 	kz_debug("src_zone='%s', dst_zone='%s'\n",
 		 traffic_props->src_zone ? traffic_props->src_zone->name : kz_log_null,
@@ -1371,14 +1370,21 @@ kz_ndim_lookup(const struct kz_config *cfg,
 	preempt_disable();
 	lenv = __get_cpu_var(kz_percpu);
 
-	kz_ndim_eval(traffic_props, d, lenv);
-	kz_ndim_lookup_set_result(lenv, dispatcher, &service);
+	kz_ndim_eval(traffic_props, dispatchers, lenv);
+	rule = kz_ndim_lookup_get_best_match(lenv);
+	if (rule) {
+		*service = rule->service;
+		*dispatcher = rule->dispatcher;
+		rule_id = rule->id;
+	} else {
+		*service = NULL;
+		*dispatcher = NULL;
+		rule_id = 0;
+	}
 
 	preempt_enable();
 
-	kz_debug("service='%s'\n", service ? service->name : "null");
-
-	return service;
+	return rule_id;
 }
 
 /***********************************************************
@@ -2133,15 +2139,14 @@ EXPORT_SYMBOL_GPL(kz_service_nat_lookup);
  ***********************************************************/
 
 /* NOTE: ports are passed, but legal only if protocol have them! */
-void
+u_int32_t
 kz_lookup_session(const struct kz_config *cfg,
 		  struct kz_traffic_props * const traffic_props,
-		  struct kz_dispatcher **dispatcher,
 		  struct kz_zone **clientzone, struct kz_zone **serverzone,
-		  struct kz_service **service, int reply)
+		  struct kz_service **service,
+		  struct kz_dispatcher **dispatcher,
+		  int reply)
 {
-	struct kz_dispatcher *dpt = NULL;
-	struct kz_service *svc = NULL;
         const union nf_inet_addr *addr;
 	const struct kz_head_z * const zones = &cfg->zones;
 
@@ -2172,12 +2177,9 @@ kz_lookup_session(const struct kz_config *cfg,
 		kz_debug("found server zone; name='%s'\n", traffic_props->dst_zone->name);
 	}
 
-	/* evaluate n-dimensional rules */
-	svc = kz_ndim_lookup(cfg, traffic_props, &dpt);
-
-	*dispatcher = dpt;
 	*clientzone = traffic_props->src_zone;
 	*serverzone = traffic_props->dst_zone;
-	*service = svc;
+
+	return kz_ndim_lookup(&cfg->dispatchers, traffic_props, service, dispatcher);
 }
 EXPORT_SYMBOL_GPL(kz_lookup_session);

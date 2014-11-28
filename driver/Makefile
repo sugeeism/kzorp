@@ -56,9 +56,9 @@ include $(KCONFIG)
 
 EXTRA_CFLAGS += -I$(src)/../../include
 
-MODULE_NAMES = kzorp xt_KZORP xt_service xt_zone
+MODULE_NAMES = kzorp xt_KZORP xt_rule xt_service xt_zone
 
-obj-m := kzorp.o xt_KZORP.o xt_service.o xt_zone.o
+obj-m := kzorp.o xt_KZORP.o xt_rule.o xt_service.o xt_zone.o
 kzorp-y := kzorp_core.o kzorp_lookup.o kzorp_sockopt.o kzorp_netlink.o kzorp_ext.o
 
 all: config_check modules
