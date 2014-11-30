@@ -57,36 +57,6 @@ kz_zone_lookup(const struct kz_config *cfg, __be32 _addr)
 	return kz_head_zone_lookup(&cfg->zones, &addr, NFPROTO_IPV4);
 }
 
-#define L4PROTOCOL_STRING_SIZE 4 /* "100" plus trailing zero */
-
-/**
- * l4proto_as_string() - return name of protocol from number
- * @protocol: protocol number
- * @buf: temporary buffer to use if no interned string representation is known
- *
- * Return a string representation of the protocol number: either the
- * protocol name for well-known protocols or the number itself
- * converted to a string.
- */
-static char *
-l4proto_as_string(u8 protocol, char buf[])
-{
-	switch (protocol) {
-	case IPPROTO_TCP:
-		return "TCP";
-		break;
-	case IPPROTO_UDP:
-		return "UDP";
-		break;
-	case IPPROTO_ICMP:
-		return "ICMP";
-		break;
-	default:
-		snprintf(buf, L4PROTOCOL_STRING_SIZE, "%hhu", protocol);
-		return buf;
-	}
-}
-
 /**
  * v4_get_instance_bind_address() - look up the matching listener socket of the instance
  * @dpt: The dispatcher we've found.
@@ -168,38 +138,36 @@ v4_get_socket_to_redirect_to(const struct kz_dispatcher *dpt,
 	return sk;
 }
 
-static inline unsigned int
+static inline bool
 redirect_v4(struct sk_buff *skb, u8 l4proto,
 	    __be16 sport, __be16 dport,
 	    const struct kz_dispatcher *dpt,
 	    const struct xt_kzorp_target_info * tgi)
 {
-	unsigned int verdict = NF_DROP;
 	struct sock *sk = NULL;
 	const struct iphdr * const iph = ip_hdr(skb);
 
 	kz_debug("transparent dispatcher, trying to redirect; dpt='%s'\n", dpt->name);
 
 	sk = v4_get_socket_to_redirect_to(dpt, skb, l4proto, sport, dport);
-	if (sk != NULL) {
-		nf_tproxy_assign_sock(skb, sk);
-		skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
-
-		kz_debug("transparent proxy session redirected; socket='%p'\n", sk);
-		verdict = NF_ACCEPT;
-	} else {
+	if (sk == NULL) {
 		/* FIXME: we've found no socket to divert to,
 		   so we simply drop the packet.  We should
 		   really implement the possibility of
 		   REJECT-ing the packet instead of silently
 		   dropping it.
 		*/
-		kz_debug("socket not found, dropped packet; src='%pI4:%u', dst='%pI4:%u'\n",
+		kz_debug("socket not found, trasparent proxy not redirected; src='%pI4:%u', dst='%pI4:%u'\n",
 			 &iph->saddr, ntohs(sport), &iph->daddr, ntohs(dport));
-		verdict = NF_DROP;
+		return false;
 	}
 
-	return verdict;
+	nf_tproxy_assign_sock(skb, sk);
+	skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
+
+	kz_debug("transparent proxy session redirected; socket='%p'\n", sk);
+
+	return true;
 }
 
 static inline const struct in6_addr *
@@ -279,7 +247,7 @@ relookup_time_wait6(struct sk_buff *skb, int l4proto, int thoff,
 	return sk;
 }
 
-static inline unsigned int
+static inline bool
 redirect_v6(struct sk_buff *skb, u8 l4proto,
 	    __be16 sport, __be16 dport,
 	    const struct kz_dispatcher *dpt,
@@ -303,13 +271,13 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 	if (unlikely(thoff < 0)) {
 		kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6', dst='%pI6'\n",
 			 &iph->saddr, &iph->daddr);
-		return NF_DROP;
+		return false;
 	}
 
 	hp = skb_header_pointer(skb, thoff, sizeof(_hdr), &_hdr);
 	if (hp == NULL) {
 		kz_debug("unable to grab transport header contents in IPv6 packet, dropping\n");
-		return NF_DROP;
+		return false;
 	}
 
 	/* check if there's an ongoing connection on the packet
@@ -361,45 +329,47 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 		}
 
 		nf_tproxy_assign_sock(skb, sk);
-		return NF_ACCEPT;
+		return false;
 	}
 
-	pr_debug("no socket, dropping: proto %hhu %pI6:%hu -> %pI6:%hu, mark: %x\n",
-		 tproto, &iph->saddr, ntohs(hp->source),
-		 &iph->daddr, ntohs(hp->dest), skb->mark);
-
-	return NF_DROP;
+	return false;
 }
 
-static inline unsigned int
-process_proxy_session(unsigned int hooknum, struct sk_buff *skb, const struct net_device *in,
-		      u8 l3proto, u8 l4proto,
-		      __be16 sport, __be16 dport, const struct kz_dispatcher *dpt,
-		      const struct xt_kzorp_target_info * tgi)
+static inline bool
+is_protocol_hanlded_by_proxy(u8 l3proto, u8 l4proto)
 {
-	unsigned int verdict = NF_DROP;
-
 	if (unlikely((l4proto != IPPROTO_TCP) && (l4proto != IPPROTO_UDP))) {
-		/* This is an internal error: we should never call process_proxy_session() for
-		   non TCP/UDP frames. */
+		/* this is a config problem: a proxy service configured for
+		 * non TCP/UDP traffic -> we cannot do much but drop the packet */
 		char _buf[L4PROTOCOL_STRING_SIZE];
 
 		kz_debug("non TCP or UDP frame, dropping; protocol='%s'\n", l4proto_as_string(l4proto, _buf));
-		return NF_DROP;
+		return false;
 	}
+
+	return true;
+}
+
+static inline bool
+redirect_to_proxy(struct sk_buff *skb,
+		  u8 l3proto, u8 l4proto, __be16 sport, __be16 dport,
+		  const struct kz_dispatcher *dpt,
+		  const struct xt_kzorp_target_info * tgi)
+{
+	bool res = false;
 
 	switch (l3proto) {
 	case NFPROTO_IPV4:
-		verdict = redirect_v4(skb, l4proto, sport, dport, dpt, tgi);
+		res = redirect_v4(skb, l4proto, sport, dport, dpt, tgi);
 		break;
 	case NFPROTO_IPV6:
-		verdict = redirect_v6(skb, l4proto, sport, dport, dpt, tgi);
+		res = redirect_v6(skb, l4proto, sport, dport, dpt, tgi);
 		break;
 	default:
 		BUG();
 	}
 
-	return verdict;
+	return res;
 }
 
 static inline unsigned int
@@ -547,77 +517,54 @@ done:
 
 static inline void
 kz_session_log(const char *msg,
-	       const char *svc_name,
+	       const struct kz_service *svc,
 	       const u8 l3proto, const u8 l4proto,
 	       const struct kz_zone *client_zone, const struct kz_zone *server_zone,
 	       const struct sk_buff *skb,
 	       const __be16 src_port, const __be16 dst_port)
 {
+	char _buf[L4PROTOCOL_STRING_SIZE];
 	const char *client_zone_name = (client_zone && client_zone->name) ? client_zone->name : kz_log_null;
 	const char *server_zone_name = (server_zone && server_zone->name) ? server_zone->name : kz_log_null;
+	const char *service_name = (svc && svc->name) ? svc->name : kz_log_null;
 
-	if (kz_log_ratelimit()) {
-		char _buf[L4PROTOCOL_STRING_SIZE];
+	if (!kz_log_ratelimit())
+		return;
 
-		switch (l3proto) {
-		case NFPROTO_IPV4:
-		{
-			const struct iphdr * const iph = ip_hdr(skb);
-			if (svc_name)
-				printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI4:%u', "
-						 "server_address='%pI4:%u', protocol='%s'\n",
-						 svc_name, msg, svc_name,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
+	if (svc && (svc->flags & KZF_SERVICE_LOGGING) == 0)
+		return;
 
-			else
-				printk(KERN_INFO "kzorp: %s; "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI4:%u', "
-						 "server_address='%pI4:%u', protocol='%s'\n",
-						 msg,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
-		}
-			break;
-		case NFPROTO_IPV6:
-		{
-			const struct ipv6hdr *iph = ipv6_hdr(skb);
-			if (svc_name)
-				printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI6:%u', "
-						 "server_address='%pI6:%u', protocol='%s'\n",
-						 svc_name, msg, svc_name,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
-			else
-				printk(KERN_INFO "kzorp: %s; "
-						 "client_zone='%s', server_zone='%s', "
-						 "client_address='%pI6:%u', "
-						 "server_address='%pI6:%u', protocol='%s'\n",
-						 msg,
-						 client_zone_name,
-						 server_zone_name,
-						 &iph->saddr, ntohs(src_port),
-						 &iph->daddr, ntohs(dst_port),
-						 l4proto_as_string(l4proto, _buf));
-		}
-			break;
-		default:
-			BUG();
-		}
+	switch (l3proto) {
+	case NFPROTO_IPV4: {
+		const struct iphdr * const iph = ip_hdr(skb);
+		printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
+				 "client_zone='%s', server_zone='%s', "
+				 "client_address='%pI4:%u', "
+				 "server_address='%pI4:%u', protocol='%s'\n",
+				 service_name, msg, service_name,
+				 client_zone_name,
+				 server_zone_name,
+				 &iph->saddr, ntohs(src_port),
+				 &iph->daddr, ntohs(dst_port),
+				 l4proto_as_string(l4proto, _buf));
+	}
+		break;
+	case NFPROTO_IPV6: {
+		const struct ipv6hdr *iph = ipv6_hdr(skb);
+		printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
+				 "client_zone='%s', server_zone='%s', "
+				 "client_address='%pI6:%u', "
+				 "server_address='%pI6:%u', protocol='%s'\n",
+				 service_name, msg, service_name,
+				 client_zone_name,
+				 server_zone_name,
+				 &iph->saddr, ntohs(src_port),
+				 &iph->daddr, ntohs(dst_port),
+				 l4proto_as_string(l4proto, _buf));
+	}
+		break;
+	default:
+		BUG();
 	}
 }
 
@@ -883,15 +830,13 @@ process_denied_session(unsigned int hooknum, struct sk_buff *skb,
 		       const struct net_device *in,
 		       u8 l3proto, u8 l4proto,
 		       u16 sport, u16 dport,
+		       const struct nf_conn *ct,
 		       const struct nf_conntrack_kzorp *kzorp)
 {
 	struct kz_service *svc = kzorp->svc;
 	struct net *net = dev_net(in);
 
-	if (svc->flags & KZF_SERVICE_LOGGING) {
-		kz_session_log("Rejecting session", svc->name, l3proto, l4proto,
-			       kzorp->czone, kzorp->szone, skb, sport, dport);
-	}
+	kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Rejecting session", ct, kzorp);
 
 	switch (l3proto) {
 	case NFPROTO_IPV4:
@@ -983,16 +928,14 @@ patch_kzorp(const struct nf_conntrack_kzorp *kzorp)
 }
 
 static bool
-service_assign_session_id(struct sk_buff *skb,
-			  u8 l3proto, u8 l4proto,
-			  u16 sport, u16 dport,
+service_assign_session_id(const struct nf_conn *ct,
 			  const struct nf_conntrack_kzorp *kzorp)
 {
 	struct kz_service *svc = kzorp->svc;
 
 	if  (svc->flags & KZF_SERVICE_CNT_LOCKED) {
-		kz_session_log("Service is locked during reload, dropping packet",
-			       svc->name, l3proto, l4proto, NULL, NULL, skb, sport, dport);
+		kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Service is locked during reload",
+				       ct, kzorp);
 		return false;
 	}
 	else
@@ -1024,7 +967,7 @@ kz_prerouting_verdict(struct sk_buff *skb,
 	if (ctinfo == IP_CT_NEW) {
 		/* proxy sessions have their session id assigned on prerouting */
 		if ((svc != NULL) && (svc->type == KZ_SERVICE_PROXY) && (kzorp->sid == 0))
-			if (!service_assign_session_id(skb, l3proto, l4proto, sport, dport, kzorp))
+			if (!service_assign_session_id(ct, kzorp))
 				return NF_DROP;
 	}
 
@@ -1040,18 +983,15 @@ kz_prerouting_verdict(struct sk_buff *skb,
 
 			switch (svc->type) {
 			case KZ_SERVICE_PROXY:
-
-				if ((l4proto != IPPROTO_TCP) && (l4proto != IPPROTO_UDP)) {
-					/* this is a config problem: a proxy service configured for
-					 * non TCP/UDP traffic -> we cannot do much but drop the packet */
+				if (!is_protocol_hanlded_by_proxy(l3proto, l4proto)) {
 					verdict = NF_DROP;
-
-					kz_session_log("Proxy service found for non TCP/UDP traffic, dropping packet",
-						       NULL, l3proto, l4proto, czone, szone, skb, sport, dport);
-				} else
-					verdict = process_proxy_session(NF_INET_PRE_ROUTING, skb, in,
-									l3proto, l4proto, sport, dport,
-									dpt, tgi);
+					kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Unacceptable protocol for proxy",
+							       ct, kzorp);
+				} else if (!redirect_to_proxy(skb, l3proto, l4proto, sport, dport, dpt, tgi)) {
+					verdict = NF_DROP;
+					kz_log_session_verdict(KZ_VERDICT_DENIED_BY_UNKNOWN_FAIL, "Redirection to proxy has failed",
+							       ct, kzorp);
+				}
 				break;
 
 			case KZ_SERVICE_FORWARD:
@@ -1075,13 +1015,11 @@ kz_prerouting_verdict(struct sk_buff *skb,
 		} else {
 			/* no service was found, log and drop packet */
 			if (!czone || !szone) {
-				kz_session_log("Dispatcher found without valid (client zone, server zone, service) triplet; dropping packet",
-					       NULL, l3proto, l4proto, NULL, NULL, skb, sport, dport);
-				} else  {
-				if (kz_log_ratelimit()) {
-					kz_session_log("No applicable service found for this client & server zone, dropping packet",
-						       NULL, l3proto, l4proto, czone, szone, skb, sport, dport);
-				}
+				kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Dispatcher found without valid (client zone, server zone, service) triplet; dropping packet",
+						       ct, kzorp);
+			} else  {
+				kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "No applicable service found for this client & server zone, dropping packet",
+						       ct, kzorp);
 			}
 
 			verdict = NF_DROP;
@@ -1096,7 +1034,7 @@ kz_input_newconn_verdict(struct sk_buff *skb,
 			 const struct net_device *in,
 			 u8 l3proto, u8 l4proto,
 			 u16 sport, u16 dport,
-			 struct nf_conn *ct,
+			 const struct nf_conn *ct,
 			 const struct nf_conntrack_kzorp *kzorp)
 {
 	unsigned int verdict = NF_ACCEPT;
@@ -1104,7 +1042,7 @@ kz_input_newconn_verdict(struct sk_buff *skb,
 
 	if (svc != NULL && svc->type == KZ_SERVICE_DENY) {
 		/* Only deny services are processed on INPUT */
-		verdict = process_denied_session(NF_INET_PRE_ROUTING, skb, in, l3proto, l4proto, sport, dport, kzorp);
+		verdict = process_denied_session(NF_INET_PRE_ROUTING, skb, in, l3proto, l4proto, sport, dport, ct, kzorp);
 	}
 
 	return verdict;
@@ -1115,7 +1053,7 @@ kz_forward_newconn_verdict(struct sk_buff *skb,
 			   const struct net_device *in,
 			   u8 l3proto, u8 l4proto,
 			   u16 sport, u16 dport,
-			   struct nf_conn *ct,
+			   const struct nf_conn *ct,
 			   const struct nf_conntrack_kzorp *kzorp)
 {
 	unsigned int verdict = NF_ACCEPT;
@@ -1127,7 +1065,7 @@ kz_forward_newconn_verdict(struct sk_buff *skb,
 
 		/* forwarded and denied session have their session id assigned on forward */
 		if (kzorp->sid == 0) {
-			if (!service_assign_session_id(skb, l3proto, l4proto, sport, dport, kzorp))
+			if (!service_assign_session_id(ct, kzorp))
 				return NF_DROP;
 
 			new_session = true;
@@ -1136,49 +1074,17 @@ kz_forward_newconn_verdict(struct sk_buff *skb,
 		switch (svc->type) {
 		case KZ_SERVICE_FORWARD:
 			/* log new sessions */
-			if (new_session && kz_log_ratelimit()) {
-				char _buf[L4PROTOCOL_STRING_SIZE];
-
-				switch (l3proto) {
-				case NFPROTO_IPV4:
-				{
-					const struct iphdr * const iph = ip_hdr(skb);
-					printk(KERN_INFO "kzorp (svc/%s:%lu): Starting forwarded session; "
-					       "client_address='%pI4:%u', client_zone='%s', "
-					       "server_address='%pI4:%u', server_zone='%s', "
-					       "protocol='%s'\n",
-					       kzorp->svc->name, kzorp->sid,
-					       &iph->saddr, ntohs(sport),
-					       (kzorp->czone != NULL) ? kzorp->czone->name : kz_log_null,
-					       &iph->daddr, ntohs(dport),
-					       (kzorp->szone != NULL) ? kzorp->szone->name : kz_log_null,
-					       l4proto_as_string(l4proto, _buf));
-				}
-					break;
-				case NFPROTO_IPV6:
-				{
-					const struct ipv6hdr * const iph = ipv6_hdr(skb);
-					printk(KERN_INFO "kzorp (svc/%s:%lu): Starting forwarded session; "
-					       "client_address='%pI6:%u', client_zone='%s', "
-					       "server_address='%pI6:%u', server_zone='%s', "
-					       "protocol='%s'\n",
-					       kzorp->svc->name, kzorp->sid,
-					       &iph->saddr, ntohs(sport),
-					       (kzorp->czone != NULL) ? kzorp->czone->name : kz_log_null,
-					       &iph->daddr, ntohs(dport),
-					       (kzorp->szone != NULL) ? kzorp->szone->name : kz_log_null,
-					       l4proto_as_string(l4proto, _buf));
-				}
-					break;
-				default:
-					BUG();
-				}
+			if (new_session) {
+				kz_session_log("Starting forwarded session",
+						kzorp->svc, l3proto, l4proto,
+						kzorp->czone, kzorp->szone, skb,
+						sport, dport);
 			}
 			break;
 
 		case KZ_SERVICE_DENY:
 			verdict = process_denied_session(NF_INET_FORWARD, skb, in, l3proto, l4proto,
-							 sport, dport, kzorp);
+							 sport, dport, ct, kzorp);
 			break;
 
 		default:
@@ -1209,7 +1115,7 @@ kz_postrouting_newconn_verdict(struct sk_buff *skb,
 
 	/* assign session id and do SNAT on new connections */
 	if ((svc != NULL) && (kzorp->sid == 0))
-		if (!service_assign_session_id(skb, l3proto, l4proto, sport, dport, kzorp))
+		if (!service_assign_session_id(ct, kzorp))
 			return NF_DROP;
 
 	if (dpt != NULL && svc != NULL) {
@@ -1311,7 +1217,7 @@ kzorp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 	   at all -- for that here a warning could be emitted, preferably 
 	   only once.  but that means slightly worse performance, so
 	   the former bahavior is kept.*/
-	if (ct == NULL || ctinfo >= IP_CT_IS_REPLY)
+	if (ct == NULL || nf_ct_is_untracked(ct) || ctinfo >= IP_CT_IS_REPLY)
 		return NF_ACCEPT;
 
 	rcu_read_lock();

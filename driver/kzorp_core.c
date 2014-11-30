@@ -48,6 +48,7 @@ static const char *const kz_log_null = "(NULL)";
 
 extern int sysctl_kzorp_log_ratelimit_msg_cost;
 extern int sysctl_kzorp_log_ratelimit_burst;
+extern int sysctl_kzorp_log_session_verdict;
 
 /***********************************************************
  * Instances
@@ -343,6 +344,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 {
 	struct kz_traffic_props traffic_props;
 	u_int32_t rule_id = 0;
+	struct timespec now;
 	struct kz_zone *czone = NULL;
 	struct kz_zone *szone = NULL;
 	struct kz_dispatcher *dpt = NULL;
@@ -503,6 +505,10 @@ done:
 	if (kzorp->rule_id != rule_id)
 		kzorp->rule_id = rule_id;
 
+	getnstimeofday(&now);
+	if (kzorp->session_start != now.tv_sec)
+		kzorp->session_start = now.tv_sec;
+
 	kz_debug("kzorp lookup result; dpt='%s', client_zone='%s', server_zone='%s', svc='%s'\n",
 		 kzorp->dpt ? kzorp->dpt->name : kz_log_null,
 		 kzorp->czone ? kzorp->czone->name : kz_log_null,
@@ -594,7 +600,7 @@ kz_extension_get_from_ct_or_lookup(const struct sk_buff *skb,
 	enum ip_conntrack_info ctinfo;
 
 	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
-	if (ct) {
+	if (ct && !nf_ct_is_untracked(ct)) {
 		// ctinfo filled by nf_ct_get
 		*kzorp = kz_extension_update(ct, ctinfo, skb, in, l3proto, cfg);
 	} else {
@@ -1499,6 +1505,13 @@ static ctl_table kzorp_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec
 	},
+	{
+		.procname	= "log_session_verdict",
+		.data		= &sysctl_kzorp_log_session_verdict,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
 	{ }
 };
 
@@ -1791,6 +1804,161 @@ int kz_log_ratelimit(void)
 			       sysctl_kzorp_log_ratelimit_burst);
 }
 EXPORT_SYMBOL_GPL(kz_log_ratelimit);
+
+int sysctl_kzorp_log_session_verdict = false;
+
+bool kz_log_session_verdict_enabled(void) {
+	return !!sysctl_kzorp_log_session_verdict;
+}
+EXPORT_SYMBOL_GPL(kz_log_session_verdict_enabled);
+
+static inline const char *
+verdict_as_string(enum kz_verdict verdict)
+{
+	switch (verdict) {
+	case KZ_VERDICT_ACCEPTED:
+		return "ACCEPTED";
+	case KZ_VERDICT_DENIED_BY_POLICY:
+		return "DENIED_BY_POLICY";
+	case KZ_VERDICT_DENIED_BY_LIMIT:
+		return "DENIED_BY_LIMIT";
+	case KZ_VERDICT_DENIED_BY_CONNECTION_FAIL:
+		return "DENIED_BY_CONNECTION_FAIL";
+	case KZ_VERDICT_DENIED_BY_UNKNOWN_FAIL:
+		return "DENIED_BY_UNKNOWN_FAIL";
+	}
+
+	// there is no other case than drop and accept as verdict
+	BUG();
+	return NULL;
+}
+
+// 8 groups of 4 hexa numbers with 7 ':' between them in case of IPv6
+#define IP_MAX_LENGTH (8 * 4) + 7
+
+void
+kz_log_session_verdict(enum kz_verdict verdict,
+		       const char *info,
+		       const struct nf_conn *ct,
+		       const struct nf_conntrack_kzorp *kzorp)
+{
+	u_int16_t l3proto;
+	u_int16_t l4proto;
+	char _buf[L4PROTOCOL_STRING_SIZE];
+	char server_local_str[IP_MAX_LENGTH + 1];
+	const char *verdict_str;
+	const char *l4proto_str;
+	u_int32_t client_port, server_port, client_local_port, server_local_port;
+	const char *client_zone_name = (kzorp->czone && kzorp->czone->name) ? kzorp->czone->name : kz_log_null;
+	const char *server_zone_name = (kzorp->szone && kzorp->szone->name) ? kzorp->szone->name : kz_log_null;
+	const char *service_name = (kzorp->svc && kzorp->svc->name) ? kzorp->svc->name : kz_log_null;
+	const struct nf_conntrack_tuple *ct_orig_tuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+	const struct nf_conntrack_tuple *ct_reply_tuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+	u_int64_t session_end;
+	struct timespec now;
+
+	if (!kz_log_session_verdict_enabled() ||
+	    !kz_log_ratelimit())
+		return;
+
+	l4proto = nf_ct_protonum(ct);
+	if (l4proto == IPPROTO_TCP || l4proto == IPPROTO_UDP) {
+		client_port = ntohs(ct_orig_tuple->src.u.all);
+		server_port = ntohs(ct_orig_tuple->dst.u.all);
+		client_local_port = ntohs(ct_reply_tuple->src.u.all);
+		server_local_port = ntohs(ct_reply_tuple->dst.u.all);
+
+	} else {
+		client_port = server_port = 0;
+		client_local_port = server_local_port = 0;
+	}
+
+	l3proto = nf_ct_l3num(ct);
+	if (verdict == KZ_VERDICT_ACCEPTED) {
+		const char *format = l3proto == NFPROTO_IPV4 ? "%pI4" : "%pI6";
+		snprintf(server_local_str, sizeof(server_local_str), format, &ct_reply_tuple->dst.u3.all);
+	} else {
+		server_local_port = 0;
+		snprintf(server_local_str, sizeof(server_local_str), "%s", kz_log_null);
+	}
+
+	getnstimeofday(&now);
+        session_end = now.tv_sec;
+	verdict_str = verdict_as_string(verdict);
+	l4proto_str = l4proto_as_string(nf_ct_protonum(ct), _buf);
+	switch (l3proto) {
+	case NFPROTO_IPV4: {
+		printk(KERN_INFO "kzorp (svc/%s:%lu): Connection summary; "
+				 "rule_id='%u', "
+				 "session_start='%llu', session_end='%llu', "
+				 "client_proto='%s', "
+				 "client_address='%pI4', "
+				 "client_port='%u', "
+				 "client_zone='%s', "
+				 "server_proto='%s', "
+				 "server_address='%pI4', "
+				 "server_port='%u', "
+				 "server_zone='%s', "
+				 "client_local='%pI4', "
+				 "client_local_port='%u', "
+				 "server_local='%s', "
+				 "server_local_port='%u', "
+				 "verdict='%s', "
+				 "info='%s'\n",
+				 service_name, kzorp->sid,
+				 kzorp->rule_id,
+				 kzorp->session_start, session_end,
+				 l4proto_str,
+				 &ct_orig_tuple->src.u3.all, client_port,
+				 client_zone_name,
+				 l4proto_str,
+				 &ct_orig_tuple->dst.u3.all, server_port,
+				 server_zone_name,
+				 &ct_reply_tuple->src.u3.all, client_local_port,
+				 server_local_str, server_local_port,
+				 verdict_str,
+				 info);
+	}
+		break;
+	case NFPROTO_IPV6: {
+		printk(KERN_INFO "kzorp (svc/%s:%lu): Connection summary; "
+				 "rule_id='%u', "
+				 "session_start='%llu', session_end='%llu', "
+				 "client_proto='%s', "
+				 "client_address='%pI6', "
+				 "client_port='%u', "
+				 "client_zone='%s', "
+				 "server_proto='%s', "
+				 "server_address='%pI6', "
+				 "server_port='%u', "
+				 "server_zone='%s', "
+				 "client_local='%pI6', "
+				 "client_local_port='%u', "
+				 "server_local='%s', "
+				 "server_local_port='%u', "
+				 "verdict='%s', "
+				 "info='%s'\n",
+				 service_name, kzorp->sid,
+				 kzorp->rule_id,
+				 kzorp->session_start, session_end,
+				 l4proto_str,
+				 ct_orig_tuple->src.u3.all, client_port,
+				 client_zone_name,
+				 l4proto_str,
+				 ct_orig_tuple->dst.u3.all, server_port,
+				 server_zone_name,
+				 ct_reply_tuple->src.u3.all, client_local_port,
+				 server_local_str, server_local_port,
+				 verdict_str,
+				 info);
+	}
+		break;
+	default:
+		BUG();
+	}
+}
+EXPORT_SYMBOL_GPL(kz_log_session_verdict);
+
 
 /***********************************************************
  * Conntrack extension
