@@ -160,6 +160,9 @@ get_notifier(struct netlink_notify * notifier) {
 #define NLA_PUT_U16(skb, attrtype, value) \
 	NLA_PUT_TYPE(skb, u16, attrtype, value)
 
+#define NLA_PUT_U64(skb, attrtype, value) \
+	NLA_PUT_TYPE(skb, u64, attrtype, value)
+
 #define NLA_PUT_LE16(skb, attrtype, value) \
 	NLA_PUT_TYPE(skb, __le16, attrtype, value)
 

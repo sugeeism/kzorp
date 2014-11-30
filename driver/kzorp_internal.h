@@ -43,31 +43,35 @@
 
 //         NL_MSG_NAME          RECV_FUNC                    DUMP_FUNC
 #define KZORP_MSG_LIST(ACTION, _) \
-  ACTION ( GET_VERSION,          get_version,                NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( START,                start,                      NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( COMMIT,               commit,                     NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( FLUSH_ZONE,           flush_z,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_ZONE,             add_zone,                   NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( GET_ZONE,             get_zone,                   zones,             KZNL_OP   )_ \
-  ACTION ( FLUSH_SERVICE,        flush_s,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_SERVICE,          add_service,                NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_SERVICE_NAT_SRC,  add_service_nat_src,        NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_SERVICE_NAT_DST,  add_service_nat_dst,        NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( GET_SERVICE,          get_service,                services,          KZNL_OP   )_ \
-  ACTION ( FLUSH_DISPATCHER,     flush_d,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_DISPATCHER,       add_dispatcher,             NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( GET_DISPATCHER,       get_dispatcher,             dispatchers,       KZNL_OP   )_ \
-  ACTION ( QUERY,                query,                      NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_RULE,             add_n_dimension_rule,       NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_RULE_ENTRY,       add_n_dimension_rule_entry, NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( ADD_BIND,             add_bind,                   NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( GET_BIND,             NO_RECV_FUNC,               binds,             KZNL_OP   )_ \
-  ACTION ( FLUSH_BIND,           flush_b,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( QUERY_REPLY,          NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
-  ACTION ( GET_VERSION_REPLY,    NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
-  ACTION ( ADD_ZONE_SUBNET,      add_zone_subnet,            NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( LOOKUP_ZONE,          lookup_zone,                NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( DELETE_ZONE,          delete_zone,                NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( GET_VERSION,            get_version,                NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( START,                  start,                      NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( COMMIT,                 commit,                     NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( FLUSH_ZONE,             flush_z,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_ZONE,               add_zone,                   NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( GET_ZONE,               get_zone,                   zones,             KZNL_OP   )_ \
+  ACTION ( FLUSH_SERVICE,          flush_s,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_SERVICE,            add_service,                NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_SERVICE_NAT_SRC,    add_service_nat_src,        NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_SERVICE_NAT_DST,    add_service_nat_dst,        NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( GET_SERVICE,            get_service,                services,          KZNL_OP   )_ \
+  ACTION ( FLUSH_DISPATCHER,       flush_d,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_DISPATCHER,         add_dispatcher,             NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( GET_DISPATCHER,         get_dispatcher,             dispatchers,       KZNL_OP   )_ \
+  ACTION ( QUERY,                  query,                      NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_RULE,               add_n_dimension_rule,       NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_RULE_ENTRY,         add_n_dimension_rule_entry, NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( ADD_BIND,               add_bind,                   NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( GET_BIND,               NO_RECV_FUNC,               binds,             KZNL_OP   )_ \
+  ACTION ( FLUSH_BIND,             flush_b,                    NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( QUERY_REPLY,            NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
+  ACTION ( GET_VERSION_REPLY,      NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
+  ACTION ( ADD_ZONE_SUBNET,        add_zone_subnet,            NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( LOOKUP_ZONE,            lookup_zone,                NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( DELETE_ZONE,            delete_zone,                NO_DUMP_FUNC,      KZNL_OP   )_ \
+  ACTION ( GET_RULE_COUNTER,       get_rule_counter,           rule_counters,     KZNL_OP   )_ \
+  ACTION ( GET_RULE_COUNTER_REPLY, NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
+  ACTION ( GET_ZONE_COUNTER,       get_zone_counter,           zone_counters,     KZNL_OP   )_ \
+  ACTION ( GET_ZONE_COUNTER_REPLY, NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
 
 #define KZORP_COMMA_SEPARATOR ,
 

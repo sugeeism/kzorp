@@ -1357,7 +1357,8 @@ static u_int32_t
 kz_ndim_lookup(const struct kz_head_d * const dispatchers,
 	       const struct kz_traffic_props * const traffic_props,
 	       struct kz_service **service,
-	       struct kz_dispatcher **dispatcher)
+	       struct kz_dispatcher **dispatcher,
+	       bool do_accounting)
 {
 	struct kz_percpu_env *lenv;
 	const struct kz_dispatcher_n_dimension_rule *rule;
@@ -1376,6 +1377,10 @@ kz_ndim_lookup(const struct kz_head_d * const dispatchers,
 		*service = rule->service;
 		*dispatcher = rule->dispatcher;
 		rule_id = rule->id;
+
+		if (do_accounting) {
+			atomic64_inc(&((struct kz_dispatcher_n_dimension_rule *)rule)->count);
+		}
 	} else {
 		*service = NULL;
 		*dispatcher = NULL;
@@ -2145,7 +2150,8 @@ kz_lookup_session(const struct kz_config *cfg,
 		  struct kz_zone **clientzone, struct kz_zone **serverzone,
 		  struct kz_service **service,
 		  struct kz_dispatcher **dispatcher,
-		  int reply)
+		  int reply,
+		  bool do_accounting)
 {
         const union nf_inet_addr *addr;
 	const struct kz_head_z * const zones = &cfg->zones;
@@ -2168,18 +2174,24 @@ kz_lookup_session(const struct kz_config *cfg,
 	addr = reply ? traffic_props->dst_addr : traffic_props->src_addr;
 	traffic_props->src_zone = kz_head_zone_lookup(zones, addr, traffic_props->l3proto);
 	if (traffic_props->src_zone != NULL) {
+		if (do_accounting) {
+			atomic64_inc(&traffic_props->src_zone->count);
+		}
 		kz_debug("found client zone; name='%s'\n", traffic_props->src_zone->name);
 	}
 
 	addr = reply ? traffic_props->src_addr : traffic_props->dst_addr;
 	traffic_props->dst_zone = kz_head_zone_lookup(zones, addr, traffic_props->l3proto);
 	if (traffic_props->dst_zone != NULL) {
+		if (do_accounting) {
+			atomic64_inc(&traffic_props->dst_zone->count);
+		}
 		kz_debug("found server zone; name='%s'\n", traffic_props->dst_zone->name);
 	}
 
 	*clientzone = traffic_props->src_zone;
 	*serverzone = traffic_props->dst_zone;
 
-	return kz_ndim_lookup(&cfg->dispatchers, traffic_props, service, dispatcher);
+	return kz_ndim_lookup(&cfg->dispatchers, traffic_props, service, dispatcher, do_accounting);
 }
 EXPORT_SYMBOL_GPL(kz_lookup_session);
