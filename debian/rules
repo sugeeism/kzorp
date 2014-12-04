@@ -43,6 +43,7 @@ install-indep: build-indep debian/kzorp-dkms.dkms
 
 	dh_install -pkzorp-dkms driver/*.c usr/src/kzorp-$(version)/
 	dh_install -pkzorp-dkms driver/*.h usr/src/kzorp-$(version)/
+	dh_install -pkzorp-dkms driver/include/linux/netfilter/*.h usr/src/kzorp-$(version)/include/linux/netfilter/
 	dh_dkms -pkzorp-dkms
 
 	dh_auto_install --destdir=debian/python-kzorp -- -C pylib install
