@@ -136,6 +136,8 @@ class BindDownload(kzorp.communication.Adapter):
 
 
 def downloadKZorpConfig(instance_name, is_master):
+    if not is_master:
+        return
     with RuleDownload(instance_name) as rule_download:
         messages = []
         for service in Globals.services.values():
