@@ -174,4 +174,20 @@ get_notifier(struct netlink_notify * notifier) {
 
 #endif // NLA_PUT
 
+#ifndef sk_daddr
+#define sk_daddr             __sk_common.skc_daddr
+#endif
+
+#ifndef sk_rcv_saddr
+#define sk_rcv_saddr         __sk_common.skc_rcv_saddr
+#endif
+
+#ifndef sk_v6_daddr
+#define sk_v6_daddr             __sk_common.skc_v6_daddr
+#endif
+
+#ifndef sk_v6_rcv_saddr
+#define sk_v6_rcv_saddr         __sk_common.skc_v6_rcv_saddr
+#endif
+
 #endif /* _KZORP_COMPAT_H */

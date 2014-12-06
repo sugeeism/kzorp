@@ -76,13 +76,13 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 	switch (family) {
 	case PF_INET:
 		tuple.src.l3num = AF_INET;
-		tuple.src.u3.ip = inet_sk(sk)->inet_rcv_saddr;
-		tuple.dst.u3.ip = inet_sk(sk)->inet_daddr;
+		tuple.src.u3.ip = sk->sk_rcv_saddr;
+		tuple.dst.u3.ip = sk->sk_daddr;
 		break;
 	case PF_INET6:
 		tuple.src.l3num = AF_INET6;
-		ipv6_addr_copy(&tuple.src.u3.in6, &inet6_sk(sk)->saddr);
-		ipv6_addr_copy(&tuple.dst.u3.in6, inet6_sk(sk)->daddr_cache);
+		ipv6_addr_copy(&tuple.src.u3.in6, &sk->sk_v6_rcv_saddr);
+		ipv6_addr_copy(&tuple.dst.u3.in6, &sk->sk_v6_daddr);
 		break;
 	default:
 		BUG();
