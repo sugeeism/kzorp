@@ -329,7 +329,7 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 		}
 
 		nf_tproxy_assign_sock(skb, sk);
-		return false;
+		return true;
 	}
 
 	return false;
