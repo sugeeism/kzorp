@@ -1,5 +1,5 @@
 import netlink
-import random, time
+import random, time, os
 import prctl
 import messages as kzorp_messages
 import Zorp.Common
@@ -30,7 +30,7 @@ def exchangeMessage(h, payload):
         for reply in h.talk(payload):
             pass
     except netlink.NetlinkException as e:
-        raise netlink.NetlinkException, "Error while talking to kernel; result='%s'" % (e.what)
+        raise netlink.NetlinkException, "Error while talking to kernel; result='%s'" % (os.strerror(-e.detail))
 
 def exchangeMessages(h, messages):
     for payload in messages:
