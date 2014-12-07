@@ -320,6 +320,7 @@ class Daemon():
             time.sleep(sleep_sec)
 
 def run(foreground, log_verbosity, user, group, manage_caps):
+    ZoneDownloadFactory.init(manage_caps)
     DAEMON = Daemon(user, group, manage_caps)
 
     if foreground:
