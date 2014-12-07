@@ -11,6 +11,7 @@
 DAEMON_NAME="kzorpd"
 DAEMON="/usr/sbin/$DAEMON_NAME"
 DAEMONUSER="root"
+DAEMON_OPTS="-N -u root -g root"
 PIDFILE="/var/run/zorp/kzorpd.pid"
 
 PATH="/sbin:/bin:/usr/sbin:/usr/bin"
@@ -31,7 +32,7 @@ d_start () {
         fi
 
         log_daemon_msg "Starting $DAEMON_NAME"
-        start-stop-daemon --name $DAEMON_NAME --start --user $DAEMONUSER --exec $DAEMON
+        start-stop-daemon --name $DAEMON_NAME --start --user $DAEMONUSER --exec $DAEMON -- $DAEMON_OPTS
         log_end_msg $?
 }
 
