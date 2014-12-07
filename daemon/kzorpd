@@ -63,7 +63,7 @@ class ZoneDownloadFactory(object):
         return cls._instance
 
     def makeZoneDownload(self):
-        return ZoneDownload(self.manage_caps)
+        return ZoneDownload(ZoneDownloadFactory._manage_caps)
 
 class ZoneDownload(kzorp.communication.Adapter):
 
