@@ -70,22 +70,19 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 	}
 
 	memset(&tuple, 0, sizeof(tuple));
+	tuple.dst.protonum = sk->sk_protocol;
+	tuple.src.u.tcp.port = inet_sk(sk)->inet_sport;
+	tuple.dst.u.tcp.port = inet_sk(sk)->inet_dport;
 	switch (family) {
 	case PF_INET:
-		tuple.src.u3.ip = inet_sk(sk)->inet_rcv_saddr;
-		tuple.src.u.tcp.port = inet_sk(sk)->inet_sport;
-		tuple.dst.u3.ip = inet_sk(sk)->inet_daddr;
-		tuple.dst.u.tcp.port = inet_sk(sk)->inet_dport;
 		tuple.src.l3num = AF_INET;
-		tuple.dst.protonum = sk->sk_protocol;
+		tuple.src.u3.ip = inet_sk(sk)->inet_rcv_saddr;
+		tuple.dst.u3.ip = inet_sk(sk)->inet_daddr;
 		break;
 	case PF_INET6:
-		ipv6_addr_copy(&tuple.src.u3.in6, &inet6_sk(sk)->saddr);
-		tuple.src.u.tcp.port = inet_sk(sk)->inet_sport;
-		ipv6_addr_copy(&tuple.dst.u3.in6, inet6_sk(sk)->daddr_cache);
-		tuple.dst.u.tcp.port = inet_sk(sk)->inet_dport;
 		tuple.src.l3num = AF_INET6;
-		tuple.dst.protonum = sk->sk_protocol;
+		ipv6_addr_copy(&tuple.src.u3.in6, &inet6_sk(sk)->saddr);
+		ipv6_addr_copy(&tuple.dst.u3.in6, inet6_sk(sk)->daddr_cache);
 		break;
 	default:
 		BUG();
