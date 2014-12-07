@@ -43,7 +43,7 @@ from Zorp.Zone import Zone
 from Zorp.InstancesConf import InstancesConf
 from zorpctl.ZorpctlConf import ZorpctlConfig
 
-class ZoneDownloadFactory():
+class ZoneDownloadFactory(object):
     _instance = None
     _manage_caps = None
     _initialized = False
@@ -83,11 +83,11 @@ class DynamicZoneHandler(kzorp.messages.ZoneUpdateMessageCreator):
         super(DynamicZoneHandler, self).__init__(zones, dnscache)
 
     def setup(self):
-        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
             messages = self.create_zone_static_address_initialization_messages()
             zone_download.initial(messages)
         self.setup_dns_cache()
-        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
             messages = self.create_zone_dynamic_address_initialization_messages()
             zone_download.update(messages)
 
@@ -155,10 +155,10 @@ class ConfigurationHandler():
 class CapabilityManagerDaemonContext(daemon.DaemonContext):
     def __init__(self, **kwargs):
         self.manage_caps = kwargs.pop('manage_caps', manage_caps)
-        super(CapabilityManagerDaemonContext, self).__init__(self, kwargs)
+        super(CapabilityManagerDaemonContext, self).__init__(**kwargs)
 
     def open(self):
-        if (self.manage_caps)
+        if self.manage_caps:
             #inherit capabilities with user change
             try:
                 import prctl
@@ -202,7 +202,7 @@ class Daemon():
     def sigint_handler(self, sig_num, frame):
         Common.log(None, Common.CORE_INFO, 1, "Received SIGINT, loading static zones")
         if self.zone_handler:
-            with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+            with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                 messages = self.zone_handler.create_zone_static_address_initialization_messages()
                 zone_download.initial(messages)
         else:
@@ -221,7 +221,7 @@ class Daemon():
         try:
             self.context.pidfile.break_lock()
             if self.zone_handler:
-                with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+                with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                     messages = self.zone_handler.create_zone_static_address_initialization_messages()
                     zone_download.initial(messages)
             else:
@@ -260,7 +260,7 @@ class Daemon():
             Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
             self.conf_handler.restore_state()
 
-        if (self.context.manage_caps)
+        if self.context.manage_caps:
             # drop capabilities
             try:
                 import prctl
@@ -316,11 +316,11 @@ class Daemon():
                     if expired_hostname is not None:
                         Common.log(None, Common.CORE_INFO, 4,
                                    "TTL for host expired, updating host; hostname='%s', ttl='%d'" % (expired_hostname, expiration_time))
-                        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+                        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                             messages = self.zone_handler.create_zone_update_messages(expired_hostname)
                             zone_download.update(messages)
                     else:
-                        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+                        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                             messages = self.zone_handler.create_zone_dynamic_address_initialization_messages()
                             zone_download.update(messages)
             time.sleep(sleep_sec)
