@@ -152,27 +152,11 @@ class ConfigurationHandler():
     def reload(self):
         self.setup()
 
-class CapabilityManagerDaemonContext(daemon.DaemonContext):
-    def __init__(self, **kwargs):
-        self.manage_caps = kwargs.pop('manage_caps', manage_caps)
-        super(CapabilityManagerDaemonContext, self).__init__(**kwargs)
-
-    def open(self):
-        if self.manage_caps:
-            #inherit capabilities with user change
-            try:
-                import prctl
-                prctl.set_keepcaps(False)
-            except OSError, e:
-                Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
-                raise e
-
-        super(CapabilityManagerDaemonContext, self).open()
 
 class Daemon():
     min_sleep_in_sec = 60
 
-    def __init__(self, user, group):
+    def __init__(self, user, group, manage_caps):
         Common.log(None, Common.CORE_INFO, 1, "KZorpd starting up...")
 
         import grp
@@ -180,8 +164,19 @@ class Daemon():
         zorp_uid = pwd.getpwnam(user).pw_uid
         zorp_gid = grp.getgrnam(group).gr_gid
 
+        self.manage_caps = manage_caps
+        if self.manage_caps:
+            #inherit capabilities with user change
+            try:
+                import prctl
+                prctl.set_keepcaps(True)
+                Common.log(None, Common.CORE_DEBUG, 6, "Set keep capabilities to get them back later")
+            except OSError, e:
+                Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+                raise e
+
         import signal
-        self.context = CapabilityManagerDaemonContext(
+        self.context = daemon.DaemonContext(
             working_directory='/etc/zorp',
             umask=0o002,
             uid=zorp_uid,
@@ -260,8 +255,7 @@ class Daemon():
             Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
             self.conf_handler.restore_state()
 
-        if self.context.manage_caps:
-            # drop capabilities
+        if self.manage_caps:
             try:
                 import prctl
                 prctl.set_caps((prctl.ALL_CAPS, prctl.CAP_EFFECTIVE, False))
