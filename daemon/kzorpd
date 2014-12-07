@@ -67,7 +67,7 @@ class ZoneDownloadFactory(object):
 
 class ZoneDownload(kzorp.communication.Adapter):
 
-    def __init__(self, manage_caps=True):
+    def __init__(self, manage_caps):
         super(ZoneDownload, self).__init__(manage_caps=manage_caps)
 
     def initial(self, messages):
