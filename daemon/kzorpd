@@ -43,7 +43,7 @@ from Zorp.Zone import Zone
 from Zorp.InstancesConf import InstancesConf
 from zorpctl.ZorpctlConf import ZorpctlConfig
 
-class ZoneDownloadFactory():
+class ZoneDownloadFactory(object):
     _instance = None
     _manage_caps = None
     _initialized = False
@@ -63,11 +63,11 @@ class ZoneDownloadFactory():
         return cls._instance
 
     def makeZoneDownload(self):
-        return ZoneDownload(self.manage_caps)
+        return ZoneDownload(ZoneDownloadFactory._manage_caps)
 
 class ZoneDownload(kzorp.communication.Adapter):
 
-    def __init__(self, manage_caps=True):
+    def __init__(self, manage_caps):
         super(ZoneDownload, self).__init__(manage_caps=manage_caps)
 
     def initial(self, messages):
@@ -83,11 +83,11 @@ class DynamicZoneHandler(kzorp.messages.ZoneUpdateMessageCreator):
         super(DynamicZoneHandler, self).__init__(zones, dnscache)
 
     def setup(self):
-        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
             messages = self.create_zone_static_address_initialization_messages()
             zone_download.initial(messages)
         self.setup_dns_cache()
-        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
             messages = self.create_zone_dynamic_address_initialization_messages()
             zone_download.update(messages)
 
@@ -152,27 +152,11 @@ class ConfigurationHandler():
     def reload(self):
         self.setup()
 
-class CapabilityManagerDaemonContext(daemon.DaemonContext):
-    def __init__(self, **kwargs):
-        self.manage_caps = kwargs.pop('manage_caps', manage_caps)
-        super(CapabilityManagerDaemonContext, self).__init__(self, kwargs)
-
-    def open(self):
-        if (self.manage_caps)
-            #inherit capabilities with user change
-            try:
-                import prctl
-                prctl.set_keepcaps(False)
-            except OSError, e:
-                Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
-                raise e
-
-        super(CapabilityManagerDaemonContext, self).open()
 
 class Daemon():
     min_sleep_in_sec = 60
 
-    def __init__(self, user, group):
+    def __init__(self, user, group, manage_caps):
         Common.log(None, Common.CORE_INFO, 1, "KZorpd starting up...")
 
         import grp
@@ -180,8 +164,19 @@ class Daemon():
         zorp_uid = pwd.getpwnam(user).pw_uid
         zorp_gid = grp.getgrnam(group).gr_gid
 
+        self.manage_caps = manage_caps
+        if self.manage_caps:
+            #inherit capabilities with user change
+            try:
+                import prctl
+                prctl.set_keepcaps(True)
+                Common.log(None, Common.CORE_DEBUG, 6, "Set keep capabilities to get them back later")
+            except OSError, e:
+                Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+                raise e
+
         import signal
-        self.context = CapabilityManagerDaemonContext(
+        self.context = daemon.DaemonContext(
             working_directory='/etc/zorp',
             umask=0o002,
             uid=zorp_uid,
@@ -202,7 +197,7 @@ class Daemon():
     def sigint_handler(self, sig_num, frame):
         Common.log(None, Common.CORE_INFO, 1, "Received SIGINT, loading static zones")
         if self.zone_handler:
-            with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+            with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                 messages = self.zone_handler.create_zone_static_address_initialization_messages()
                 zone_download.initial(messages)
         else:
@@ -221,7 +216,7 @@ class Daemon():
         try:
             self.context.pidfile.break_lock()
             if self.zone_handler:
-                with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+                with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                     messages = self.zone_handler.create_zone_static_address_initialization_messages()
                     zone_download.initial(messages)
             else:
@@ -260,8 +255,7 @@ class Daemon():
             Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
             self.conf_handler.restore_state()
 
-        if (self.context.manage_caps)
-            # drop capabilities
+        if self.manage_caps:
             try:
                 import prctl
                 prctl.set_caps((prctl.ALL_CAPS, prctl.CAP_EFFECTIVE, False))
@@ -316,16 +310,17 @@ class Daemon():
                     if expired_hostname is not None:
                         Common.log(None, Common.CORE_INFO, 4,
                                    "TTL for host expired, updating host; hostname='%s', ttl='%d'" % (expired_hostname, expiration_time))
-                        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+                        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                             messages = self.zone_handler.create_zone_update_messages(expired_hostname)
                             zone_download.update(messages)
                     else:
-                        with ZoneDownloadFactory.makeZoneDownload() as zone_download:
+                        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                             messages = self.zone_handler.create_zone_dynamic_address_initialization_messages()
                             zone_download.update(messages)
             time.sleep(sleep_sec)
 
 def run(foreground, log_verbosity, user, group, manage_caps):
+    ZoneDownloadFactory.init(manage_caps)
     DAEMON = Daemon(user, group, manage_caps)
 
     if foreground:
@@ -340,7 +335,7 @@ def process_command_line_arguments():
     parser = argparse.ArgumentParser(description='KZorp daemon')
     parser.add_argument("-F", "--foreground", action="store_true", dest="foreground", default=False,
                         help='do not go into the background after initialization (default: %(default)s)')
-    parser.add_argument('-N', '--no-caps', '--foreground', action="store_true", dest="do_not_manage_caps", default=False,
+    parser.add_argument('-N', '--no-caps', action="store_true", dest="do_not_manage_caps", default=False,
                         help='Disable managing Linux capabilities (default: %(default)s)')
     parser.add_argument('-v', '--verbose', action='store', dest='verbose', type=int, default=3,
                         help='set verbosity level (default: %(default)d)')
