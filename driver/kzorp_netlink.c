@@ -4163,6 +4163,7 @@ error:
 }
 
 enum {
+	RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER,
 	RULE_COUNTERS_DUMP_ARG_CURRENT_RULE,
 	RULE_COUNTERS_DUMP_ARG_STATE,
 	RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION,
@@ -4178,8 +4179,8 @@ static int
 kznl_dump_rule_counters(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	const struct kz_config * cfg;
-	unsigned int i = 0;
-	const struct kz_dispatcher *dispatcher;
+	unsigned int rule_num;
+	const struct kz_dispatcher *dispatcher = NULL;
 	struct kz_dispatcher_n_dimension_rule *rule;
 
 	/* check if we've finished the dump */
@@ -4190,22 +4191,31 @@ kznl_dump_rule_counters(struct sk_buff *skb, struct netlink_callback *cb)
 	cfg = rcu_dereference(kz_config_rcu);
 	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] == RULE_COUNTERS_DUMP_STATE_FIRST_CALL ||
 	    !kz_generation_valid(cfg, cb->args[RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION])) {
+		cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER] = 0;
 		cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE] = 0;
 		cb->args[RULE_COUNTERS_DUMP_ARG_STATE] = RULE_COUNTERS_DUMP_STATE_HAVE_CONFIG;
 		cb->args[RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
 	}
 
-	i = cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE];
+	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] != RULE_COUNTERS_DUMP_STATE_FIRST_CALL)
+		list_find(dispatcher, &cfg->dispatchers.head, list, (struct kz_dispatcher *) cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER]);
 
-	kz_debug("current_rule=%ld, arg_state=%ld", cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE], cb->args[RULE_COUNTERS_DUMP_ARG_STATE]);
-	dispatcher = list_first_entry(&cfg->dispatchers.head, struct kz_dispatcher, list);
-        for (; i < dispatcher->num_rule; i++) {
-		rule = &dispatcher->rule[i];
-		if (kznl_build_rule_count(skb, get_skb_portid(NETLINK_CB(cb->skb)),
-				  cb->nlh->nlmsg_seq, 0, rule) < 0) {
-			/* rule counter dump failed, try to continue from here next time */
-			cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE] = i;
-			goto out;
+	list_prepare_entry(dispatcher, &cfg->dispatchers.head, list);
+	list_for_each_entry_continue(dispatcher, &cfg->dispatchers.head, list) {
+		if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] != RULE_COUNTERS_DUMP_STATE_FIRST_CALL &&
+		    dispatcher == (const struct kz_dispatcher *) cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER])
+			rule_num = cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE];
+		else
+			rule_num = 0;
+
+		for (; rule_num < dispatcher->num_rule; rule_num++) {
+			rule = &dispatcher->rule[rule_num];
+			if (kznl_build_rule_count(skb, get_skb_portid(NETLINK_CB(cb->skb)),
+					  cb->nlh->nlmsg_seq, 0, rule) < 0) {
+				/* rule counter dump failed, try to continue from here next time */
+				cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE] = rule_num;
+				goto out;
+			}
 		}
 	}
 
