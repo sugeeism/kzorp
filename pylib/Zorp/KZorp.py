@@ -101,7 +101,7 @@ class RuleDownload(kzorp.communication.Adapter):
         super(RuleDownload, self).__init__(instance_name)
 
     def initial(self, messages):
-        self.send_messages_in_transaction([kzorp.messages.KZorpFlushDispatchersMessage(), ] + messages)
+        self.send_messages_in_transaction([kzorp.messages.KZorpFlushDispatchersMessage(), kzorp.messages.KZorpFlushServicesMessage(), ] + messages)
 
     def update(self, messages):
         self.send_messages_in_transaction(messages)
@@ -136,6 +136,8 @@ class BindDownload(kzorp.communication.Adapter):
 
 
 def downloadKZorpConfig(instance_name, is_master):
+    if not is_master:
+        return
     with RuleDownload(instance_name) as rule_download:
         messages = []
         for service in Globals.services.values():
