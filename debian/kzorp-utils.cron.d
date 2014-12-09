@@ -1,1 +1,1 @@
-5 * * * *       /usr/sbin/kzorp-stats-updater
+*/5 * * * *       /usr/sbin/kzorp-stats-updater
