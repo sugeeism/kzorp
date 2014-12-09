@@ -18,118 +18,135 @@
 
 import sys
 sys.dont_write_bytecode = True
-import time
 import csv
 import os
-import kzorp.communication
+
+class Counter(object):
+    def __init__(self, id, timestamp, count):
+        self.id = id if type(id) is str else long(id)
+        self.timestamp = timestamp
+        self.count = long(count)
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __cmp__(self, other):
+        return cmp(self.id, other.id)
+
 
 class DumpBase():
-    def __init__(self, msg):
-        self.msg = msg
-        self.replies = []
+    def __init__(self, dump_message, id_name_in_reply_message):
+        self.dump_message = dump_message
+        self.id_name_in_reply_message = id_name_in_reply_message
 
     def dump(self):
+        import kzorp.communication
+        import kzorp.netlink
+
+        replies = []
         try:
             handle = kzorp.communication.Handle()
-            for reply in handle.dump(self.msg):
-                self.replies.append(reply)
-        except netlink.NetlinkException as e:
+            for reply in handle.dump(self.dump_message):
+                replies.append(reply)
+        except kzorp.netlink.NetlinkException as e:
             res = int(e.detail)
             sys.stderr.write("Dump failed: result='%d' error='%s'\n" % (res, os.strerror(-res)))
-            return 1
+            return set()
 
-        return 0
+        import time
+        timestamp = time.time()
+        counts = set()
+        for reply in replies:
+            counts.add(Counter(id=getattr(reply, self.id_name_in_reply_message), timestamp=timestamp, count=reply.count))
 
-    def get_data(self, index, old_counters, count, timestamp):
-        if index in old_counters:
-            if old_counters[index]['count'] == count or count == 0:
-                timestamp = old_counters[index]['timestamp']
-        return [index, timestamp, count]
+        return counts
+
 
 class DumpRuleCounters(DumpBase):
-    def __init__(self, old_rule_counters, timestamp):
-        DumpBase.__init__(self, kzorp.messages.KZorpGetRuleCounterMessage())
-        self.old_rule_counters = old_rule_counters
-        self.timestamp = timestamp
-
-    def dump(self):
-        if DumpBase.dump(self):
-            return None
-
-        replies = []
-        for reply in self.replies:
-            replies.append(self.get_data(str(reply.rule_id), self.old_rule_counters, reply.count, self.timestamp))
-        return replies
+    def __init__(self):
+        import kzorp.messages
+        DumpBase.__init__(self, kzorp.messages.KZorpGetRuleCounterMessage(), 'rule_id')
 
 class DumpZoneCounters(DumpBase):
-    def __init__(self, old_zone_counters, timestamp):
-        DumpBase.__init__(self, kzorp.messages.KZorpGetZoneCounterMessage())
-        self.old_zone_counters = old_zone_counters
-        self.timestamp = timestamp
+    def __init__(self):
+        import kzorp.messages
+        DumpBase.__init__(self, kzorp.messages.KZorpGetZoneCounterMessage(), 'name')
 
-    def dump(self):
-        if DumpBase.dump(self):
-            return None
+class CounterCSVUpdater(object):
+    csv_params = {
+                   'fieldnames' : ['timestamp', 'count', 'id'],
+                   'quoting'    : csv.QUOTE_NONNUMERIC,
+                   'quotechar'  : '|',
+                   'delimiter'  : '\t',
+                 }
 
-        replies = []
-        for reply in self.replies:
-            replies.append(self.get_data(reply.name, self.old_zone_counters, reply.count, self.timestamp))
-        return replies
+    def __init__(self, filename, counter_dumper):
+        self.filename = filename
+        self.counter_dumper = counter_dumper
 
-def write_counters(filename, counter_data, current_time):
-    try:
-        with open(filename+".new", 'w') as f:
-            csvwriter = csv.writer(f)
-            for data in counter_data:
-                csvwriter.writerow([data[0], data[1], data[2]])
-    except IOError, e:
-        sys.stderr.write("Error writing file; file='%s', error='%s'", (filename, e.strerror()))
-        return
+    def update(self):
+        old_counters = self.__read_counters()
+        actual_counters = self.counter_dumper.dump()
+        updated_counters = self.__update_couters(old_counters, actual_counters)
+        self.__write_counters(updated_counters)
 
-    os.rename(filename+".new", filename)
+    def __update_couters(self, old_counters, actual_counters):
+        updated_counters = set()
 
-def read_counters(filename):
-    counters = {}
-    try:
-        with open(filename, 'r') as f:
-            csvreader = csv.reader(f)
-            try:
+        for counter in old_counters:
+            is_countable_still_exist = counter in actual_counters
+            if is_countable_still_exist:
+                updated_counters.add(counter)
+
+        for counter in actual_counters:
+            has_up_to_date_count = counter not in updated_counters or counter.count > 0
+            if  has_up_to_date_count:
+                if counter in updated_counters:
+                    updated_counters.remove(counter)
+                updated_counters.add(counter)
+
+        return updated_counters
+
+    def __write_counters(self, counters):
+        try:
+            with open(self.filename + '.new', 'w') as f:
+                csvwriter = csv.DictWriter(f, **CounterCSVUpdater.csv_params)
+                csvwriter.writeheader()
+                for counter in counters:
+                    csvwriter.writerow({'id' : counter.id, 'timestamp' : counter.timestamp, 'count' : counter.count})
+        except IOError as e:
+            sys.stderr.write("Error writing file; file='%s', error='%s'\n", (self.filename, e.strerror()))
+            return
+
+        os.rename(self.filename + ".new", self.filename)
+
+    def __read_counters(self):
+        counters = set()
+        try:
+            with open(self.filename, 'r') as f:
+                csvreader = csv.DictReader(f, **CounterCSVUpdater.csv_params)
                 for row in csvreader:
-                    counters[row[0]] = {'timestamp':row[1], 'count':long(row[2])}
-            except csv.Error, e:
-                sys.stderr.write("Error reading file; file='%s', line='%d', error='%s'" % (filename, csvreader.line_num, e))
+                    if set(row.values()) == set(self.csv_params['fieldnames']):
+                        continue
+                    try:
+                        counters.add(Counter(**row))
+                    except (csv.Error, ValueError) as e:
+                        sys.stderr.write("Error reading file; file='%s', line='%d', error='%s'\n" % (self.filename, csvreader.line_num, e))
+        except IOError as e:
+            sys.stderr.write("Error reading file; file='%s', error='%s'\n" % (self.filename, e.strerror))
 
-    except IOError, e:
-        sys.stderr.write("Error reading file; file='%s', error='%s'", (filename, e.strerror()))
+        return counters
 
-    return counters
 
 def main(args):
     rule_filename = "/var/lib/zorp/kzorp/rule_statistics"
     zone_filename = "/var/lib/zorp/kzorp/zone_statistics"
 
-    old_rule_counters = {}
-    old_zone_counters = {}
-    if os.path.isfile(rule_filename):
-        old_rule_counters = read_counters(rule_filename)
-        if not old_rule_counters:
-            return 1
-
-    if os.path.isfile(zone_filename):
-        old_zone_counters = read_counters(zone_filename)
-        if not old_zone_counters:
-            return 1
-
-    current_time = time.time()
-    rule_counters = DumpRuleCounters(old_rule_counters, current_time).dump()
-    if not rule_counters:
-        return 1
-    zone_counters = DumpZoneCounters(old_zone_counters, current_time).dump()
-    if not zone_counters:
-        return 1
-
-    write_counters(rule_filename, rule_counters, current_time)
-    write_counters(zone_filename, zone_counters, current_time)
+    CounterCSVUpdater(zone_filename, DumpZoneCounters()).update()
+    CounterCSVUpdater(rule_filename, DumpRuleCounters()).update()
 
 if __name__ == "__main__":
     res = main(sys.argv)
