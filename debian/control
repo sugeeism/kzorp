@@ -35,7 +35,7 @@ Depends: ${misc:Depends},
          python-all (>= 2.7),
          python-support (>= 0.90),
          python-kzorp (= ${source:Version}),
-         kzorp-dkms
+         zorp-kernel-module
 Conflicts: kzorp (< 6.0)
 Replaces: kzorp (< 6.0)
 Description: mixed packet filter/application level gateway 
@@ -59,6 +59,7 @@ Architecture: all
 Section: kernel
 Depends: ${misc:Depends}, dkms (>= 1.95)
 Conflicts: kzorp
+Provides: zorp-kernel-module
 Description: mixed packet filter/application level gateway, kernel module
  Kzorp is a open source set of mechanisms to implement mixed
  packet filter/application level gateway functionality on Linux.
@@ -74,12 +75,13 @@ Depends: ${misc:Depends},
          python-all (>= 2.7),
          python-support (>= 0.90),
          python-daemon,
-         kzorp-dkms (= ${source:Version}),
+         zorp-kernel-module,
          python-kzorp (= ${source:Version}),
          python-zorp-base
 Recommends: python-prctl
 Conflicts: kzorp (< 6.0), kzorp-dkms
 Replaces: kzorp (< 6.0)
+Provides: zorp-kernel-module
 Description: Python bindings for kzorp.
  Zorp is a new generation firewall. It is essentially a transparent proxy
  firewall, with strict protocol analyzing proxies, a modular architecture,
