@@ -938,7 +938,7 @@ service_assign_session_id(const struct nf_conn *ct,
 				       ct, kzorp);
 		return false;
 	} else {
-		patch_kzorp(kzorp)->sid = atomic_add_return(1, &svc->count);
+		patch_kzorp(kzorp)->sid = atomic64_add_return(1, &svc->count);
 	}
 
 	return true;

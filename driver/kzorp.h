@@ -262,7 +262,7 @@ struct kz_service {
 	unsigned int id;
 	unsigned int instance_id;
 	unsigned int flags;
-	atomic_t count;
+	atomic64_t count;
 	enum kz_service_type type;
 	union {
 		struct kz_service_info_fwd fwd;
@@ -457,7 +457,7 @@ extern struct kz_service *kz_service_lookup_name(const struct kz_config *cfg, co
 extern int kz_service_add_nat_entry(struct list_head *head, NAT_RANGE_TYPE *src,
 				    NAT_RANGE_TYPE *dst, NAT_RANGE_TYPE *map);
 extern struct kz_service *kz_service_clone(const struct kz_service * const o);
-extern int kz_service_lock(struct kz_service * const service);
+extern long kz_service_lock(struct kz_service * const service);
 extern void kz_service_unlock(struct kz_service * const service);
 
 static inline struct kz_service *kz_service_get(struct kz_service *service)

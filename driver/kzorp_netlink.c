@@ -702,11 +702,11 @@ kznl_parse_service_nat_params(const struct nlattr *attr, NAT_RANGE_TYPE *range)
 }
 
 static inline int
-kznl_parse_service_session_cnt(const struct nlattr *attr, u_int32_t *count)
+kznl_parse_service_session_cnt(const struct nlattr *attr, u_int64_t *count)
 {
 	struct kza_service_session_cnt *a = nla_data(attr);
 
-	*count = ntohl(a->count);
+	*count = be64_to_cpu(a->count);
 
 	return 0;
 }
@@ -1136,7 +1136,7 @@ kz_commit_transaction_process_services(const struct kz_transaction *tr, struct k
 			return -ENOMEM;
 		kz_debug("cloned service; name='%s'\n", svc->name);
 		list_add_tail(&svc->list, &new->services.head);
-		atomic_set(&svc->count, kz_service_lock(i));
+		atomic64_set(&svc->count, kz_service_lock(i));
 	}
 
 	/* add services in the transaction */
@@ -1150,7 +1150,7 @@ kz_commit_transaction_process_services(const struct kz_transaction *tr, struct k
 			orig = kz_service_lookup_name(old, svc->name);
 			if (orig != NULL) {
 				kz_debug("migrate service session count\n");
-				atomic_set(&svc->count, kz_service_lock(orig));
+				atomic64_set(&svc->count, kz_service_lock(orig));
 				svc->id = orig->id; /* use the original ID! */
 			}
 		}
@@ -2028,7 +2028,7 @@ kznl_recv_add_service(struct sk_buff *skb, struct genl_info *info)
 	int res = 0;
 	struct kz_service *svc, *p;
 	struct kz_transaction *tr;
-	u_int32_t count;
+	u_int64_t count;
 
 	if (!info->attrs[KZNL_ATTR_SERVICE_PARAMS] || !info->attrs[KZNL_ATTR_SERVICE_NAME]) {
 		kz_err("required attributes missing\n");
@@ -2092,7 +2092,7 @@ kznl_recv_add_service(struct sk_buff *skb, struct genl_info *info)
 			kz_err("failed to parse session counter\n");
 			goto error_put_svc;
 		}
-		atomic_set(&svc->count, count);
+		atomic64_set(&svc->count, count);
 	}
 
 	switch (svc->type) {
@@ -2376,7 +2376,7 @@ kznl_build_service_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, i
 		break;
 	}
 
-	cnt.count = htonl(atomic_read(&svc->count));
+	cnt.count = cpu_to_be64(atomic64_read(&svc->count));
 	if (nla_put(skb, KZNL_ATTR_SERVICE_SESSION_CNT, sizeof(cnt), &cnt))
 		goto nla_put_failure;
 
