@@ -287,7 +287,7 @@ transaction_bind_lookup(const struct kz_transaction * const tr,
  * order, failing to do so is an error. Because of this, this function
  * simply checks if the rule ID of the rule last added matches @id.
  */
-static struct kz_dispatcher_n_dimension_rule *
+static struct kz_rule *
 transaction_rule_lookup(const struct kz_transaction * const tr,
 			const char *dispatcher_name, u_int32_t id)
 {
@@ -298,7 +298,7 @@ transaction_rule_lookup(const struct kz_transaction * const tr,
 	list_for_each_entry(i, &tr->op, list) {
 		if (i->type == KZNL_OP_ADD_DISPATCHER) {
 			struct kz_dispatcher *d;
-			struct kz_dispatcher_n_dimension_rule *rule = NULL;
+			struct kz_rule *rule = NULL;
 
 			d = (struct kz_dispatcher *) i->data;
 
@@ -778,7 +778,7 @@ kznl_parse_dispatcher_n_dimension(const struct nlattr *attr, struct kz_dispatche
 
 static int
 kznl_parse_dispatcher_n_dimension_rule(const struct nlattr *attr,
-				       struct kz_dispatcher_n_dimension_rule *rule)
+				       struct kz_rule *rule)
 {
 	struct kza_n_dimension_rule_params *a = nla_data(attr);
 
@@ -793,9 +793,9 @@ kznl_parse_dispatcher_n_dimension_rule(const struct nlattr *attr,
 
 static int
 kznl_parse_dispatcher_n_dimension_rule_entry(const struct nlattr *attr,
-					     struct kz_dispatcher_n_dimension_rule_entry_params *rule_entry)
+					     struct kz_rule_entry_params *rule_entry)
 {
-	struct kz_dispatcher_n_dimension_rule_entry_params *a = nla_data(attr);
+	struct kz_rule_entry_params *a = nla_data(attr);
 	rule_entry->rule_id = ntohl(a->rule_id);
 	return 0;
 }
@@ -2646,7 +2646,7 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 	enum kznl_attr_types attr_type;
 	struct kz_dispatcher *dpt;
 	struct kz_transaction *tr;
-	struct kz_dispatcher_n_dimension_rule rule;
+	struct kz_rule rule;
 
 	if (!info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID]) {
 		kz_err("required attribtues missing; attr='rule id'\n");
@@ -2679,7 +2679,7 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	/* parse attributes */
-	memset(&rule, 0, sizeof(struct kz_dispatcher_n_dimension_rule));
+	memset(&rule, 0, sizeof(struct kz_rule));
 
 	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule);
 	if (res < 0) {
@@ -2819,8 +2819,8 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 	enum kznl_attr_types attr_type;
 	struct kz_dispatcher *dpt;
 	struct kz_transaction *tr;
-	struct kz_dispatcher_n_dimension_rule *rule;
-	struct kz_dispatcher_n_dimension_rule_entry_params rule_entry;
+	struct kz_rule *rule;
+	struct kz_rule_entry_params rule_entry;
 
 	if (!info->attrs[KZNL_ATTR_DISPATCHER_NAME]) {
 		kz_err("required attribtues missing; attr='dispatcher name'\n");
@@ -3433,7 +3433,7 @@ static int
 kznl_build_dispatcher_add_rule_entry(struct sk_buff *skb, u_int32_t pid, u_int32_t seq,
 				     int flags, enum kznl_msg_types msg,
 				     const struct kz_dispatcher * const dpt,
-				     const struct kz_dispatcher_n_dimension_rule *rule,
+				     const struct kz_rule *rule,
 				     u_int32_t entry_num)
 {
 	void *hdr;
@@ -3466,7 +3466,7 @@ static int
 kznl_build_dispatcher_add_rule(struct sk_buff *skb, u_int32_t pid, u_int32_t seq,
 			       int flags, enum kznl_msg_types msg,
 			       const struct kz_dispatcher *dpt,
-			       const struct kz_dispatcher_n_dimension_rule *rule)
+			       const struct kz_rule *rule)
 {
 	void *hdr;
 
@@ -3555,7 +3555,7 @@ kznl_build_dispatcher(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int fla
 	/* dump rule structures */
 	for (; (*part_idx) <= (long) dpt->num_rule; ++(*part_idx)) {
 		u_int32_t max_entry_num = 0;
-		const struct kz_dispatcher_n_dimension_rule *rule = &dpt->rule[(*part_idx) - 1];
+		const struct kz_rule *rule = &dpt->rule[(*part_idx) - 1];
 		kz_debug("part_idx=%ld, rule_entry_idx=%ld", *part_idx, *rule_entry_idx);
 
 		if (*rule_entry_idx == 0) {
@@ -4052,7 +4052,7 @@ error:
 
 static int
 kznl_build_rule_count(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
-		      const struct kz_dispatcher_n_dimension_rule *rule)
+		      const struct kz_rule *rule)
 {
 	unsigned char *msg_start, *msg_rollback;
 	void *hdr;
@@ -4091,8 +4091,8 @@ static int
 kznl_recv_get_rule_counter(struct sk_buff *skb, struct genl_info *info)
 {
 	int res = 0;
-	struct kz_dispatcher_n_dimension_rule rule;
-	struct kz_dispatcher_n_dimension_rule *found_rule = NULL;
+	struct kz_rule rule;
+	struct kz_rule *found_rule = NULL;
 	struct sk_buff *nskb = NULL;
 	const struct kz_config * cfg;
 	const struct kz_dispatcher *dispatcher;
@@ -4106,7 +4106,7 @@ kznl_recv_get_rule_counter(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	/* parse attributes */
-	memset(&rule, 0, sizeof(struct kz_dispatcher_n_dimension_rule));
+	memset(&rule, 0, sizeof(struct kz_rule));
 
 	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule);
 	if (res < 0) {
@@ -4180,7 +4180,7 @@ kznl_dump_rule_counters(struct sk_buff *skb, struct netlink_callback *cb)
 	const struct kz_config * cfg;
 	unsigned int rule_num;
 	const struct kz_dispatcher *dispatcher = NULL;
-	struct kz_dispatcher_n_dimension_rule *rule;
+	struct kz_rule *rule;
 
 	/* check if we've finished the dump */
 	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] == RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK)

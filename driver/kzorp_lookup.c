@@ -338,7 +338,7 @@ dpt_ndim_rule_sort_zones(unsigned int n, struct kz_zone **r)
 }
 
 static int
-dpt_ndim_rule_sort(struct kz_dispatcher_n_dimension_rule *rule)
+dpt_ndim_rule_sort(struct kz_rule *rule)
 {
 	int res;
 
@@ -1049,7 +1049,7 @@ enum KZORP_DIMENSIONS {
 #define generate_dim_portrange generate_dim_value
 
 KZ_PROTECTED size_t
-kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * const rule)
+kz_generate_lookup_data_rule_size(const struct kz_rule * const rule)
 {
 	size_t rule_size = sizeof(struct kz_rule_lookup_data);
 
@@ -1064,7 +1064,7 @@ kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * 
 }
 
 KZ_PROTECTED struct kz_rule_lookup_data *
-kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const rule, void *buf)
+kz_generate_lookup_data_rule(const struct kz_rule * const rule, void *buf)
 {
 	void *pos = buf;
 	int map = 0;
@@ -1304,7 +1304,7 @@ kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 	return lenv->result_size = out_idx;
 }
 
-static const struct kz_dispatcher_n_dimension_rule *
+static const struct kz_rule *
 kz_ndim_lookup_get_best_match(struct kz_percpu_env *lenv) {
 	const char *eval_result;
 	size_t result_rule_idx;
@@ -1360,7 +1360,7 @@ kz_ndim_lookup(const struct kz_head_d * const dispatchers,
 	       struct kz_dispatcher **dispatcher)
 {
 	struct kz_percpu_env *lenv;
-	const struct kz_dispatcher_n_dimension_rule *rule;
+	const struct kz_rule *rule;
 	u_int32_t rule_id;
 
 	kz_debug("src_zone='%s', dst_zone='%s'\n",

@@ -174,7 +174,7 @@ struct kz_in6_subnet {
 	struct in6_addr mask;
 };
 
-struct kz_dispatcher_n_dimension_rule_entry_params {
+struct kz_rule_entry_params {
 	u_int32_t rule_id;
 
 #define DECLARE_RULE_ENTRY_PARAM(DIM_NAME, _, TYPE, ...) \
@@ -191,7 +191,7 @@ struct kz_dispatcher_n_dimension_rule_entry_params {
 	u_int32_t num_##DIM_NAME; \
 	DIM_TYPE *DIM_NAME;
 
-struct kz_dispatcher_n_dimension_rule {
+struct kz_rule {
 	u_int32_t id;
 	atomic64_t count;
 
@@ -223,7 +223,7 @@ struct kz_dispatcher {
 
 	unsigned int alloc_rule;
 	unsigned int num_rule;
-	struct kz_dispatcher_n_dimension_rule *rule;
+	struct kz_rule *rule;
 	enum KZ_ALLOC_TYPE rule_allocator;
 
 	char *name;
@@ -472,8 +472,8 @@ static inline void kz_service_put(struct kz_service *service)
 		kz_service_destroy(service);
 }
 
-extern int kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
-			const struct kz_dispatcher_n_dimension_rule * const src);
+extern int kz_rule_copy(struct kz_rule *dst,
+			const struct kz_rule * const src);
 
 extern struct kz_dispatcher *kz_dispatcher_new(void);
 extern void kz_dispatcher_destroy(struct kz_dispatcher *);
@@ -481,9 +481,9 @@ extern struct kz_dispatcher *kz_dispatcher_lookup_name(const struct kz_config *c
 extern int kz_dispatcher_add_css(struct kz_dispatcher *d, struct kz_zone *client,
 				 struct kz_zone *server, struct kz_service *service);
 extern int kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
-				  const struct kz_dispatcher_n_dimension_rule * const rule_params);
-extern int kz_dispatcher_add_rule_entry(struct kz_dispatcher_n_dimension_rule *rule,
-					const struct kz_dispatcher_n_dimension_rule_entry_params * const rule_entry_params);
+				  const struct kz_rule * const rule_params);
+extern int kz_dispatcher_add_rule_entry(struct kz_rule *rule,
+					const struct kz_rule_entry_params * const rule_entry_params);
 extern int kz_dispatcher_alloc_rule_array(struct kz_dispatcher *dispatcher, size_t alloc_rules);
 extern int kz_dispatcher_copy_rules(struct kz_dispatcher *dst, const struct kz_dispatcher * const src);
 extern struct kz_dispatcher *kz_dispatcher_clone(const struct kz_dispatcher * const o);
