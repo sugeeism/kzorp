@@ -484,8 +484,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 				    &traffic_props,
 				    &czone, &szone,
 				    &svc, &dpt,
-				    (ctinfo >= IP_CT_IS_REPLY),
-				    true);
+				    (ctinfo >= IP_CT_IS_REPLY));
 
 done:
 #define REPLACE_PTR(name, type) \

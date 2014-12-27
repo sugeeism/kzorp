@@ -652,8 +652,7 @@ extern u_int32_t kz_lookup_session(const struct kz_config *cfg,
 				   struct kz_zone **clientzone, struct kz_zone **serverzone,
 				   struct kz_service **service,
 				   struct kz_dispatcher **dispatcher,
-				   int reply,
-				   bool do_accounting);
+				   int reply);
 
 /***********************************************************
  * Netlink functions
