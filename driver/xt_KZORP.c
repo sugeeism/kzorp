@@ -937,9 +937,9 @@ service_assign_session_id(const struct nf_conn *ct,
 		kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Service is locked during reload",
 				       ct, kzorp);
 		return false;
+	} else {
+		patch_kzorp(kzorp)->sid = atomic_add_return(1, &svc->count);
 	}
-	else
-		patch_kzorp(kzorp)->sid = atomic_add_return(1, &svc->session_cnt);
 
 	return true;
 }

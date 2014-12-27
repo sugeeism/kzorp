@@ -754,7 +754,7 @@ kz_service_new(void)
 		return NULL;
 
 	atomic_set(&service->refcnt, 1);
-	atomic_set(&service->session_cnt, 0);
+	atomic_set(&service->count, 0);
 
 	service->id = atomic_inc_return(&service_id_cnt);
 
@@ -887,7 +887,7 @@ kz_service_lock(struct kz_service * const service)
 {
 	/* lock service session counter */
 	set_bit(KZ_SERVICE_CNT_LOCKED_BIT, (unsigned long *)&service->flags);
-	return atomic_read(&service->session_cnt);
+	return atomic_read(&service->count);
 }
 
 void

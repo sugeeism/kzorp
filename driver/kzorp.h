@@ -262,7 +262,7 @@ struct kz_service {
 	unsigned int id;
 	unsigned int instance_id;
 	unsigned int flags;
-	atomic_t session_cnt;
+	atomic_t count;
 	enum kz_service_type type;
 	union {
 		struct kz_service_info_fwd fwd;
