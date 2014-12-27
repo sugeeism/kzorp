@@ -1113,11 +1113,6 @@ kz_postrouting_newconn_verdict(struct sk_buff *skb,
 	struct kz_service *svc = kzorp->svc;
 	struct kz_zone *szone = kzorp->szone;
 
-	/* assign session id and do SNAT on new connections */
-	if ((svc != NULL) && (kzorp->sid == 0))
-		if (!service_assign_session_id(ct, kzorp))
-			return NF_DROP;
-
 	if (dpt != NULL && svc != NULL) {
 		if (svc->type == KZ_SERVICE_FORWARD)
 			return process_forwarded_session(NF_INET_POST_ROUTING, skb, in, out, cfg,
