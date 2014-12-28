@@ -87,6 +87,7 @@ ret_false:
 	goto done;
 ret_true:
 	res = true;
+	kz_service_count_inc(kzorp->svc);
 done:
 	if (kzorp == &local_kzorp)
 		kz_destroy_kzorp(&local_kzorp);

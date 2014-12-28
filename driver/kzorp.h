@@ -734,6 +734,20 @@ enum {
 	KZL_FUNC_DEBUG		= 32,	/* function startup, control path  */
 	KZL_FUNC_EXTRA_DEBUG    = 64,   /* basically same as KZL_FUNC_DEBUG, lots of log */
 };
+
+/***********************************************************
+ * Accounting
+ ***********************************************************/
+
+#define kz_object_count_inc(object_name) \
+static inline long kz_##object_name##_count_inc(struct kz_##object_name *object_name) \
+{ \
+	return atomic64_inc_return(&object_name->count); \
+}
+
+kz_object_count_inc(zone)
+kz_object_count_inc(rule)
+kz_object_count_inc(service)
 #endif
 
 /***********************************************************
