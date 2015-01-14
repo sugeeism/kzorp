@@ -21,6 +21,7 @@ enum xt_service_type {
 	XT_SERVICE_TYPE_ANY = 0,
 	XT_SERVICE_TYPE_PROXY,
 	XT_SERVICE_TYPE_FORWARD,
+	XT_SERVICE_TYPE_DENY,
 };
 
 enum {
