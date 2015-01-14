@@ -65,7 +65,8 @@ service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	    p_svc->id != info->service_id)
 		goto ret_false;
 
-	kz_service_count_inc(kzorp->svc);
+	if ((info->flags & XT_SERVICE_NOCOUNT) == 0)
+		kz_service_count_inc(kzorp->svc);
 	goto done;
 ret_false:
 	res = false;

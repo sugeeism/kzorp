@@ -47,6 +47,7 @@ struct xt_service_info {
 
 struct xt_service_info_v2 {
 	u_int8_t type;
+	u_int8_t flags;
 	u_int8_t name_match;
 	unsigned char name[XT_SERVICE_NAME_LENGTH + 1];
 
