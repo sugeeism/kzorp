@@ -54,7 +54,8 @@ zone_mt_v1_eval(const struct sk_buff *skb, const struct xt_zone_info_v1 *info, c
 	goto done;
 ret_true:
 	res = true;
-	kz_zone_count_inc(zone);
+	if ((info->flags & IPT_ZONE_NOCOUNT) == 0)
+		kz_zone_count_inc(zone);
 done:
 	if (kzorp == &local_kzorp)
 		kz_destroy_kzorp(&local_kzorp);

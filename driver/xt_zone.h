@@ -19,9 +19,10 @@
  */
 /* flags */
 enum {
-	IPT_ZONE_SRC = 1,
-	IPT_ZONE_CHILDREN = 2,
-	IPT_ZONE_UMBRELLA = 4,
+	IPT_ZONE_SRC		= 1 << 0,
+	IPT_ZONE_CHILDREN 	= 1 << 1,
+	IPT_ZONE_UMBRELLA	= 1 << 2,
+	IPT_ZONE_NOCOUNT	= 1 << 3,
 };
 
 #define IPT_ZONE_NAME_LENGTH 126
