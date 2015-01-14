@@ -29,7 +29,7 @@ rule_mt_v0_eval(const struct sk_buff *skb, const struct ipt_rule_info_v0 *info, 
 	rcu_read_unlock();
 
 	res &= (kzorp->rule_id == info->id);
-	if (res)
+	if (res && (info->flags & IPT_RULE_NOCOUNT) == 0)
 		kz_rule_count_inc(kzorp->dpt->rule);
 	kz_debug("match calculation has finished; flags='%x', rule_id='%d', result='%d'", info->flags, info->id, res);
 

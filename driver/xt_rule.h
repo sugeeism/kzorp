@@ -19,7 +19,8 @@
  */
 
 enum {
-	IPT_RULE_ID = 1 << 0,
+	IPT_RULE_ID		= 1 << 0,
+	IPT_RULE_NOCOUNT	= 1 << 1,
 };
 
 struct ipt_rule_info_v0 {
