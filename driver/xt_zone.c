@@ -18,7 +18,7 @@
 #include "kzorp.h"
 
 static bool
-zone_mt_v1_eval(const struct sk_buff *skb, const struct ipt_zone_info_v1 *info, const struct xt_action_param *par)
+zone_mt_v1_eval(const struct sk_buff *skb, const struct xt_zone_info_v1 *info, const struct xt_action_param *par)
 {
 	struct kz_zone *zone;
 	const struct nf_conntrack_kzorp *kzorp;
@@ -62,18 +62,24 @@ done:
 }
 
 static bool
+zone_mt_v2(const struct sk_buff *skb, struct xt_action_param *par)
+{
+	return zone_mt_v1_eval(skb, (const struct xt_zone_info_v1 *) par->matchinfo, par);
+}
+
+static bool
 zone_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	return zone_mt_v1_eval(skb, (const struct ipt_zone_info_v1 *) par->matchinfo, par);
+	return zone_mt_v1_eval(skb, (const struct xt_zone_info_v1 *) par->matchinfo, par);
 }
 
 static bool
 zone_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	const struct ipt_zone_info *oldinfo = (const struct ipt_zone_info *) par->matchinfo;
-	/* would be ipt_zone_info_v1 directly, but that may exceed stack limit; we only need 1 entry*/
-	unsigned char buf[16 + offsetof(struct ipt_zone_info_v1, names) + sizeof(oldinfo->name)];
-	struct ipt_zone_info_v1 *info = (struct ipt_zone_info_v1 *) &buf[0];
+	const struct xt_zone_info *oldinfo = (const struct xt_zone_info *) par->matchinfo;
+	/* would be xt_zone_info_v1 directly, but that may exceed stack limit; we only need 1 entry*/
+	unsigned char buf[16 + offsetof(struct xt_zone_info_v1, names) + sizeof(oldinfo->name)];
+	struct xt_zone_info_v1 *info = (struct xt_zone_info_v1 *) &buf[0];
 
 	info->flags = oldinfo->flags;
 	info->count = 1;
@@ -87,7 +93,7 @@ static struct xt_match xt_zone_match[] __read_mostly = {
 		.name		= "zone",
 		.family		= NFPROTO_IPV4,
 		.match		= zone_mt_v0,
-		.matchsize	= sizeof(struct ipt_zone_info),
+		.matchsize	= sizeof(struct xt_zone_info),
 		.me		= THIS_MODULE,
 	},
 	{
@@ -95,7 +101,7 @@ static struct xt_match xt_zone_match[] __read_mostly = {
 		.revision	= 1,
 		.family		= NFPROTO_IPV4,
 		.match		= zone_mt_v1,
-		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.matchsize	= sizeof(struct xt_zone_info_v1),
 		.me		= THIS_MODULE,
 	},
 	{
@@ -103,25 +109,26 @@ static struct xt_match xt_zone_match[] __read_mostly = {
 		.revision	= 1,
 		.family		= NFPROTO_IPV6,
 		.match		= zone_mt_v1,
-		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.matchsize	= sizeof(struct xt_zone_info_v1),
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "zone",
 		.revision	= 2,
 		.family		= NFPROTO_IPV4,
-		.match		= zone_mt_v1,
-		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.match		= zone_mt_v2,
+		.matchsize	= sizeof(struct xt_zone_info_v1),
 		.me		= THIS_MODULE,
 	},
 	{
 		.name		= "zone",
 		.revision	= 2,
 		.family		= NFPROTO_IPV6,
-		.match		= zone_mt_v1,
-		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.match		= zone_mt_v2,
+		.matchsize	= sizeof(struct xt_zone_info_v1),
 		.me		= THIS_MODULE,
 	},
+
 };
 
 static int __init zone_mt_init(void)

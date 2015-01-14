@@ -20,7 +20,7 @@
 static bool
 service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	struct ipt_service_info *info = (struct ipt_service_info *) par->matchinfo;
+	struct xt_service_info *info = (struct xt_service_info *) par->matchinfo;
 	const struct kz_service *s_svc, *p_svc;
 	const struct nf_conntrack_kzorp *kzorp;
 	struct nf_conntrack_kzorp local_kzorp;
@@ -97,7 +97,7 @@ done:
 static int
 service_mt_checkentry(const struct xt_mtchk_param *par)
 {
-	struct ipt_service_info *info = (struct ipt_service_info *) par->matchinfo;
+	struct xt_service_info *info = (struct xt_service_info *) par->matchinfo;
 
 	info->name[IPT_SERVICE_NAME_LENGTH] = 0;
 
@@ -126,7 +126,7 @@ static struct xt_match service_match[] = {
 		.family		= NFPROTO_IPV4,
 		.name		= "service",
 		.match		= service_mt,
-		.matchsize	= sizeof(struct ipt_service_info),
+		.matchsize	= sizeof(struct xt_service_info),
 		.checkentry	= service_mt_checkentry,
 		.me		= THIS_MODULE,
 	},
@@ -134,7 +134,7 @@ static struct xt_match service_match[] = {
 		.family		= NFPROTO_IPV6,
 		.name		= "service",
 		.match		= service_mt,
-		.matchsize	= sizeof(struct ipt_service_info),
+		.matchsize	= sizeof(struct xt_service_info),
 		.checkentry	= service_mt_checkentry,
 		.me		= THIS_MODULE,
 	},
