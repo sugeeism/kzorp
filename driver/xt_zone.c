@@ -105,6 +105,22 @@ static struct xt_match xt_zone_match[] __read_mostly = {
 		.matchsize	= sizeof(struct ipt_zone_info_v1),
 		.me		= THIS_MODULE,
 	},
+	{
+		.name		= "zone",
+		.revision	= 2,
+		.family		= NFPROTO_IPV4,
+		.match		= zone_mt_v1,
+		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.me		= THIS_MODULE,
+	},
+	{
+		.name		= "zone",
+		.revision	= 2,
+		.family		= NFPROTO_IPV6,
+		.match		= zone_mt_v1,
+		.matchsize	= sizeof(struct ipt_zone_info_v1),
+		.me		= THIS_MODULE,
+	},
 };
 
 static int __init zone_mt_init(void)

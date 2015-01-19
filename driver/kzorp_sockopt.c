@@ -34,12 +34,6 @@ static const char *const kz_log_null = "(NULL)";
 		}							\
 	}
 
-#define COPY_NUM_TO_USER(dst, dst_field_name, num)				\
-	if (copy_to_user(dst + offsetof(struct kz_lookup_result, dst_field_name), &(num), sizeof(num)) != 0) { \
-		res = -EFAULT;					\
-		goto error_put_ct;				\
-	}
-
 static int
 kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *user, int *len)
 {
@@ -133,7 +127,6 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 		if (kzorp->svc)
 			COPY_NAME_TO_USER(user, service_name, kzorp->svc->name);
 
-		COPY_NUM_TO_USER(user, rule_id, kzorp->rule_id);
 error_put_ct:
 		nf_ct_put(ct);
 
