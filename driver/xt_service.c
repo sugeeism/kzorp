@@ -25,8 +25,7 @@ service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	const struct nf_conntrack_kzorp *kzorp;
 	struct nf_conntrack_kzorp local_kzorp;
 	const struct kz_config *cfg = NULL;
-	const enum xt_service_type type = info->type;
-	bool res;
+	bool res = true;
 
 	/* NOTE: unlike previous version, we provide match even for invalid and --notrack packets */
 
@@ -59,36 +58,17 @@ service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 
 	kz_debug("service lookup done; type='%d', id='%u'\n", p_svc->type, p_svc->id);
 
-	switch (type) {
-	case XT_SERVICE_TYPE_PROXY:
-		if (p_svc->type != KZ_SERVICE_PROXY)
-			goto ret_false;
-		break;
-	case XT_SERVICE_TYPE_FORWARD:
-		if (p_svc->type != KZ_SERVICE_FORWARD)
-			goto ret_false;
-		break;
-	case XT_SERVICE_TYPE_ANY:
-		/* since info->type has been range-checked in
-		 * checkentry() default is equivalent to
-		 * XT_SERVICE_TYPE_ANY */
-		break;
-	}
+	if (info->type != XT_SERVICE_TYPE_ANY && p_svc->type != info->type)
+		goto ret_false;
 
-	switch (info->name_match) {
-	case XT_SERVICE_NAME_MATCH:
-		return (p_svc->id == info->service_id);
-		break;
-	case XT_SERVICE_NAME_WILDCARD:
-	default:
-		goto ret_true;
-	}
+	if (info->name_match == XT_SERVICE_NAME_MATCH &&
+	    p_svc->id != info->service_id)
+		goto ret_false;
+
+	kz_service_count_inc(kzorp->svc);
+	goto done;
 ret_false:
 	res = false;
-	goto done;
-ret_true:
-	res = true;
-	kz_service_count_inc(kzorp->svc);
 done:
 	if (kzorp == &local_kzorp)
 		kz_destroy_kzorp(&local_kzorp);
