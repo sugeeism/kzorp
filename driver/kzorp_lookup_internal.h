@@ -47,7 +47,7 @@ struct kz_zone_lookup_node {
 struct kz_rule_lookup_data {
 	/* back-pointer to original rule structure so that we have the
 	 * service and dispatcher pointers */
-	const struct kz_dispatcher_n_dimension_rule *orig;
+	const struct kz_rule *orig;
 
 	u_int32_t bytes_to_next; /* number of bytes to the next rule (includes
 				  * the full kz_rule_lookup_data header size),
@@ -73,10 +73,10 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 		  const unsigned long *dst_zone_mask);
 
 KZ_PROTECTED size_t
-kz_generate_lookup_data_rule_size(const struct kz_dispatcher_n_dimension_rule * const rule);
+kz_generate_lookup_data_rule_size(const struct kz_rule * const rule);
 
 KZ_PROTECTED struct kz_rule_lookup_data *
-kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const rule, void *buf);
+kz_generate_lookup_data_rule(const struct kz_rule * const rule, void *buf);
 
 /**
  * struct kz_percpu_env - per-CPU work area for the n-dimensional lookup algorithms
@@ -84,7 +84,7 @@ kz_generate_lookup_data_rule(const struct kz_dispatcher_n_dimension_rule * const
  * @src_mask: bitmask to use as a temporary helper for source zone evaluation
  * @dst_mask: bitmask to use as a temporary helper for destination zone evaluation
  * @results: the buffer to return results in, an array of pointers to
- *       struct kz_dispatcher_n_dimension_rule structures, should point to an
+ *       struct kz_rule structures, should point to an
  *       array with at lease @max_result_size elements
  * @result_size: the number of matching rules stored in @results
  */
@@ -94,7 +94,7 @@ struct kz_percpu_env {
   unsigned long *src_mask;
   unsigned long *dst_mask;
   /* out */
-  struct kz_dispatcher_n_dimension_rule const **result_rules;
+  struct kz_rule const **result_rules;
   size_t result_size;
 };
 

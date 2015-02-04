@@ -20,12 +20,12 @@
 static bool
 service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	struct ipt_service_info *info = (struct ipt_service_info *) par->matchinfo;
+	struct xt_service_info *info = (struct xt_service_info *) par->matchinfo;
 	const struct kz_service *s_svc, *p_svc;
 	const struct nf_conntrack_kzorp *kzorp;
 	struct nf_conntrack_kzorp local_kzorp;
 	const struct kz_config *cfg = NULL;
-	bool res;
+	bool res = true;
 
 	/* NOTE: unlike previous version, we provide match even for invalid and --notrack packets */
 
@@ -39,7 +39,7 @@ service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		goto ret_false;
 	}
 
-	if (info->name_match == IPT_SERVICE_NAME_MATCH) {
+	if (info->name_match == XT_SERVICE_NAME_MATCH) {
 		/* check cached service id validity */
 		if (unlikely(!kz_generation_valid(cfg, info->generation))) {
 			kz_debug("looking up service id; name='%s'\n", info->name);
@@ -58,60 +58,49 @@ service_mt(const struct sk_buff *skb, struct xt_action_param *par)
 
 	kz_debug("service lookup done; type='%d', id='%u'\n", p_svc->type, p_svc->id);
 
-	switch (info->type) {
-	case IPT_SERVICE_TYPE_PROXY:
-		if (p_svc->type != KZ_SERVICE_PROXY)
-			goto ret_false;
-		break;
-	case IPT_SERVICE_TYPE_FORWARD:
-		if (p_svc->type != KZ_SERVICE_FORWARD)
-			goto ret_false;
-		break;
-	default:
-		/* since info->type has been range-checked in
-		 * checkentry() default is equivalent to
-		 * IPT_SERVICE_TYPE_ANY */
-		break;
-	}
+	if (info->type != XT_SERVICE_TYPE_ANY && p_svc->type != info->type)
+		goto ret_false;
 
-	switch (info->name_match) {
-	case IPT_SERVICE_NAME_MATCH:
-		return (p_svc->id == info->service_id);
-		break;
-	case IPT_SERVICE_NAME_WILDCARD:
-	default:
-		goto ret_true;
-	}
+	if (info->name_match == XT_SERVICE_NAME_MATCH &&
+	    p_svc->id != info->service_id)
+		goto ret_false;
+
+	if ((info->flags & XT_SERVICE_NOCOUNT) == 0)
+		kz_service_count_inc(kzorp->svc);
+	goto done;
 ret_false:
 	res = false;
-	goto done;
-ret_true:
-	res = true;
 done:
 	if (kzorp == &local_kzorp)
 		kz_destroy_kzorp(&local_kzorp);
 	return res;
 }
 
+static bool
+service_mt_v2(const struct sk_buff *skb, struct xt_action_param *par)
+{
+	return service_mt(skb, par);
+}
+
 static int
 service_mt_checkentry(const struct xt_mtchk_param *par)
 {
-	struct ipt_service_info *info = (struct ipt_service_info *) par->matchinfo;
+	struct xt_service_info *info = (struct xt_service_info *) par->matchinfo;
 
-	info->name[IPT_SERVICE_NAME_LENGTH] = 0;
+	info->name[XT_SERVICE_NAME_LENGTH] = 0;
 
-	if ((info->name_match == IPT_SERVICE_NAME_MATCH) &&
+	if ((info->name_match == XT_SERVICE_NAME_MATCH) &&
 	    (info->name[0] == '\0'))
 		return -EINVAL;
 
-	if ((info->type == IPT_SERVICE_TYPE_ANY) &&
-	    (info->name_match == IPT_SERVICE_NAME_ANY))
+	if ((info->type == XT_SERVICE_TYPE_ANY) &&
+	    (info->name_match == XT_SERVICE_NAME_ANY))
 		return -EINVAL;
 
-	if (info->type > IPT_SERVICE_TYPE_FORWARD)
+	if (info->type > XT_SERVICE_TYPE_FORWARD)
 		return -EINVAL;
 
-	if (info->name_match > IPT_SERVICE_NAME_MATCH)
+	if (info->name_match > XT_SERVICE_NAME_MATCH)
 		return -EINVAL;
 
 	info->generation = -1;
@@ -125,7 +114,7 @@ static struct xt_match service_match[] = {
 		.family		= NFPROTO_IPV4,
 		.name		= "service",
 		.match		= service_mt,
-		.matchsize	= sizeof(struct ipt_service_info),
+		.matchsize	= sizeof(struct xt_service_info),
 		.checkentry	= service_mt_checkentry,
 		.me		= THIS_MODULE,
 	},
@@ -133,10 +122,29 @@ static struct xt_match service_match[] = {
 		.family		= NFPROTO_IPV6,
 		.name		= "service",
 		.match		= service_mt,
-		.matchsize	= sizeof(struct ipt_service_info),
+		.matchsize	= sizeof(struct xt_service_info),
 		.checkentry	= service_mt_checkentry,
 		.me		= THIS_MODULE,
 	},
+	{
+		.family		= NFPROTO_IPV4,
+		.name		= "service",
+		.revision	= 2,
+		.match		= service_mt_v2,
+		.matchsize	= sizeof(struct xt_service_info_v2),
+		.checkentry	= service_mt_checkentry,
+		.me		= THIS_MODULE,
+	},
+	{
+		.family		= NFPROTO_IPV6,
+		.name		= "service",
+		.revision	= 2,
+		.match		= service_mt_v2,
+		.matchsize	= sizeof(struct xt_service_info_v2),
+		.checkentry	= service_mt_checkentry,
+		.me		= THIS_MODULE,
+	},
+
 };
 
 static int __init service_mt_init(void)

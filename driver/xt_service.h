@@ -17,24 +17,39 @@
  * along with this program; if not, write to the Free Software
  * Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-enum {
-	IPT_SERVICE_TYPE_ANY = 0,
-	IPT_SERVICE_TYPE_PROXY,
-	IPT_SERVICE_TYPE_FORWARD,
+enum xt_service_type {
+	XT_SERVICE_TYPE_ANY = 0,
+	XT_SERVICE_TYPE_PROXY,
+	XT_SERVICE_TYPE_FORWARD,
 };
 
 enum {
-	IPT_SERVICE_NAME_ANY = 0,
-	IPT_SERVICE_NAME_WILDCARD,
-	IPT_SERVICE_NAME_MATCH,
+	XT_SERVICE_NAME_ANY = 0,
+	XT_SERVICE_NAME_WILDCARD,
+	XT_SERVICE_NAME_MATCH,
 };
 
-#define IPT_SERVICE_NAME_LENGTH 117
+enum {
+	XT_SERVICE_NOCOUNT = 1 << 0,
+};
 
-struct ipt_service_info {
+#define XT_SERVICE_NAME_LENGTH 117
+
+struct xt_service_info {
 	u_int8_t type;
+	u_int8_t flags;
 	u_int8_t name_match;
-	unsigned char name[IPT_SERVICE_NAME_LENGTH + 1];
+	unsigned char name[XT_SERVICE_NAME_LENGTH + 1];
+
+	unsigned int generation;
+	unsigned int service_id;
+};
+
+struct xt_service_info_v2 {
+	u_int8_t type;
+	u_int8_t flags;
+	u_int8_t name_match;
+	unsigned char name[XT_SERVICE_NAME_LENGTH + 1];
 
 	unsigned int generation;
 	unsigned int service_id;

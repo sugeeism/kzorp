@@ -28,9 +28,9 @@ rule_mt_v0_eval(const struct sk_buff *skb, const struct ipt_rule_info_v0 *info, 
 	kz_extension_get_from_ct_or_lookup(skb, par->in, par->family, &local_kzorp, &kzorp, NULL);
 	rcu_read_unlock();
 
-	if (info->flags & IPT_RULE_ID) {
-		res &= (kzorp->rule_id == info->id);
-	}
+	res &= (kzorp->rule_id == info->id);
+	if (res && (info->flags & IPT_RULE_NOCOUNT) == 0)
+		kz_rule_count_inc(kzorp->dpt->rule);
 	kz_debug("match calculation has finished; flags='%x', rule_id='%d', result='%d'", info->flags, info->id, res);
 
 	if (kzorp == &local_kzorp)

@@ -484,8 +484,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 				    &traffic_props,
 				    &czone, &szone,
 				    &svc, &dpt,
-				    (ctinfo >= IP_CT_IS_REPLY),
-				    true);
+				    (ctinfo >= IP_CT_IS_REPLY));
 
 done:
 #define REPLACE_PTR(name, type) \
@@ -755,7 +754,7 @@ kz_service_new(void)
 		return NULL;
 
 	atomic_set(&service->refcnt, 1);
-	atomic_set(&service->session_cnt, 0);
+	atomic64_set(&service->count, 0);
 
 	service->id = atomic_inc_return(&service_id_cnt);
 
@@ -883,12 +882,12 @@ error_put:
 	return NULL;
 }
 
-int
+long
 kz_service_lock(struct kz_service * const service)
 {
 	/* lock service session counter */
 	set_bit(KZ_SERVICE_CNT_LOCKED_BIT, (unsigned long *)&service->flags);
-	return atomic_read(&service->session_cnt);
+	return atomic64_read(&service->count);
 }
 
 void
@@ -996,7 +995,7 @@ kz_big_free(void *ptr, enum KZ_ALLOC_TYPE alloc_type)
 int
 kz_dispatcher_alloc_rule_array(struct kz_dispatcher *dispatcher, size_t alloc_rules)
 {
-	const size_t rule_size = sizeof(struct kz_dispatcher_n_dimension_rule) * alloc_rules;
+	const size_t rule_size = sizeof(struct kz_rule) * alloc_rules;
 
 	dispatcher->rule = kz_big_alloc(rule_size, &dispatcher->rule_allocator);
 
@@ -1041,7 +1040,7 @@ kz_dispatcher_new(void)
 }
 
 static void
-kz_rule_destroy(struct kz_dispatcher_n_dimension_rule *rule)
+kz_rule_destroy(struct kz_rule *rule)
 {
 	int j;
 
@@ -1109,10 +1108,10 @@ kz_dispatcher_lookup_name(const struct kz_config *cfg, const char *name)
 
 int
 kz_dispatcher_add_rule(struct kz_dispatcher *d, struct kz_service *service,
-		       const struct kz_dispatcher_n_dimension_rule * const rule_params)
+		       const struct kz_rule * const rule_params)
 {
 	int res = 0;
-	struct kz_dispatcher_n_dimension_rule *rule = NULL;
+	struct kz_rule *rule = NULL;
 	int64_t last_id = -1L;
 
 	if (d->num_rule + 1 > d->alloc_rule) {
@@ -1208,8 +1207,8 @@ error:
 	}
 
 int
-kz_dispatcher_add_rule_entry(struct kz_dispatcher_n_dimension_rule *rule,
-			     const struct kz_dispatcher_n_dimension_rule_entry_params * const rule_entry_params)
+kz_dispatcher_add_rule_entry(struct kz_rule *rule,
+			     const struct kz_rule_entry_params * const rule_entry_params)
 {
 	int res = 0;
 	struct kz_zone *zone;
@@ -1301,15 +1300,15 @@ kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr, const struct li
 }
 
 static void
-kz_rule_relink_zones(struct kz_dispatcher_n_dimension_rule *r, const struct list_head * zonelist)
+kz_rule_relink_zones(struct kz_rule *r, const struct list_head * zonelist)
 {
 	kz_rule_arr_relink_zones(&r->num_src_zone, r->src_zone, zonelist);
 	kz_rule_arr_relink_zones(&r->num_dst_zone, r->dst_zone, zonelist);
 }
 
 int
-kz_rule_copy(struct kz_dispatcher_n_dimension_rule *dst,
-	     const struct kz_dispatcher_n_dimension_rule * const src)
+kz_rule_copy(struct kz_rule *dst,
+	     const struct kz_rule * const src)
 {
 	int res = 0;
 	int i;
@@ -1439,7 +1438,7 @@ kz_dispatcher_relink_n_dim(struct kz_dispatcher *d, const struct list_head * zon
 	unsigned int i, put;
 	bool drop = 0;
 	for (i = 0; i < d->num_rule; ++i) {
-		struct kz_dispatcher_n_dimension_rule *rule = &d->rule[i];
+		struct kz_rule *rule = &d->rule[i];
 		struct kz_service *service = __kz_service_lookup_name(servicelist, rule->service->name);
 		if (service == NULL) {
 			kz_err("Dropping rule with missing service; dispatcher='%s', rule_id='%u', service='%s'\n",

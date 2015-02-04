@@ -147,7 +147,7 @@ struct kza_service_nat_params {
 } __attribute__ ((packed));
 
 struct kza_service_session_cnt {
-	__be32 count;
+	__be64 count;
 } __attribute__ ((packed));
 
 enum kz_service_ipv4_deny_method {

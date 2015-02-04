@@ -256,7 +256,7 @@ class NetlinkAttribute(object):
 
     @classmethod
     def create_be64(cls, type, value):
-        return cls(type, data=struct.pack('>Q', value))
+        return cls(type, data=struct.pack('>Q', long(value)))
 
     def parse_be64(self):
         return struct.unpack('>Q', self.read_data(8))[0]

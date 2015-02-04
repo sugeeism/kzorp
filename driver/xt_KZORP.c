@@ -927,6 +927,21 @@ patch_kzorp(const struct nf_conntrack_kzorp *kzorp)
 	return (struct nf_conntrack_kzorp *) kzorp;
 }
 
+static inline struct kz_rule *
+find_rule_by_id(struct kz_dispatcher *dispatcher, u_int64_t rule_id)
+{
+	unsigned int i;
+	struct kz_rule *rule = NULL;
+
+	for (i = 0; i < dispatcher->num_rule; ++i)
+		if (dispatcher->rule[i].id == rule_id) {
+			rule = &dispatcher->rule[i];
+			break;
+		}
+
+	return rule;
+}
+
 static bool
 service_assign_session_id(const struct nf_conn *ct,
 			  const struct nf_conntrack_kzorp *kzorp)
@@ -937,9 +952,21 @@ service_assign_session_id(const struct nf_conn *ct,
 		kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Service is locked during reload",
 				       ct, kzorp);
 		return false;
+	} else {
+		struct nf_conntrack_kzorp *patchable_kzorp = patch_kzorp(kzorp);
+		struct kz_dispatcher *dispatcher = patchable_kzorp->dpt;
+		struct kz_rule *rule = NULL;
+
+		patchable_kzorp->sid = kz_service_count_inc(svc);
+		rule = find_rule_by_id(dispatcher, kzorp->rule_id);
+		BUG_ON(rule == NULL);
+
+		kz_rule_count_inc(rule);
+		if (rule->num_src_zone > 0 && kzorp->czone)
+			kz_zone_count_inc(kzorp->czone);
+		if (rule->num_dst_zone > 0 && kzorp->szone)
+			kz_zone_count_inc(kzorp->szone);
 	}
-	else
-		patch_kzorp(kzorp)->sid = atomic_add_return(1, &svc->session_cnt);
 
 	return true;
 }
@@ -1112,11 +1139,6 @@ kz_postrouting_newconn_verdict(struct sk_buff *skb,
 	struct kz_dispatcher *dpt = kzorp->dpt; 
 	struct kz_service *svc = kzorp->svc;
 	struct kz_zone *szone = kzorp->szone;
-
-	/* assign session id and do SNAT on new connections */
-	if ((svc != NULL) && (kzorp->sid == 0))
-		if (!service_assign_session_id(ct, kzorp))
-			return NF_DROP;
 
 	if (dpt != NULL && svc != NULL) {
 		if (svc->type == KZ_SERVICE_FORWARD)
