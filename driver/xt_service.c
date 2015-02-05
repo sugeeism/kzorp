@@ -97,7 +97,7 @@ service_mt_checkentry(const struct xt_mtchk_param *par)
 	    (info->name_match == XT_SERVICE_NAME_ANY))
 		return -EINVAL;
 
-	if (info->type > XT_SERVICE_TYPE_FORWARD)
+	if (info->type > XT_SERVICE_TYPE_DENY)
 		return -EINVAL;
 
 	if (info->name_match > XT_SERVICE_NAME_MATCH)
