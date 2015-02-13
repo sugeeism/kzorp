@@ -1,3 +1,11 @@
+kzorp (6.0.1) trusty; urgency=low
+
+  * fixed packet drop on IPv6 traffic
+  * zone/service/rule counting problems
+  * removed deprecated umbrella option of zone match
+
+ -- Szilárd Pfeiffer <pfeiffer.szilard@balabit.hu>  Fri, 13 Feb 2015 18:45:25 +0100
+
 kzorp (6.0.0) trusty; urgency=low
 
   * fixed several packiging problem
