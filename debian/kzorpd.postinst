@@ -9,7 +9,10 @@ if [ "$1" = "configure" ]; then
     adduser --quiet --system --no-create-home --ingroup zorp --home /var/lib/zorp zorp
   fi
 
-  mkdir /etc/zorp
+  if [ ! -d /etc/zorp ]; then
+    mkdir /etc/zorp
+  fi
+
   chown -R root:zorp /etc/zorp
   chmod 0750 /etc/zorp
 
