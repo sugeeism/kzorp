@@ -3,7 +3,6 @@ import random, time, os
 import prctl
 import messages as kzorp_messages
 import Zorp.Common
-import Zorp.Globals
 
 class Handle(netlink.Handle):
     def __init__(self):
