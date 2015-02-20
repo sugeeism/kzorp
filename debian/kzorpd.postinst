@@ -17,3 +17,5 @@ if [ "$1" = "configure" ]; then
   chmod 0750 /etc/zorp
 
 fi
+
+#DEBHELPER#
