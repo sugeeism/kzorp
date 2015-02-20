@@ -64,5 +64,8 @@ binary-arch: build-arch install
 
 override_dh_auto_test:
 
+override_dh_installinit:
+	dh_installinit -i -- defaults 19 21
+
 binary: binary-indep binary-arch
 .PHONY: build build-indep build-arch clean install install-indep binary-indep binary-arch binary
