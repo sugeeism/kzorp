@@ -54,6 +54,10 @@
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
 
+#ifdef CONFIG_NF_CONNTRACK_EVENTS
+#undef CONFIG_NF_CONNTRACK_EVENTS
+#endif
+
 MODULE_LICENSE("GPL");
 
 static char __initdata version[] = "0.93";
