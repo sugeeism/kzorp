@@ -27,6 +27,7 @@ PRIVATE unsigned int kz_hash_shift = 4;
 PRIVATE unsigned int kz_hash_size;
 PRIVATE struct hlist_nulls_head *kz_hash;
 PRIVATE spinlock_t kz_hash_lock;
+PRIVATE struct kmem_cache *kz_cachep;
 
 unsigned const int kz_hash_rnd = 0x9e370001UL;	//golden ratio prime
 
@@ -134,7 +135,7 @@ static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 		kz_dispatcher_put(kz->dpt);
 	if (kz->svc != NULL)
 		kz_service_put(kz->svc);
-	kzfree(kz);
+	kmem_cache_free(kz_cachep, kz);
 }
 
 static void kz_extension_destroy(struct nf_conn *ct)
@@ -190,16 +191,36 @@ PRIVATE void kz_extension_copy_tuplehash(struct nf_conntrack_kzorp *kzorp, struc
 	       IP_CT_DIR_MAX * sizeof(struct nf_conntrack_tuple_hash));
 }
 
+static inline void
+nf_conntrack_kzorp_init(struct nf_conntrack_kzorp *kzorp)
+{
+	kzorp->ct_zone = 0;
+	kzorp->sid = 0;
+	kzorp->generation = 0;
+	kzorp->session_start = 0;
+
+	kzorp->rule_id = 0;
+	kzorp->czone = NULL;
+	kzorp->szone = NULL;
+	kzorp->svc = NULL;
+	kzorp->dpt = NULL;
+}
+
 struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
 {
 	struct nf_conntrack_kzorp *kzorp;
 
-	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
+        /*
+         * Do not use kmem_cache_zalloc(), as this cache uses
+         * SLAB_DESTROY_BY_RCU.
+         */
+	kzorp = kmem_cache_alloc(kz_cachep, GFP_ATOMIC);
 	if (unlikely(!kzorp)) {
 		kz_debug("allocation failed creating kzorp extension\n");
 		return NULL;
 	}
 
+	nf_conntrack_kzorp_init(kzorp);
 	kz_extension_copy_tuplehash(kzorp,ct);
 	kz_extension_fill(kzorp,ct);
 	kzorp->ct_zone = nf_ct_zone(ct);
@@ -280,12 +301,18 @@ static void clean_hash(void)
 		}
 	}
 	kzfree(kz_hash);
+	kmem_cache_destroy(kz_cachep);
 }
 
 int kz_extension_init(void)
 {
 
 	int ret, i;
+
+       kz_cachep = kmem_cache_create("kzorp_slab",
+                                     sizeof(struct nf_conntrack_kzorp), 0,
+                                     SLAB_DESTROY_BY_RCU, NULL);
+
 
 	kz_hash_size = 1 << kz_hash_shift;
 	kz_hash =
