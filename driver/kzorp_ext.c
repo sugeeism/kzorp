@@ -26,6 +26,8 @@
 PRIVATE unsigned int kz_hash_shift = 4;
 PRIVATE unsigned int kz_hash_size;
 PRIVATE struct hlist_nulls_head *kz_hash;
+PRIVATE spinlock_t kz_hash_lock;
+PRIVATE struct kmem_cache *kz_cachep;
 
 unsigned const int kz_hash_rnd = 0x9e370001UL;	//golden ratio prime
 
@@ -53,25 +55,65 @@ struct nf_conntrack_kzorp * kz_get_kzorp_from_node(struct nf_conntrack_tuple_has
 	return kz;
 }
 
-struct nf_conntrack_kzorp *
-kz_extension_find(struct nf_conn *ct)
+static inline bool
+__kz_extension_key_equal(struct nf_conntrack_tuple_hash *h,
+		                            struct nf_conntrack_tuple_hash *th,
+		                            unsigned int zone)
+{
+	struct nf_conntrack_kzorp *kz = kz_get_kzorp_from_node(h);
+
+	return nf_ct_tuple_equal(&th->tuple, &h->tuple) && kz && kz->ct_zone == zone;
+}
+
+static struct nf_conntrack_tuple_hash *
+__kz_extension_find(struct nf_conn *ct)
 {
 	struct hlist_nulls_node *n;
 	struct nf_conntrack_tuple_hash *h;
 	struct nf_conntrack_tuple_hash *th = &(ct->tuplehash[0]);
-	unsigned int bucket =
-	    hash_conntrack_raw(&(th->tuple),
-			       nf_ct_zone(ct)) >> (32 - kz_hash_shift);
 	unsigned int zone = nf_ct_zone(ct);
 
+	unsigned int bucket =
+			hash_conntrack_raw(&(th->tuple),
+			       nf_ct_zone(ct)) >> (32 - kz_hash_shift);
+
+begin:
 	hlist_nulls_for_each_entry_rcu(h, n, &kz_hash[bucket], hnnode) {
-		if (nf_ct_tuple_equal(&(th->tuple), &h->tuple)) {
-			struct nf_conntrack_kzorp *kz = kz_get_kzorp_from_node(h);
-			if (kz->ct_zone == zone) {
-				return kz;
-			}
+		if (__kz_extension_key_equal(h, th, zone)) {
+			return h;
 		}
 	}
+
+	if (get_nulls_value(n) != bucket) {
+	  goto begin;
+	}
+
+	return NULL;
+}
+
+struct nf_conntrack_kzorp *
+kz_extension_find(struct nf_conn *ct)
+{
+	struct nf_conntrack_kzorp *kz;
+	struct nf_conntrack_tuple_hash *h;
+	struct nf_conntrack_tuple_hash *th = &(ct->tuplehash[0]);
+	unsigned int zone = nf_ct_zone(ct);
+
+	rcu_read_lock();
+
+begin:
+	h = __kz_extension_find(ct);
+	if (h) {
+		if (unlikely(!__kz_extension_key_equal(h, th, zone))) {
+		  goto begin;
+		}
+		kz = kz_get_kzorp_from_node(h);
+		rcu_read_unlock();
+		return kz;
+	}
+
+	rcu_read_unlock();
+
 	return NULL;
 }
 
@@ -79,9 +121,11 @@ static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 {
 	int i;
 
+	spin_lock(&kz_hash_lock);
 	for (i = 0; i < IP_CT_DIR_MAX; i++) {
 		hlist_nulls_del_rcu(&(kz->tuplehash[i].hnnode));
 	}
+	spin_unlock(&kz_hash_lock);
 
 	if (kz->czone != NULL)
 		kz_zone_put(kz->czone);
@@ -91,7 +135,7 @@ static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 		kz_dispatcher_put(kz->dpt);
 	if (kz->svc != NULL)
 		kz_service_put(kz->svc);
-	kzfree(kz);
+	kmem_cache_free(kz_cachep, kz);
 }
 
 static void kz_extension_destroy(struct nf_conn *ct)
@@ -127,7 +171,10 @@ PRIVATE void kz_extension_fill_one(struct nf_conntrack_kzorp *kzorp, struct nf_c
 {
 	struct nf_conntrack_tuple_hash *th = &(kzorp->tuplehash[direction]);
 	unsigned int bucket = hash_conntrack_raw( &(th->tuple), nf_ct_zone(ct)) >> (32 - kz_hash_shift);
-	hlist_nulls_add_head(&(th->hnnode), &kz_hash[bucket]);
+
+	spin_lock(&kz_hash_lock);
+	hlist_nulls_add_head_rcu(&(th->hnnode), &kz_hash[bucket]);
+	spin_unlock(&kz_hash_lock);
 }
 
 PRIVATE void kz_extension_fill(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct)
@@ -144,16 +191,36 @@ PRIVATE void kz_extension_copy_tuplehash(struct nf_conntrack_kzorp *kzorp, struc
 	       IP_CT_DIR_MAX * sizeof(struct nf_conntrack_tuple_hash));
 }
 
+static inline void
+nf_conntrack_kzorp_init(struct nf_conntrack_kzorp *kzorp)
+{
+	kzorp->ct_zone = 0;
+	kzorp->sid = 0;
+	kzorp->generation = 0;
+	kzorp->session_start = 0;
+
+	kzorp->rule_id = 0;
+	kzorp->czone = NULL;
+	kzorp->szone = NULL;
+	kzorp->svc = NULL;
+	kzorp->dpt = NULL;
+}
+
 struct nf_conntrack_kzorp *kz_extension_create(struct nf_conn *ct)
 {
 	struct nf_conntrack_kzorp *kzorp;
 
-	kzorp = kzalloc(sizeof(struct nf_conntrack_kzorp), GFP_ATOMIC);
+        /*
+         * Do not use kmem_cache_zalloc(), as this cache uses
+         * SLAB_DESTROY_BY_RCU.
+         */
+	kzorp = kmem_cache_alloc(kz_cachep, GFP_ATOMIC);
 	if (unlikely(!kzorp)) {
 		kz_debug("allocation failed creating kzorp extension\n");
 		return NULL;
 	}
 
+	nf_conntrack_kzorp_init(kzorp);
 	kz_extension_copy_tuplehash(kzorp,ct);
 	kz_extension_fill(kzorp,ct);
 	kzorp->ct_zone = nf_ct_zone(ct);
@@ -234,12 +301,18 @@ static void clean_hash(void)
 		}
 	}
 	kzfree(kz_hash);
+	kmem_cache_destroy(kz_cachep);
 }
 
 int kz_extension_init(void)
 {
 
 	int ret, i;
+
+       kz_cachep = kmem_cache_create("kzorp_slab",
+                                     sizeof(struct nf_conntrack_kzorp), 0,
+                                     SLAB_DESTROY_BY_RCU, NULL);
+
 
 	kz_hash_size = 1 << kz_hash_shift;
 	kz_hash =
@@ -258,6 +331,8 @@ int kz_extension_init(void)
 		kz_err("kz_extension_init: cannot register pernet operations\n");
 		goto error_cleanup_hash;
 	}
+
+	spin_lock_init(&kz_hash_lock);
 
 	return 0;
 
