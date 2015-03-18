@@ -136,19 +136,18 @@ class BindDownload(kzorp.communication.Adapter):
 
 
 def downloadKZorpConfig(instance_name, is_master):
-    if not is_master:
-        return
-    with RuleDownload(instance_name) as rule_download:
-        messages = []
-        for service in Globals.services.values():
-            message = service.buildKZorpMessage()
-            messages.extend(message)
-        for dispatch in Globals.dispatches:
-            messages.append(kzorp.messages.KZorpAddDispatcherMessage(dispatch.session_id, Globals.rules.length))
-            for rule in Globals.rules:
-                message = rule.buildKZorpMessage(dispatch.session_id)
+    if is_master:
+        with RuleDownload(instance_name) as rule_download:
+            messages = []
+            for service in Globals.services.values():
+                message = service.buildKZorpMessage()
                 messages.extend(message)
-        rule_download.initial(messages)
+            for dispatch in Globals.dispatches:
+                messages.append(kzorp.messages.KZorpAddDispatcherMessage(dispatch.session_id, Globals.rules.length))
+                for rule in Globals.rules:
+                    message = rule.buildKZorpMessage(dispatch.session_id)
+                    messages.extend(message)
+            rule_download.initial(messages)
 
     with BindDownload(instance_name) as bind_download:
         messages = []
@@ -156,7 +155,16 @@ def downloadKZorpConfig(instance_name, is_master):
             messages.extend(dispatch.buildKZorpBindMessage())
         bind_download.initial(messages)
 
-        # Acquire the kZorp handle to close it during deinitialisation.
+        # When a kZorp handle is closed kZorp removes binds which were added
+        # by messages came on this handle.
+        #
+        # This function called when Zorp is started or reloaded.
+        #
+        # During the start _kzorp_handle is initialized.
+        #
+        # During the reload new Python interpreter is created so _kzorp_handle
+        # not overwritten, deinit callback closes another kZorp handled which
+        # had been created by the old Python interpreter.
         global _kzorp_handle
         _kzorp_handle = bind_download.kzorp_handle
 
@@ -169,12 +177,10 @@ def flushKZorpConfig(instance_name):
         service_download.initial([])
 
 def closeKZorpHandle():
-    log(None, CORE_DEBUG, 6, "Close kZorp handle")
-
-    h = getattr(Globals, "kzorp_netlink_handle", None)
-    if h:
-        global _kzorp_handle
+    global _kzorp_handle
+    if _kzorp_handle:
+        log(None, CORE_DEBUG, 6, "Close kZorp handle, binds are going to be removed by kZorp")
+        _kzorp_handle.close()
         _kzorp_handle = None
-        h.close()
 
 Globals.deinit_callbacks.append(closeKZorpHandle)
