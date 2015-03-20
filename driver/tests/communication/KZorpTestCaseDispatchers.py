@@ -337,6 +337,30 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
 
         self.check_dispatcher_num(num_rules + num_rule_entries + len(self._dispatchers))
 
+    def test_flush_zone_used_by_rules(self):
+        self.start_transaction()
+        self.send_message(messages.KZorpFlushZonesMessage())
+        res = self.end_transaction(assert_on_error=False)
+        self.assertEqual(res, -errno.EINVAL)
+
+    def test_delete_zone_used_by_rule(self):
+        self.start_transaction()
+        self.send_message(messages.KZorpDeleteZoneMessage('AAA'))
+        res = self.end_transaction(assert_on_error=False)
+        self.assertEqual(res, -errno.EINVAL)
+
+    def test_delete_and_add_zone_used_by_rule(self):
+        self.start_transaction()
+        self.send_message(messages.KZorpDeleteZoneMessage('AAA'))
+        self.send_message(messages.KZorpAddZoneMessage('AAA', 'AA', 0))
+        self.end_transaction()
+
+    def test_delete_service_used_by_rule(self):
+        self.start_transaction()
+        self.send_message(messages.KZorpDeleteServiceMessage('A_A'))
+        res = self.end_transaction(assert_on_error=False)
+        self.assertEqual(res, -errno.EINVAL)
+
     def test_get_dispatcher_by_name(self):
         #get a not existent dispatcher
         res = self.send_message(messages.KZorpGetDispatcherMessage('nonexistentdispatchername'), assert_on_error = False)

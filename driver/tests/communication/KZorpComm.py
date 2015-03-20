@@ -25,9 +25,9 @@ import os
 class KZorpComm(unittest.TestCase):
     handle = None
     _flushables = [
-                    messages.KZorpFlushZonesMessage,
-                    messages.KZorpFlushServicesMessage,
                     messages.KZorpFlushDispatchersMessage,
+                    messages.KZorpFlushServicesMessage,
+                    messages.KZorpFlushZonesMessage,
                     messages.KZorpFlushBindsMessage
                   ]
 
