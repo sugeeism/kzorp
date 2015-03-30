@@ -1,3 +1,9 @@
+kzorp (6.0.3) trusty; urgency=low
+
+  * version bump
+
+ -- Szilárd Pfeiffer <pfeiffer.szilard@balabit.hu>  Mon, 30 Mar 2015 23:55:10 +0200
+
 kzorp (6.0.2) trusty; urgency=low
 
   * version bump
