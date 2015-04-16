@@ -1273,37 +1273,40 @@ error:
 	return res;
 }
 
-static void
+static int
 kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr, const struct list_head * zonelist)
 {
-	u_int32_t i, put;
+	u_int32_t i;
 	
 	if (*size == 0)
-		return;
+		return 0;
 
-	for (i = 0, put = 0; i < *size; ++i)
+	for (i = 0; i < *size; ++i)
 	{
 		struct kz_zone * const in = arr[i];
 		struct kz_zone * out = __kz_zone_lookup_name(zonelist, in->name);
 
-		if (out == NULL) { /* just drop */
-			kz_zone_put(in);
-			continue;
+		if (out == NULL) {
+			kz_err("Zone can not be deleted while it has references on it");
+			return -EINVAL;
 		}
 		if (in != out) {
 			kz_zone_get(out);
 			kz_zone_put(in);
 		}
-		arr[put++] = out;
+		arr[i] = out;
 	}
-	*size = put;
+	return 0;
 }
 
-static void
+static int
 kz_rule_relink_zones(struct kz_rule *r, const struct list_head * zonelist)
 {
-	kz_rule_arr_relink_zones(&r->num_src_zone, r->src_zone, zonelist);
-	kz_rule_arr_relink_zones(&r->num_dst_zone, r->dst_zone, zonelist);
+	int error = 0;
+	error = kz_rule_arr_relink_zones(&r->num_src_zone, r->src_zone, zonelist);
+	if (error != 0)
+		return error;
+	return kz_rule_arr_relink_zones(&r->num_dst_zone, r->dst_zone, zonelist);
 }
 
 int
@@ -1432,42 +1435,36 @@ error_put:
 }
 
 /* all zone links must point into the passed lists, remove those not found */
-static void
+static int
 kz_dispatcher_relink_n_dim(struct kz_dispatcher *d, const struct list_head * zonelist, const struct list_head * servicelist)
 {
-	unsigned int i, put;
-	bool drop = 0;
+	unsigned int i;
+	int error;
 	for (i = 0; i < d->num_rule; ++i) {
 		struct kz_rule *rule = &d->rule[i];
 		struct kz_service *service = __kz_service_lookup_name(servicelist, rule->service->name);
 		if (service == NULL) {
-			kz_err("Dropping rule with missing service; dispatcher='%s', rule_id='%u', service='%s'\n",
+			kz_err("Service can not be deleted while it is refered; dispatcher='%s', rule_id='%u', service='%s'\n",
 			       d->name, rule->id, rule->service->name);
-			kz_rule_destroy(rule);
-			drop = 1;
-			continue;
+			return -EINVAL;
 		}
 		if (service != rule->service) {
 			kz_service_put(rule->service);
 			rule->service = kz_service_get(service);
 		}
-		kz_rule_relink_zones(rule, zonelist);
+		error = kz_rule_relink_zones(rule, zonelist);
+		if (error != 0)
+			return error;
 	}
-	if (!drop)
-		return;
-	/* sweep dropped rules */
-	for (i = 0, put = 0; i < d->num_rule; ++i) {
-		if (d->rule[i].service != NULL)
-			d->rule[put++] = d->rule[i];
-	}
-	d->num_rule = put;
+
+	return 0;
 }
 
-void
+int
 kz_dispatcher_relink(struct kz_dispatcher *d, const struct list_head * zonelist, const struct list_head * servicelist)
 {
-	kz_dispatcher_relink_n_dim(d, zonelist, servicelist);
 	kz_debug("re-linked n-dim dispatcher; name='%s', num_rules='%u'\n", d->name, d->num_rule);
+	return kz_dispatcher_relink_n_dim(d, zonelist, servicelist);
 }
 
 void

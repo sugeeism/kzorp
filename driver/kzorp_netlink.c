@@ -1294,6 +1294,7 @@ kz_commit_transaction_process_dispatchers(const struct kz_transaction *tr, struc
 	const struct kz_config * const old = tr->cfg;
 	struct kz_dispatcher *i, *dpt;
 	struct kz_operation *io, *po;
+	int error;
 
 	/* clone existing dispatchers */
 	list_for_each_entry(i, &old->dispatchers.head, list) {
@@ -1324,7 +1325,9 @@ kz_commit_transaction_process_dispatchers(const struct kz_transaction *tr, struc
 
 	/* consolidate content */
 	list_for_each_entry(i, &new->dispatchers.head, list) {
-		kz_dispatcher_relink(i, &new->zones.head, &new->services.head);
+		error = kz_dispatcher_relink(i, &new->zones.head, &new->services.head);
+		if (error != 0)
+			return error;
 	}
 
 	return 0;
