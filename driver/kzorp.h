@@ -488,7 +488,7 @@ extern int kz_dispatcher_alloc_rule_array(struct kz_dispatcher *dispatcher, size
 extern int kz_dispatcher_copy_rules(struct kz_dispatcher *dst, const struct kz_dispatcher * const src);
 extern struct kz_dispatcher *kz_dispatcher_clone(const struct kz_dispatcher * const o);
 extern struct kz_dispatcher *kz_dispatcher_clone_pure(const struct kz_dispatcher * const o);
-extern void kz_dispatcher_relink(struct kz_dispatcher *d, const struct list_head * zonelist, const struct list_head * servicelist);
+extern int kz_dispatcher_relink(struct kz_dispatcher *d, const struct list_head * zonelist, const struct list_head * servicelist);
 
 static inline struct kz_dispatcher *
 kz_dispatcher_get(struct kz_dispatcher *dispatcher)
