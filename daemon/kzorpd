@@ -310,9 +310,12 @@ class Daemon():
                     if expired_hostname is not None:
                         Common.log(None, Common.CORE_INFO, 4,
                                    "TTL for host expired, updating host; hostname='%s', ttl='%d'" % (expired_hostname, expiration_time))
-                        with ZoneDownloadFactory().makeZoneDownload() as zone_download:
-                            messages = self.zone_handler.create_zone_update_messages(expired_hostname)
-                            zone_download.update(messages)
+                        messages = self.zone_handler.create_zone_update_messages(expired_hostname)
+                        try:
+                            with ZoneDownloadFactory().makeZoneDownload() as zone_download:
+                                zone_download.update(messages)
+                        except NetlinkException as e:
+                            Common.log(None, Common.CORE_ERROR, 1, "Unable to update addresses in zones, keep existing ones; error='%s'" % (e))
                     else:
                         with ZoneDownloadFactory().makeZoneDownload() as zone_download:
                             messages = self.zone_handler.create_zone_dynamic_address_initialization_messages()
