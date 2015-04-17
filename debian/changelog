@@ -1,3 +1,9 @@
+kzorp (6.0.4) trusty; urgency=low
+
+  * version bump
+
+ -- Tamás Szirbucz <szirbucz@balabit.hu>  Sat, 18 Apr 2015 01:05:10 +0200
+
 kzorp (6.0.3) trusty; urgency=low
 
   * version bump
