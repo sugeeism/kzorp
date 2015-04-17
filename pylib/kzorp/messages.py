@@ -1543,23 +1543,25 @@ class ZoneUpdateMessageCreator(object):
             zone = Zone.lookupByStaticAddressExactly(subnet)
             return zone is not None
 
-        add_zone_subnet_messages = []
+        ipv4_addresses_to_send = set()
+        ipv6_addresses_to_send = set()
         for hostname in zone.hostnames:
             try:
-                ipv4_addresses, ipv6_addresses = self.dnscache.lookupHostname(hostname)
+                resolved_ipv4_addresses, resolved_ipv6_addresses = self.dnscache.lookupHostname(hostname)
 
                 non_conflicting_ipv4_addresses = filter(
-                    lambda ipv4_address: not has_zone_with_static_address(ipv4_address),
-                    ipv4_addresses)
+                    lambda resolved_ipv4_address: not has_zone_with_static_address(resolved_ipv4_address),
+                    resolved_ipv4_addresses)
                 non_conflicting_ipv6_addresses = filter(
-                    lambda ipv6_address: not has_zone_with_static_address(ipv6_address),
-                    ipv6_addresses)
+                    lambda resolved_ipv6_address: not has_zone_with_static_address(resolved_ipv6_address),
+                    resolved_ipv6_addresses)
 
-                add_zone_subnet_messages += self.__create_add_zone_subnet_messages(zone, non_conflicting_ipv4_addresses,
-                                                                                   non_conflicting_ipv6_addresses)
+                ipv4_addresses_to_send = ipv4_addresses_to_send | set(non_conflicting_ipv4_addresses)
+                ipv6_addresses_to_send = ipv6_addresses_to_send | set(non_conflicting_ipv6_addresses)
             except KeyError:
                 pass
-        return add_zone_subnet_messages
+
+        return self.__create_add_zone_subnet_messages(zone, ipv4_addresses_to_send, ipv6_addresses_to_send)
 
     def create_zone_dynamic_address_initialization_messages(self):
         def get_zone_name_from_message(msg):
