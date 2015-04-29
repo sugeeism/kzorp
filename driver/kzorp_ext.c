@@ -23,8 +23,9 @@
 	#define	PRIVATE
 #endif
 
-PRIVATE const unsigned int kz_hash_shift = 4;
-PRIVATE unsigned int kz_hash_size;
+#define kz_hash_shift 4
+#define kz_hash_size (1 << kz_hash_shift)
+
 PRIVATE struct hlist_nulls_head *kz_hash;
 PRIVATE spinlock_t kz_hash_lock;
 PRIVATE struct kmem_cache *kz_cachep;
@@ -322,7 +323,6 @@ int kz_extension_init(void)
                                      SLAB_DESTROY_BY_RCU, NULL);
 
 
-	kz_hash_size = 1 << kz_hash_shift;
 	kz_hash =
 	    kzalloc(kz_hash_size * sizeof(struct hlist_head *),
 		    GFP_KERNEL);
