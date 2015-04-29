@@ -23,7 +23,7 @@
 	#define	PRIVATE
 #endif
 
-#define kz_hash_shift 4
+#define kz_hash_shift 10
 #define kz_hash_size (1 << kz_hash_shift)
 
 PRIVATE struct hlist_nulls_head *kz_hash;
