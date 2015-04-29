@@ -23,7 +23,7 @@
 	#define	PRIVATE
 #endif
 
-PRIVATE unsigned int kz_hash_shift = 4;
+PRIVATE const unsigned int kz_hash_shift = 4;
 PRIVATE unsigned int kz_hash_size;
 PRIVATE struct hlist_nulls_head *kz_hash;
 PRIVATE spinlock_t kz_hash_lock;
@@ -31,7 +31,10 @@ PRIVATE struct kmem_cache *kz_cachep;
 
 unsigned const int kz_hash_rnd = GOLDEN_RATIO_PRIME_32;
 
-/* the same as in nf_conntrack_core.c */
+/*
+ * the same as in nf_conntrack_core.c
+ * do not call directly, use 
+ */
 static u32
 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 {
@@ -45,6 +48,13 @@ hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 	return jhash2((u32 *) tuple, n, zone ^ kz_hash_rnd ^
 		      (((__force __u16) tuple->dst.u.all << 16) |
 		       tuple->dst.protonum));
+}
+
+static inline u32
+kz_hash_get_hash_index_from_ct(const struct nf_conn *ct, enum ip_conntrack_dir dir)
+{
+	const u32 index = hash_conntrack_raw(&(ct->tuplehash[dir].tuple), nf_ct_zone(ct)) >> (32 - kz_hash_shift);
+	return index;
 }
 
 struct nf_conntrack_kzorp * kz_get_kzorp_from_node(struct nf_conntrack_tuple_hash *p) {
@@ -73,18 +83,16 @@ __kz_extension_find(struct nf_conn *ct)
 	struct nf_conntrack_tuple_hash *th = &(ct->tuplehash[0]);
 	unsigned int zone = nf_ct_zone(ct);
 
-	unsigned int bucket =
-			hash_conntrack_raw(&(th->tuple),
-			       nf_ct_zone(ct)) >> (32 - kz_hash_shift);
+	const u32 hash_index = kz_hash_get_hash_index_from_ct(ct, IP_CT_DIR_ORIGINAL);
 
 begin:
-	hlist_nulls_for_each_entry_rcu(h, n, &kz_hash[bucket], hnnode) {
+	hlist_nulls_for_each_entry_rcu(h, n, &kz_hash[hash_index], hnnode) {
 		if (__kz_extension_key_equal(h, th, zone)) {
 			return h;
 		}
 	}
 
-	if (get_nulls_value(n) != bucket) {
+	if (get_nulls_value(n) != hash_index) {
 	  goto begin;
 	}
 
@@ -170,10 +178,10 @@ static void kz_extension_destroy(struct nf_conn *ct)
 PRIVATE void kz_extension_fill_one(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct,int direction)
 {
 	struct nf_conntrack_tuple_hash *th = &(kzorp->tuplehash[direction]);
-	unsigned int bucket = hash_conntrack_raw( &(th->tuple), nf_ct_zone(ct)) >> (32 - kz_hash_shift);
+	const u32 hash_index = kz_hash_get_hash_index_from_ct(ct, direction);
 
 	spin_lock(&kz_hash_lock);
-	hlist_nulls_add_head_rcu(&(th->hnnode), &kz_hash[bucket]);
+	hlist_nulls_add_head_rcu(&(th->hnnode), &kz_hash[hash_index]);
 	spin_unlock(&kz_hash_lock);
 }
 
