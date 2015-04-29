@@ -29,7 +29,7 @@ PRIVATE struct hlist_nulls_head *kz_hash;
 PRIVATE spinlock_t kz_hash_lock;
 PRIVATE struct kmem_cache *kz_cachep;
 
-unsigned const int kz_hash_rnd = 0x9e370001UL;	//golden ratio prime
+unsigned const int kz_hash_rnd = GOLDEN_RATIO_PRIME_32;
 
 /* the same as in nf_conntrack_core.c */
 static u32
