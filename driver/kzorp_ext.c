@@ -29,8 +29,8 @@
 	#define	PRIVATE
 #endif
 
-#define kz_hash_shift 10
-#define kz_hash_size (1 << kz_hash_shift)
+PRIVATE __read_mostly unsigned int kz_hash_shift;
+PRIVATE __read_mostly unsigned int kz_hash_size;
 
 PRIVATE struct hlist_nulls_head *kz_hash;
 __cacheline_aligned_in_smp spinlock_t kz_hash_locks[KZ_HASH_LOCK_NUM];
@@ -345,7 +345,8 @@ int kz_extension_init(void)
                                      sizeof(struct nf_conntrack_kzorp), 0,
                                      SLAB_DESTROY_BY_RCU, NULL);
 
-
+	kz_hash_size = init_net.ct.htable_size;
+	kz_hash_shift = ilog2(kz_hash_size);
 	kz_hash =
 	    kzalloc(kz_hash_size * sizeof(struct hlist_head *),
 		    GFP_KERNEL);
