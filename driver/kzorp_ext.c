@@ -264,6 +264,9 @@ kz_extension_conntrack_event(unsigned int events, struct nf_ct_event *item)
 {
 	struct nf_conn *ct = item->ct;
 
+	if (ct == NULL || nf_ct_is_untracked(ct))
+		return 0;
+
 	if (events & (1 << IPCT_DESTROY)) {
 		kz_extension_destroy(ct);
 	}
