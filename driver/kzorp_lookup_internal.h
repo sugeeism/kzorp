@@ -98,14 +98,6 @@ struct kz_percpu_env {
   size_t result_size;
 };
 
-KZ_PROTECTED u_int32_t
-kz_ndim_eval(
-  const struct kz_traffic_props * const traffic_props,
-  const struct kz_head_d * const dispatchers,
-  struct kz_percpu_env *lenv
-);
-
-
 /**
  * mark_zone_path - mark all reachable zone IDs starting from a given zone
  * @mask: the bitfield to mark zones in

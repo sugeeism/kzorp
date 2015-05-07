@@ -1236,7 +1236,7 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 	return res.all;
 }
 
-KZ_PROTECTED u_int32_t
+static u_int32_t
 kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 	     const struct kz_head_d * const dispatchers,
 	     struct kz_percpu_env *lenv)
