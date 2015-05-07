@@ -92,11 +92,11 @@ kz_lookup_init(void)
 		if (l->dst_mask == NULL)
 			goto cleanup;
 
-		l->result_rules = kzalloc(sizeof(*l->result_rules), GFP_KERNEL);
+		l->max_result_size = 16;
+
+		l->result_rules = kzalloc(sizeof(*l->result_rules) * l->max_result_size, GFP_KERNEL);
 		if (l->result_rules == NULL)
 			goto cleanup;
-
-		l->max_result_size = 1;
 	}
 
 	return 0;
@@ -1288,11 +1288,9 @@ kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 		}
 		if (out_idx < max_out_idx) {
 			kz_debug("appending rule to result list; id='%u', score='%llu'\n", rule->orig->id, score);
-			lenv->result_rules[out_idx] = rule->orig;
+			lenv->result_rules[out_idx++] = rule->orig;
 		}
 		rule = kz_rule_lookup_cursor_next_rule(&cursor);
-
-		out_idx++;
 	}
 
 	/* clean up helpers */
