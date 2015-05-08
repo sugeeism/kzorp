@@ -1248,9 +1248,14 @@ kz_ndim_get_better_rule(const struct kz_rule *actual_rule, int64_t actual_score,
 	if (no_match || worse_match) {
 		/* nothing to do */
 	} else if (better_match) {
+		kz_debug("found rule with better score; id='%u', score='%llx'\n", actual_rule->id, actual_score);
 		*best_rule = actual_rule;
 		*best_score = actual_score;
 	} else /* if (equal_match) */ {
+		kz_err("found rules with same score; "
+		       "last_rule_id='%u', last_score='%llx', actual_rule_id='%u', actual_score='%llx'\n",
+		       (*best_rule)->id, *best_score, actual_rule->id, actual_score);
+
 		/**
 		 * rule with lesser id is preperred as the rule with greater
 		 * was crated later so it has no effect in case of collision
