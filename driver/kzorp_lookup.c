@@ -1241,11 +1241,11 @@ kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 	     const struct kz_head_d * const dispatchers,
 	     struct kz_percpu_env *lenv)
 {
-	kz_ndim_score best;
+	int64_t best_score;
 	const size_t max_out_idx = lenv->max_result_size;
 	size_t out_idx = 0;
 	struct kz_rule_lookup_cursor cursor;
-	struct kz_rule_lookup_data *rule;
+	struct kz_rule_lookup_data *actual_rule;
 	const struct kz_zone * src_zone = traffic_props->src_zone;
 	const struct kz_zone * dst_zone = traffic_props->dst_zone;
 
@@ -1263,34 +1263,34 @@ kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 	mark_zone_path(lenv->src_mask, src_zone);
 	mark_zone_path(lenv->dst_mask, dst_zone);
 
-	best.all = 0;
+	best_score = 0;
 
 	cursor.rule = dispatchers->lookup_data;
 	cursor.pos = sizeof(struct kz_rule_lookup_data);
-	rule = dispatchers->lookup_data;
+	actual_rule = dispatchers->lookup_data;
 
-	while (rule) {
-		int64_t score;
-		prefetch(rule->bytes_to_next + (void*)rule);
-		score = kz_ndim_eval_rule(&cursor, best.all,
-					  traffic_props,
-					  lenv->src_mask, lenv->dst_mask);
+	while (actual_rule) {
+		int64_t actual_score;
+		prefetch(actual_rule->bytes_to_next + (void*)actual_rule);
+		actual_score = kz_ndim_eval_rule(&cursor, best_score,
+						 traffic_props,
+						 lenv->src_mask, lenv->dst_mask);
 
-		if (score == -1 || best.all > score) {
+		if (actual_score == -1 || best_score > actual_score) {
 			/* no match or worse than the current best */
-			rule = kz_rule_lookup_cursor_next_rule(&cursor);
+			actual_rule = kz_rule_lookup_cursor_next_rule(&cursor);
 			continue;
-		} else if (best.all < score) {
+		} else if (best_score < actual_score) {
 			/* better match, so reset result list */
 			kz_debug("reset result list\n");
 			out_idx = 0;
-			best.all = score;
+			best_score = actual_score;
 		}
 		if (out_idx < max_out_idx) {
-			kz_debug("appending rule to result list; id='%u', score='%llu'\n", rule->orig->id, score);
-			lenv->result_rules[out_idx++] = rule->orig;
+			kz_debug("appending rule to result list; id='%u', score='%llu'\n", actual_rule->orig->id, actual_score);
+			lenv->result_rules[out_idx++] = actual_rule->orig;
 		}
-		rule = kz_rule_lookup_cursor_next_rule(&cursor);
+		actual_rule = kz_rule_lookup_cursor_next_rule(&cursor);
 	}
 
 	/* clean up helpers */
