@@ -64,7 +64,6 @@ kz_lookup_cleanup(void)
 		if (l != NULL) {
 			KZ_KFREE(l->src_mask);
 			KZ_KFREE(l->dst_mask);
-			KZ_KFREE(l->result_rules);
 			kfree(l);
 		}
 	}
@@ -90,12 +89,6 @@ kz_lookup_init(void)
 
 		l->dst_mask = (unsigned long *) kzalloc(KZ_ZONE_BF_SIZE, GFP_KERNEL);
 		if (l->dst_mask == NULL)
-			goto cleanup;
-
-		l->max_result_size = 16;
-
-		l->result_rules = kzalloc(sizeof(*l->result_rules) * l->max_result_size, GFP_KERNEL);
-		if (l->result_rules == NULL)
 			goto cleanup;
 	}
 
@@ -1160,9 +1153,14 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 	int dim_res;
 	u_int32_t cursor_pos = cursor->pos;
 
-	/*kz_debug("evaluating rule; id='%u'\n", rule->id);*/
-
-	best.all = best_all;
+	/**
+	 * If the best score is KZ_NDIM_EVAL_RULE_NUMERIC_DIMENSION that means
+	 * there wasn't any matching rule, but actually it is -1 and as an
+	 * unsigned value (as it  us used in EVAL_DIM_RES) it is greater than
+	 * any other match, so 0 must be used until that code is not
+	 * refactored.
+	 */
+	best.all = best_all == KZ_NOT_MATCHING_SCORE ? 0 : best_all;
 	res.all = 0;
 
 	{
@@ -1236,106 +1234,87 @@ kz_ndim_eval_rule(struct kz_rule_lookup_cursor * cursor,
 	return res.all;
 }
 
-static u_int32_t
+static inline void
+kz_ndim_get_better_rule(const struct kz_rule *actual_rule, int64_t actual_score,
+			const struct kz_rule **best_rule, int64_t *best_score)
+{
+	const bool no_match = actual_score == KZ_NOT_MATCHING_SCORE;
+	const bool worse_match = *best_score > actual_score;
+	const bool better_match = *best_score < actual_score;
+
+	kz_debug("perform score comparision; id='%u', score='%lld', best_score='%lld'\n",
+		 actual_rule->id, actual_score, *best_score);
+
+	if (no_match || worse_match) {
+		/* nothing to do */
+	} else if (better_match) {
+		*best_rule = actual_rule;
+		*best_score = actual_score;
+	} else /* if (equal_match) */ {
+		/**
+		 * rule with lesser id is preperred as the rule with greater
+		 * was crated later so it has no effect in case of collision
+		 * wich helps the administrator to realize the fact that a
+		 * colliding rule was created
+		 */
+		if (actual_rule->id < (*best_rule)->id) {
+			/**
+			 * best rule must be exist as there is a collsion and
+			 * not matching rules handled earlier
+			 */
+			*best_rule = actual_rule;
+			*best_score = actual_score;
+		} else {
+			/* nothing to do */
+		}
+	}
+}
+
+static void
 kz_ndim_eval(const struct kz_traffic_props * const traffic_props,
 	     const struct kz_head_d * const dispatchers,
 	     struct kz_percpu_env *lenv)
 {
 	int64_t best_score;
-	const size_t max_out_idx = lenv->max_result_size;
-	size_t out_idx = 0;
 	struct kz_rule_lookup_cursor cursor;
 	struct kz_rule_lookup_data *actual_rule;
 	const struct kz_zone * src_zone = traffic_props->src_zone;
 	const struct kz_zone * dst_zone = traffic_props->dst_zone;
 
 	BUG_ON(!lenv);
-	BUG_ON(!lenv->max_result_size);
-	BUG_ON(!lenv->result_rules);
+
+	best_score = KZ_NOT_MATCHING_SCORE;
+	lenv->best_rule = NULL;
 
 	if (!dispatchers || list_empty(&dispatchers->head)) {
 		kz_debug("no dispatchers to evaluate\n");
-		lenv->result_size = 0;
-		return 0;
+		return;
 	}
 
 	/* set up helper bitmaps */
 	mark_zone_path(lenv->src_mask, src_zone);
 	mark_zone_path(lenv->dst_mask, dst_zone);
 
-	best_score = 0;
-
 	cursor.rule = dispatchers->lookup_data;
 	cursor.pos = sizeof(struct kz_rule_lookup_data);
-	actual_rule = dispatchers->lookup_data;
 
-	while (actual_rule) {
+	for (actual_rule = dispatchers->lookup_data;
+	     actual_rule;
+	     actual_rule = kz_rule_lookup_cursor_next_rule(&cursor))
+	{
 		int64_t actual_score;
-		prefetch(actual_rule->bytes_to_next + (void*)actual_rule);
+		prefetch(actual_rule->bytes_to_next + (void*) actual_rule);
 		actual_score = kz_ndim_eval_rule(&cursor, best_score,
 						 traffic_props,
 						 lenv->src_mask, lenv->dst_mask);
 
-		if (actual_score == -1 || best_score > actual_score) {
-			/* no match or worse than the current best */
-			actual_rule = kz_rule_lookup_cursor_next_rule(&cursor);
-			continue;
-		} else if (best_score < actual_score) {
-			/* better match, so reset result list */
-			kz_debug("reset result list\n");
-			out_idx = 0;
-			best_score = actual_score;
-		}
-		if (out_idx < max_out_idx) {
-			kz_debug("appending rule to result list; id='%u', score='%llu'\n", actual_rule->orig->id, actual_score);
-			lenv->result_rules[out_idx++] = actual_rule->orig;
-		}
-		actual_rule = kz_rule_lookup_cursor_next_rule(&cursor);
+		kz_ndim_get_better_rule(actual_rule->orig, actual_score,
+					&lenv->best_rule, &best_score);
 	}
 
 	/* clean up helpers */
 	unmark_zone_path(lenv->src_mask, src_zone);
 	unmark_zone_path(lenv->dst_mask, dst_zone);
-
-	kz_debug("out_idx='%zu'\n", out_idx);
-
-	return lenv->result_size = out_idx;
-}
-
-static const struct kz_rule *
-kz_ndim_lookup_get_best_match(struct kz_percpu_env *lenv) {
-	const char *eval_result;
-	size_t result_rule_idx;
-	const struct kz_service *service;
-	const struct kz_dispatcher *dispatcher;
-	bool no_match = (lenv->result_size == 0);
-	bool exact_match = (lenv->result_size == 1);
-
-	if (no_match) {
-		kz_debug("evaluation performed; eval_result='no match'\n");
-		return 0;
-	}
-
-	if (exact_match) {
-		result_rule_idx = 0;
-		eval_result = "exact match";
-	} else {
-		size_t rule_idx;
-		result_rule_idx = 0;
-		for (rule_idx = 1; rule_idx < lenv->result_size; rule_idx++)
-			if (lenv->result_rules[rule_idx]->id < lenv->result_rules[result_rule_idx]->id)
-				result_rule_idx = rule_idx;
-		eval_result = "multiple match";
-	}
-	service = lenv->result_rules[result_rule_idx]->service;
-	dispatcher = lenv->result_rules[result_rule_idx]->dispatcher;
-	kz_debug("evaluation performed; eval_result='%s', rule_id='%u', service='%s, dispatcher='%s'\n",
-		 eval_result,
-		 lenv->result_rules[result_rule_idx]->id,
-		 service ? service->name : kz_log_null,
-		 dispatcher->name);
-
-	return lenv->result_rules[result_rule_idx];
 }
 
 /**
@@ -1358,7 +1337,6 @@ kz_ndim_lookup(const struct kz_head_d * const dispatchers,
 	       struct kz_dispatcher **dispatcher)
 {
 	struct kz_percpu_env *lenv;
-	const struct kz_rule *rule;
 	u_int32_t rule_id;
 
 	kz_debug("src_zone='%s', dst_zone='%s'\n",
@@ -1369,11 +1347,10 @@ kz_ndim_lookup(const struct kz_head_d * const dispatchers,
 	lenv = __get_cpu_var(kz_percpu);
 
 	kz_ndim_eval(traffic_props, dispatchers, lenv);
-	rule = kz_ndim_lookup_get_best_match(lenv);
-	if (rule) {
-		*service = rule->service;
-		*dispatcher = rule->dispatcher;
-		rule_id = rule->id;
+	if (lenv->best_rule) {
+		*service = lenv->best_rule->service;
+		*dispatcher = lenv->best_rule->dispatcher;
+		rule_id = lenv->best_rule->id;
 	} else {
 		*service = NULL;
 		*dispatcher = NULL;

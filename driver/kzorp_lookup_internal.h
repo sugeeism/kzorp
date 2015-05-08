@@ -80,22 +80,18 @@ kz_generate_lookup_data_rule(const struct kz_rule * const rule, void *buf);
 
 /**
  * struct kz_percpu_env - per-CPU work area for the n-dimensional lookup algorithms
- * @max_result_size: the maximal size of the result set to return
  * @src_mask: bitmask to use as a temporary helper for source zone evaluation
  * @dst_mask: bitmask to use as a temporary helper for destination zone evaluation
  * @results: the buffer to return results in, an array of pointers to
  *       struct kz_rule structures, should point to an
  *       array with at lease @max_result_size elements
- * @result_size: the number of matching rules stored in @results
  */
 struct kz_percpu_env {
   /* in */
-  size_t max_result_size;
   unsigned long *src_mask;
   unsigned long *dst_mask;
   /* out */
-  struct kz_rule const **result_rules;
-  size_t result_size;
+  struct kz_rule const *best_rule;
 };
 
 /**
