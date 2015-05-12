@@ -489,7 +489,7 @@ class KZorpAddServiceMessage(GenericNetlinkMessage):
     def _build_payload(self):
         self.append_attribute(create_service_params_attr(KZNL_ATTR_SVC_PARAMS, self.service_type, self.flags))
         self.append_attribute(create_name_attr(KZNL_ATTR_SVC_NAME, self.name))
-        self.append_attribute(NetlinkAttribute.create_be64(KZNL_ATTR_SVC_SESSION_COUNT, self.count))
+        self.append_attribute(NetlinkAttribute.create_be64(KZNL_ATTR_ACCOUNTING_COUNTER_NUM, self.count))
 
     @staticmethod
     def get_kz_attr(attrs, key_type, parser):
@@ -522,14 +522,14 @@ class KZorpAddServiceMessage(GenericNetlinkMessage):
 
         name = cls.get_kz_attr(attrs, KZNL_ATTR_SVC_NAME, parse_name_attr)
         flags, service_type = cls.get_kz_attr(attrs, KZNL_ATTR_SVC_PARAMS, parse_service_params_attr)
-        count = cls.get_kz_attr(attrs, KZNL_ATTR_SVC_SESSION_COUNT, NetlinkAttribute.parse_be64)
+        count = attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].parse_be64()
 
         return (name, service_type, flags, count)
 
     def __str__(self):
         flags_str = mask_to_description(self.flags, self.service_flags)
 
-        return "Service name='%s', flags='%s', type='%s', session_count='%d'" % \
+        return "Service name='%s', flags='%s', type='%s', count='%d'" % \
                (self.name, flags_str, self.type_string, self.count)
 
 

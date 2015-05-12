@@ -130,7 +130,7 @@ attrmap = {
             messages.KZNL_ATTR_SVC_NAT_SRC: (messages.create_nat_range_attr, messages.parse_nat_range_attr),
             messages.KZNL_ATTR_SVC_NAT_DST: (messages.create_nat_range_attr, messages.parse_nat_range_attr),
             messages.KZNL_ATTR_SVC_NAT_MAP: (messages.create_nat_range_attr, messages.parse_nat_range_attr),
-            messages.KZNL_ATTR_SVC_SESSION_COUNT: (netlink.NetlinkAttribute.create_be32, netlink.NetlinkAttribute.parse_be32),
+            messages.KZNL_ATTR_ACCOUNTING_COUNTER_NUM: (netlink.NetlinkAttribute.create_be32, netlink.NetlinkAttribute.parse_be32),
           }
 
 def create_attr(type, *attr):

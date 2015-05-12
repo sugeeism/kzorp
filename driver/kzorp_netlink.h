@@ -146,10 +146,6 @@ struct kza_service_nat_params {
 	__be16 min_port, max_port;
 } __attribute__ ((packed));
 
-struct kza_service_session_cnt {
-	__be64 count;
-} __attribute__ ((packed));
-
 enum kz_service_ipv4_deny_method {
 	KZ_SERVICE_DENY_METHOD_V4_DROP,
 	KZ_SERVICE_DENY_METHOD_V4_TCP_RESET,

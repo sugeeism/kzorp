@@ -411,6 +411,16 @@ kznl_parse_name_alloc(const struct nlattr *attr, char **name)
 	return res;
 }
 
+static int
+kznl_parse_count(const struct nlattr *attr, u_int64_t *_count)
+{
+	u_int64_t count = be64_to_cpu(nla_get_u64(attr));
+
+	*_count = count;
+
+	return 0;
+}
+
 static inline int
 kznl_parse_in_addr(const struct nlattr *attr, struct in_addr *addr)
 {
@@ -702,16 +712,6 @@ kznl_parse_service_nat_params(const struct nlattr *attr, NAT_RANGE_TYPE *range)
 }
 
 static inline int
-kznl_parse_service_session_cnt(const struct nlattr *attr, u_int64_t *count)
-{
-	struct kza_service_session_cnt *a = nla_data(attr);
-
-	*count = be64_to_cpu(a->count);
-
-	return 0;
-}
-
-static inline int
 kznl_parse_service_deny_method(const struct nlattr *attr, unsigned int *type)
 {
 	*type = nla_get_u8(attr);
@@ -830,6 +830,18 @@ kznl_dump_name(struct sk_buff *skb, unsigned int attr, const char *name)
 		memcpy(&msg.name, name, len);
 		NLA_PUT(skb, attr, sizeof(struct kza_name) + len, &msg);
 	}
+
+	return 0;
+
+nla_put_failure:
+	return -1;
+}
+
+static int
+kznl_dump_count(struct sk_buff *skb, unsigned int attr, u_int64_t count)
+{
+	if (nla_put_u64(skb, attr, cpu_to_be64(count)))
+		goto nla_put_failure;
 
 	return 0;
 
@@ -2089,10 +2101,10 @@ kznl_recv_add_service(struct sk_buff *skb, struct genl_info *info)
 		goto error_put_svc;
 	}
 
-	if (info->attrs[KZNL_ATTR_SERVICE_SESSION_CNT]) {
-		res = kznl_parse_service_session_cnt(info->attrs[KZNL_ATTR_SERVICE_SESSION_CNT], &count);
+	if (info->attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM]) {
+		res = kznl_parse_count(info->attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM], &count);
 		if (res < 0) {
-			kz_err("failed to parse session counter\n");
+			kz_err("failed to parse service acoouting counter\n");
 			goto error_put_svc;
 		}
 		atomic64_set(&svc->count, count);
@@ -2333,7 +2345,6 @@ kznl_build_service_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, i
 {
 	void *hdr;
 	struct kza_service_params params;
-	struct kza_service_session_cnt cnt;
 
 	hdr = genlmsg_put(skb, pid, seq, &kznl_family, flags, msg);
 	if (!hdr)
@@ -2379,8 +2390,7 @@ kznl_build_service_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, i
 		break;
 	}
 
-	cnt.count = cpu_to_be64(atomic64_read(&svc->count));
-	if (nla_put(skb, KZNL_ATTR_SERVICE_SESSION_CNT, sizeof(cnt), &cnt))
+	if (kznl_dump_count(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, atomic64_read(&svc->count)))
 		goto nla_put_failure;
 
 	return genlmsg_end(skb, hdr);
