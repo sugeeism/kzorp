@@ -1049,6 +1049,90 @@ class KZorpTestCaseQueryNDim(KZorpBaseTestCaseQuery):
         self.setup_service_dispatcher(_services, _dispatchers)
         self._run_query(_queries, _answers)
 
+    def test_eval_with_empty_ruleset(self):
+        _queries = [
+                     { 'proto' : socket.IPPROTO_TCP, 'sport' : 5, 'saddr' : '1.1.1.1', 'dport' : 5, 'family' : socket.AF_INET, 'daddr' : '1.2.3.4', 'iface' : 'dummy0'},
+                   ]
+        _answers = [ None ]
+
+        self._run_query(_queries, _answers)
+
+    def test_eval_with_zero_score(self):
+        _rules = [{ 'name' : 'n_dimension_specific', 'num_rules' : 1,
+                    'rules' : [
+                                {
+                                  'rule_id'      : 1, 'service' : 'service',
+                                  'entry_nums'   : { },
+                                  'entry_values' : { }
+                                },
+                             ]
+                 }]
+
+        _services = [ 'service' ]
+        _queries = [
+                     { 'proto' : socket.IPPROTO_TCP, 'sport' : 5, 'saddr' : '1.1.1.1', 'dport' : 5, 'family' : socket.AF_INET, 'daddr' : '1.2.3.4', 'iface' : 'dummy0'},
+                   ]
+        _answers = [ 'service' ]
+
+        self.setup_service_dispatcher(_services, _rules)
+        self._run_query(_queries, _answers)
+
+    def test_eval_with_colliding_rules(self):
+        _rules = [{ 'name' : 'n_dimension_specific', 'num_rules' : 3,
+                    'rules' : [
+                                {
+                                  'rule_id'      : 2, 'service' : 'service2',
+                                  'entry_nums'   : { },
+                                  'entry_values' : { }
+                                },
+                                {
+                                  'rule_id'      : 3, 'service' : 'service3',
+                                  'entry_nums'   : { },
+                                  'entry_values' : { }
+                                },
+                                {
+                                  'rule_id'      : 4, 'service' : 'service4',
+                                  'entry_nums'   : { },
+                                  'entry_values' : { }
+                                },
+                             ]
+                 }]
+
+        _services = [ 'service2', 'service3', 'service4' ]
+        _queries = [
+                     { 'proto' : socket.IPPROTO_TCP, 'sport' : 5, 'saddr' : '1.1.1.1', 'dport' : 5, 'family' : socket.AF_INET, 'daddr' : '1.2.3.4', 'iface' : 'dummy0'},
+                   ]
+        _answers = [ 'service2' ]
+
+        self.setup_service_dispatcher(_services, _rules)
+        self._run_query(_queries, _answers)
+
+    def test_eval_with_huge_number_of_colliding_rules(self):
+        _rule_number = 128
+        _rules = [{ 'name' : 'n_dimension_specific', 'num_rules' : _rule_number,
+                    'rules' : [
+                             ]
+                 }]
+        _services = [ ]
+
+        for i in range(_rule_number):
+            _service_name = 'service%s' % (i + 1)
+            _rules[0]['rules'].append({
+                                       'rule_id'      : i + 1, 'service' : _service_name,
+                                       'entry_nums'   : { },
+                                       'entry_values' : { }
+                                      })
+
+            _services.append(_service_name)
+
+        _queries = [
+                     { 'proto' : socket.IPPROTO_TCP, 'sport' : 5, 'saddr' : '1.1.1.1', 'dport' : 5, 'family' : socket.AF_INET, 'daddr' : '1.2.3.4', 'iface' : 'dummy0'},
+                   ]
+        _answers = [ 'service1' ]
+
+        self.setup_service_dispatcher(_services, _rules)
+        self._run_query(_queries, _answers)
+
 if __name__ == "__main__":
         testutil.main()
 
