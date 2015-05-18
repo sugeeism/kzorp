@@ -23,7 +23,6 @@ struct kz_lookup_result {
 	char szone_name[KZ_ATTR_NAME_MAX_LENGTH + 1];
 	char dispatcher_name[KZ_ATTR_NAME_MAX_LENGTH + 1];
 	char service_name[KZ_ATTR_NAME_MAX_LENGTH + 1];
-	u_int32_t rule_id;
 };
 
 #endif
