@@ -232,11 +232,10 @@ class Daemon():
         if not os.path.exists(pidfiledir):
             owner = zorpctlconf['PIDFILE_DIR_OWNER']
             group = zorpctlconf['PIDFILE_DIR_GROUP']
-            mode = zorpctlconf['PIDFILE_DIR_MODE']
+            mode_oct = zorpctlconf['PIDFILE_DIR_MODE']
 
             owner_uid = pwd.getpwnam(owner).pw_uid
             group_uid = pwd.getpwnam(group).pw_gid
-            mode_oct = int(str(mode), 8)
 
             os.makedirs(pidfiledir)
             os.chown(pidfiledir, owner_uid, group_uid)
