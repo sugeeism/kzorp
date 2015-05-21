@@ -373,7 +373,9 @@ def parse_rule_attrs(attr):
             value = struct.unpack('>I', data[:4])[0]
             rule_entry_nums[dim_type] = value
 
-    return (dpt_name, rule_id, service, rule_entry_nums)
+    count = attr[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].parse_be64()
+
+    return (dpt_name, rule_id, service, rule_entry_nums, count)
 
 def parse_rule_entry_attrs(attr):
     if attr.has_key(KZNL_ATTR_DPT_NAME):
@@ -766,12 +768,13 @@ class KZorpGetServiceMessage(GenericNetlinkMessage):
 class KZorpAddZoneMessage(GenericNetlinkMessage):
     command = KZNL_MSG_ADD_ZONE
 
-    def __init__(self, name, pname = None, subnet_num = 0):
+    def __init__(self, name, pname = None, subnet_num = 0, count = 0):
         super(KZorpAddZoneMessage, self).__init__(self.command, version = 1)
 
         self.name = name
         self.pname = pname
         self.subnet_num = subnet_num
+        self.count = count
 
         self._build_payload()
 
@@ -780,6 +783,7 @@ class KZorpAddZoneMessage(GenericNetlinkMessage):
         if self.pname != None:
             self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_PNAME, self.pname))
         self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_ZONE_SUBNET_NUM, self.subnet_num))
+        self.append_attribute(NetlinkAttribute.create_be64(KZNL_ATTR_ACCOUNTING_COUNTER_NUM, self.count))
 
     @staticmethod
     def parse(version, data):
@@ -795,11 +799,12 @@ class KZorpAddZoneMessage(GenericNetlinkMessage):
             kw['pname'] = parse_name_attr(attrs[KZNL_ATTR_ZONE_PNAME])
 
         kw['subnet_num'] = attrs[KZNL_ATTR_ZONE_SUBNET_NUM].parse_be32()
+        kw['count'] = attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].parse_be64()
 
         return KZorpAddZoneMessage(name, **kw)
 
     def __str__(self):
-        res = "Zone name='%s', admin_parent='%s'" % (self.name, self.pname)
+        res = "Zone name='%s', admin_parent='%s' count='%d'" % (self.name, self.pname, self.count)
         return res
 
 class KZorpObjectEntryMessage(GenericNetlinkMessage):
@@ -918,13 +923,14 @@ class KZorpAddDispatcherMessage(GenericNetlinkMessage):
 class KZorpAddRuleMessage(GenericNetlinkMessage):
     command = KZNL_MSG_ADD_RULE
 
-    def __init__(self, dpt_name, rule_id, service, entry_nums):
+    def __init__(self, dpt_name, rule_id, service, entry_nums, count = 0):
         super(KZorpAddRuleMessage, self).__init__(self.command, version = 1)
 
         self.dpt_name = dpt_name
         self.rule_id = rule_id
         self.service = service
         self.entry_nums = entry_nums
+        self.count = count
 
         self._build_payload()
 
@@ -932,6 +938,7 @@ class KZorpAddRuleMessage(GenericNetlinkMessage):
         self.append_attribute(create_name_attr(KZNL_ATTR_DPT_NAME, self.dpt_name))
         self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_N_DIMENSION_RULE_ID, self.rule_id))
         self.append_attribute(create_name_attr(KZNL_ATTR_N_DIMENSION_RULE_SERVICE, self.service))
+        self.append_attribute(NetlinkAttribute.create_be64(KZNL_ATTR_ACCOUNTING_COUNTER_NUM, self.count))
 
         for dim_type in N_DIMENSION_ATTRS:
             if self.entry_nums and self.entry_nums.has_key(dim_type):
@@ -942,11 +949,11 @@ class KZorpAddRuleMessage(GenericNetlinkMessage):
     def parse(version, data):
         attrs = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
 
-        dpt_name, rule_id, service, rule_entry_nums = parse_rule_attrs(attrs)
-        return KZorpAddRuleMessage(dpt_name, rule_id, service, rule_entry_nums)
+        dpt_name, rule_id, service, rule_entry_nums, count = parse_rule_attrs(attrs)
+        return KZorpAddRuleMessage(dpt_name, rule_id, service, rule_entry_nums, count)
 
     def __str__(self):
-        return "        rule_id='%d', service='%s'" % (self.rule_id, self.service)
+        return "        rule_id='%d', service='%s', count='%d'" % (self.rule_id, self.service, self.count)
 
 class KZorpAddRuleEntryMessage(GenericNetlinkMessage):
     command = KZNL_MSG_ADD_RULE_ENTRY
@@ -1298,74 +1305,6 @@ class KZorpLookupZoneMessage(GenericNetlinkMessage):
     def __str__(self):
         raise NotImplementedError
 
-class KZorpGetRuleCounterMessage(GenericNetlinkMessage):
-    command = KZNL_MSG_GET_RULE_COUNTER
-
-    def __init__(self, rule_id=None):
-        super(KZorpGetRuleCounterMessage, self).__init__(self.command, version = 1)
-
-        self.rule_id = rule_id
-
-        self._build_payload()
-
-    def _build_payload(self):
-        if self.rule_id:
-	    self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_N_DIMENSION_RULE_ID, self.rule_id))
-
-class KZorpGetRuleCounterReplyMessage(GenericNetlinkMessage):
-    command = KZNL_MSG_GET_RULE_COUNTER_REPLY
-
-    def __init__(self, rule_id, count):
-        super(KZorpGetRuleCounterReplyMessage, self).__init__(self.command, version = 1)
-
-	self.rule_id = rule_id
-	self.count = count
-
-    @staticmethod
-    def parse(version, data):
-        attr = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
-        (rule_id, ) = struct.unpack('>I', attr[KZNL_ATTR_N_DIMENSION_RULE_ID].get_data()[:4])
-	(count, ) = struct.unpack('Q', attr[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].get_data()[:8])
-
-        return KZorpGetRuleCounterReplyMessage(rule_id, count)
-
-    def __str__(self):
-        raise NotImplementedError
-
-class KZorpGetZoneCounterMessage(GenericNetlinkMessage):
-    command = KZNL_MSG_GET_ZONE_COUNTER
-
-    def __init__(self, name=None):
-        super(KZorpGetZoneCounterMessage, self).__init__(self.command, version = 1)
-
-        self.name = name
-
-        self._build_payload()
-
-    def _build_payload(self):
-        if self.name:
-            self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_UNAME, self.name))
-
-class KZorpGetZoneCounterReplyMessage(GenericNetlinkMessage):
-    command = KZNL_MSG_GET_ZONE_COUNTER_REPLY
-
-    def __init__(self, name, count):
-        super(KZorpGetZoneCounterReplyMessage, self).__init__(self.command, version = 1)
-
-	self.name = name
-	self.count = count
-
-    @staticmethod
-    def parse(version, data):
-        attr = NetlinkAttribute.parse(NetlinkAttributeFactory, data)
-	name = parse_name_attr(attr[KZNL_ATTR_ZONE_NAME])
-	(count, ) = struct.unpack('Q', attr[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].get_data()[:8])
-
-        return KZorpGetZoneCounterReplyMessage(name, count)
-
-    def __str__(self):
-        raise NotImplementedError
-
 class KZorpMessageFactory(object):
     known_classes = {
       KZNL_MSG_ADD_BIND               : KZorpAddBindMessage,
@@ -1392,11 +1331,6 @@ class KZorpMessageFactory(object):
       KZNL_MSG_GET_VERSION_REPLY      : KZorpGetVersionReplyMessage,
       KZNL_MSG_LOOKUP_ZONE            : KZorpLookupZoneMessage,
       KZNL_MSG_DELETE_ZONE            : KZorpDeleteZoneMessage,
-      KZNL_MSG_GET_RULE_COUNTER       : KZorpGetRuleCounterMessage,
-      KZNL_MSG_GET_RULE_COUNTER_REPLY : KZorpGetRuleCounterReplyMessage,
-      KZNL_MSG_GET_ZONE_COUNTER       : KZorpGetZoneCounterMessage,
-      KZNL_MSG_GET_ZONE_COUNTER_REPLY : KZorpGetZoneCounterReplyMessage,
-
     }
 
     @staticmethod

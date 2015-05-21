@@ -68,10 +68,6 @@
   ACTION ( ADD_ZONE_SUBNET,        add_zone_subnet,            NO_DUMP_FUNC,      KZNL_OP   )_ \
   ACTION ( LOOKUP_ZONE,            lookup_zone,                NO_DUMP_FUNC,      KZNL_OP   )_ \
   ACTION ( DELETE_ZONE,            delete_zone,                NO_DUMP_FUNC,      KZNL_OP   )_ \
-  ACTION ( GET_RULE_COUNTER,       get_rule_counter,           rule_counters,     KZNL_OP   )_ \
-  ACTION ( GET_RULE_COUNTER_REPLY, NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
-  ACTION ( GET_ZONE_COUNTER,       get_zone_counter,           zone_counters,     KZNL_OP   )_ \
-  ACTION ( GET_ZONE_COUNTER_REPLY, NO_RECV_FUNC,               NO_DUMP_FUNC,      KZNL_NOOP )_ \
 
 #define KZORP_COMMA_SEPARATOR ,
 
