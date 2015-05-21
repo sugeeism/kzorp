@@ -777,26 +777,42 @@ kznl_parse_dispatcher_n_dimension(const struct nlattr *attr, struct kz_dispatche
 }
 
 static int
-kznl_parse_dispatcher_n_dimension_rule(const struct nlattr *attr,
-				       struct kz_rule *rule)
+kznl_parse_rule_id(struct nlattr *attrs[],
+		   u_int32_t *rule_id)
 {
-	struct kza_n_dimension_rule_params *a = nla_data(attr);
+	u_int32_t _rule_id;
 
-	rule->id = ntohl(a->id);
-	if (rule->id == 0) {
-		kz_err("invalid rule id; id='%u'\n", rule->id);
+	if ((_rule_id = ntohl(nla_get_be32(attrs[KZNL_ATTR_N_DIMENSION_RULE_ID]))) == 0) {
+		kz_err("invalid rule id; id='%u'\n", _rule_id);
 		return -EINVAL;
 	}
+
+	*rule_id = _rule_id;
 
 	return 0;
 }
 
 static int
-kznl_parse_dispatcher_n_dimension_rule_entry(const struct nlattr *attr,
+kznl_parse_dispatcher_n_dimension_rule(struct nlattr *attrs[],
+				       struct kz_rule *rule)
+{
+	int res;
+
+	if ((res = kznl_parse_rule_id(attrs, &rule->id)) < 0)
+		return res;
+
+	return 0;
+}
+
+static int
+kznl_parse_dispatcher_n_dimension_rule_entry(struct nlattr *attrs[],
 					     struct kz_rule_entry_params *rule_entry)
 {
-	struct kz_rule_entry_params *a = nla_data(attr);
-	rule_entry->rule_id = ntohl(a->rule_id);
+	int res;
+
+	if ((res = kznl_parse_rule_id(attrs, &rule_entry->rule_id)) < 0)
+		return res;
+
 	return 0;
 }
 
@@ -2694,9 +2710,8 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 	/* parse attributes */
 	memset(&rule, 0, sizeof(struct kz_rule));
 
-	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule);
+	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs, &rule);
 	if (res < 0) {
-		kz_err("failed to parse rule id\n");
 		goto error_free_svc_name;
 	}
 
@@ -2855,11 +2870,8 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 
 	memset(&rule_entry, 0, sizeof(rule_entry));
 
-	res = kznl_parse_dispatcher_n_dimension_rule_entry(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule_entry);
-	if (res < 0) {
-		kz_err("failed to parse rule id\n");
+	if ((res = kznl_parse_dispatcher_n_dimension_rule_entry(info->attrs, &rule_entry)) < 0)
 		goto error_free_names;
-	}
 
 	for (attr_type = KZNL_ATTR_INVALID; attr_type < KZNL_ATTR_TYPE_COUNT; attr_type++) {
 		if (!info->attrs[attr_type])
@@ -4121,7 +4133,7 @@ kznl_recv_get_rule_counter(struct sk_buff *skb, struct genl_info *info)
 	/* parse attributes */
 	memset(&rule, 0, sizeof(struct kz_rule));
 
-	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule);
+	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs, &rule);
 	if (res < 0) {
 		kz_err("failed to parse rule id\n");
 		goto error;

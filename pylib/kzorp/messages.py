@@ -358,8 +358,11 @@ def parse_n_dimension_attr(attr):
     (num_rules, ) = struct.unpack('>I', attr.get_data()[:4])
     return num_rules
 
+def parse_rule_id(attrs):
+    return attrs[KZNL_ATTR_N_DIMENSION_RULE_ID].parse_be32()
+
 def parse_rule_attrs(attr):
-    (rule_id, ) = struct.unpack('>I', attr[KZNL_ATTR_N_DIMENSION_RULE_ID].get_data()[:4])
+    rule_id = parse_rule_id(attr)
     service = parse_name_attr(attr[KZNL_ATTR_N_DIMENSION_RULE_SERVICE])
     dpt_name = parse_name_attr(attr[KZNL_ATTR_DPT_NAME])
     rule_entry_nums = {}
@@ -378,7 +381,7 @@ def parse_rule_entry_attrs(attr):
     else:
         raise AttributeRequiredError, "KZNL_ATTR_DPT_NAME"
 
-    (rule_id, ) = struct.unpack('>I', attr[KZNL_ATTR_N_DIMENSION_RULE_ID].get_data()[:4])
+    rule_id = parse_rule_id(attr)
     rule_entries = {}
 
     for dim_type in N_DIMENSION_ATTRS:

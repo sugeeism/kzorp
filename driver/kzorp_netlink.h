@@ -173,10 +173,6 @@ struct kza_dispatcher_n_dimension_params {
 	__be32 num_rules;
 } __attribute__ ((packed));
 
-struct kza_n_dimension_rule_params {
-	__be32 id;
-} __attribute__ ((packed));
-
 struct kza_query_params {
 	char ifname[IFNAMSIZ];
 	__u8 proto;
