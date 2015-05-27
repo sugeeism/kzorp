@@ -17,21 +17,31 @@
 #include <net/netfilter/nf_conntrack_zones.h>
 #include "kzorp.h"
 
+#ifdef CONFIG_LOCKDEP
+# define KZ_HASH_LOCK_NUM 8
+#else
+# define KZ_HASH_LOCK_NUM 1024
+#endif
+
 #ifndef KZ_USERSPACE
 	#define PRIVATE static
 #else
 	#define	PRIVATE
 #endif
 
-PRIVATE unsigned int kz_hash_shift = 4;
-PRIVATE unsigned int kz_hash_size;
+PRIVATE __read_mostly unsigned int kz_hash_shift;
+PRIVATE __read_mostly unsigned int kz_hash_size;
+
 PRIVATE struct hlist_nulls_head *kz_hash;
-PRIVATE spinlock_t kz_hash_lock;
+__cacheline_aligned_in_smp spinlock_t kz_hash_locks[KZ_HASH_LOCK_NUM];
 PRIVATE struct kmem_cache *kz_cachep;
 
-unsigned const int kz_hash_rnd = 0x9e370001UL;	//golden ratio prime
+unsigned const int kz_hash_rnd = GOLDEN_RATIO_PRIME_32;
 
-/* the same as in nf_conntrack_core.c */
+/*
+ * the same as in nf_conntrack_core.c
+ * do not call directly, use 
+ */
 static u32
 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 {
@@ -45,6 +55,26 @@ hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 	return jhash2((u32 *) tuple, n, zone ^ kz_hash_rnd ^
 		      (((__force __u16) tuple->dst.u.all << 16) |
 		       tuple->dst.protonum));
+}
+
+static inline u32
+kz_hash_get_lock_index(const u32 hash_index)
+{
+	return hash_index % KZ_HASH_LOCK_NUM;
+}
+
+static inline u32
+kz_hash_get_hash_index_from_tuple_and_zone(const struct nf_conntrack_tuple *tuple, u16 zone)
+{
+	const u32 index = hash_conntrack_raw(tuple, zone) >> (32 - kz_hash_shift);
+	return index;
+}
+
+static inline u32
+kz_hash_get_hash_index_from_ct(const struct nf_conn *ct, enum ip_conntrack_dir dir)
+{
+	const u32 index = kz_hash_get_hash_index_from_tuple_and_zone(&(ct->tuplehash[dir].tuple), nf_ct_zone(ct));
+	return index;
 }
 
 struct nf_conntrack_kzorp * kz_get_kzorp_from_node(struct nf_conntrack_tuple_hash *p) {
@@ -73,18 +103,16 @@ __kz_extension_find(struct nf_conn *ct)
 	struct nf_conntrack_tuple_hash *th = &(ct->tuplehash[0]);
 	unsigned int zone = nf_ct_zone(ct);
 
-	unsigned int bucket =
-			hash_conntrack_raw(&(th->tuple),
-			       nf_ct_zone(ct)) >> (32 - kz_hash_shift);
+	const u32 hash_index = kz_hash_get_hash_index_from_ct(ct, IP_CT_DIR_ORIGINAL);
 
 begin:
-	hlist_nulls_for_each_entry_rcu(h, n, &kz_hash[bucket], hnnode) {
+	hlist_nulls_for_each_entry_rcu(h, n, &kz_hash[hash_index], hnnode) {
 		if (__kz_extension_key_equal(h, th, zone)) {
 			return h;
 		}
 	}
 
-	if (get_nulls_value(n) != bucket) {
+	if (get_nulls_value(n) != hash_index) {
 	  goto begin;
 	}
 
@@ -119,13 +147,16 @@ begin:
 
 static void kz_extension_dealloc(struct nf_conntrack_kzorp *kz)
 {
-	int i;
+	enum ip_conntrack_dir dir;
 
-	spin_lock(&kz_hash_lock);
-	for (i = 0; i < IP_CT_DIR_MAX; i++) {
-		hlist_nulls_del_rcu(&(kz->tuplehash[i].hnnode));
+	for (dir = 0; dir < IP_CT_DIR_MAX; dir++) {
+	        const u32 hash_index = kz_hash_get_hash_index_from_tuple_and_zone(&kz->tuplehash[dir].tuple, kz->ct_zone);
+	        const u32 lock_index = kz_hash_get_lock_index(hash_index);
+
+		spin_lock(&kz_hash_locks[lock_index]);
+		hlist_nulls_del_rcu(&(kz->tuplehash[dir].hnnode));
+		spin_unlock(&kz_hash_locks[lock_index]);
 	}
-	spin_unlock(&kz_hash_lock);
 
 	if (kz->czone != NULL)
 		kz_zone_put(kz->czone);
@@ -170,11 +201,12 @@ static void kz_extension_destroy(struct nf_conn *ct)
 PRIVATE void kz_extension_fill_one(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct,int direction)
 {
 	struct nf_conntrack_tuple_hash *th = &(kzorp->tuplehash[direction]);
-	unsigned int bucket = hash_conntrack_raw( &(th->tuple), nf_ct_zone(ct)) >> (32 - kz_hash_shift);
+	const u32 hash_index = kz_hash_get_hash_index_from_ct(ct, direction);
+        const u32 lock_index = kz_hash_get_lock_index(hash_index);
 
-	spin_lock(&kz_hash_lock);
-	hlist_nulls_add_head_rcu(&(th->hnnode), &kz_hash[bucket]);
-	spin_unlock(&kz_hash_lock);
+	spin_lock(&kz_hash_locks[lock_index]);
+	hlist_nulls_add_head_rcu(&(th->hnnode), &kz_hash[hash_index]);
+	spin_unlock(&kz_hash_locks[lock_index]);
 }
 
 PRIVATE void kz_extension_fill(struct nf_conntrack_kzorp *kzorp, struct nf_conn *ct)
@@ -231,6 +263,9 @@ static int
 kz_extension_conntrack_event(unsigned int events, struct nf_ct_event *item)
 {
 	struct nf_conn *ct = item->ct;
+
+	if (ct == NULL || nf_ct_is_untracked(ct))
+		return 0;
 
 	if (events & (1 << IPCT_DESTROY)) {
 		kz_extension_destroy(ct);
@@ -313,8 +348,8 @@ int kz_extension_init(void)
                                      sizeof(struct nf_conntrack_kzorp), 0,
                                      SLAB_DESTROY_BY_RCU, NULL);
 
-
-	kz_hash_size = 1 << kz_hash_shift;
+	kz_hash_size = init_net.ct.htable_size;
+	kz_hash_shift = ilog2(kz_hash_size);
 	kz_hash =
 	    kzalloc(kz_hash_size * sizeof(struct hlist_head *),
 		    GFP_KERNEL);
@@ -332,7 +367,8 @@ int kz_extension_init(void)
 		goto error_cleanup_hash;
 	}
 
-	spin_lock_init(&kz_hash_lock);
+	for (i = 0; i < ARRAY_SIZE(kz_hash_locks); i++)
+		spin_lock_init(&kz_hash_locks[i]);
 
 	return 0;
 

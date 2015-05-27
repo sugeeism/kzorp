@@ -1172,6 +1172,16 @@ kzorp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 
 	ports = &_ports;
 
+	ct = nf_ct_get(skb, &ctinfo);
+	/* no conntrack or this is a reply packet: we simply accept it
+	   we don't want to mark the reply packages with tproxy mark
+	   in iptables there could be a condition so reply does not get here
+	   at all -- for that here a warning could be emitted, preferably
+	   only once.  but that means slightly worse performance, so
+	   the former bahavior is kept.*/
+	if (ct == NULL || nf_ct_is_untracked(ct) || ctinfo >= IP_CT_IS_REPLY)
+		return NF_ACCEPT;
+
 	switch (par->family) {
 	case NFPROTO_IPV4:
 	{
@@ -1231,16 +1241,6 @@ kzorp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 	default:
 		BUG();
 	}
-
-	ct = nf_ct_get(skb, &ctinfo);
-	/* no conntrack or this is a reply packet: we simply accept it
-	   we don't want to mark the reply packages with tproxy mark
-	   in iptables there could be a condition so reply does not get here 
-	   at all -- for that here a warning could be emitted, preferably 
-	   only once.  but that means slightly worse performance, so
-	   the former bahavior is kept.*/
-	if (ct == NULL || nf_ct_is_untracked(ct) || ctinfo >= IP_CT_IS_REPLY)
-		return NF_ACCEPT;
 
 	rcu_read_lock();
 	kz_extension_get_from_ct_or_lookup(skb, in, par->family, &local_kzorp, &kzorp, &cfg);
