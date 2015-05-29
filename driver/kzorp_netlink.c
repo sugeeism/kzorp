@@ -411,6 +411,16 @@ kznl_parse_name_alloc(const struct nlattr *attr, char **name)
 	return res;
 }
 
+static int
+kznl_parse_count(const struct nlattr *attr, u_int64_t *_count)
+{
+	u_int64_t count = be64_to_cpu(nla_get_u64(attr));
+
+	*_count = count;
+
+	return 0;
+}
+
 static inline int
 kznl_parse_in_addr(const struct nlattr *attr, struct in_addr *addr)
 {
@@ -702,16 +712,6 @@ kznl_parse_service_nat_params(const struct nlattr *attr, NAT_RANGE_TYPE *range)
 }
 
 static inline int
-kznl_parse_service_session_cnt(const struct nlattr *attr, u_int64_t *count)
-{
-	struct kza_service_session_cnt *a = nla_data(attr);
-
-	*count = be64_to_cpu(a->count);
-
-	return 0;
-}
-
-static inline int
 kznl_parse_service_deny_method(const struct nlattr *attr, unsigned int *type)
 {
 	*type = nla_get_u8(attr);
@@ -777,26 +777,51 @@ kznl_parse_dispatcher_n_dimension(const struct nlattr *attr, struct kz_dispatche
 }
 
 static int
-kznl_parse_dispatcher_n_dimension_rule(const struct nlattr *attr,
+kznl_parse_rule_id(struct nlattr *attrs[],
+		   u_int32_t *rule_id)
+{
+	u_int32_t _rule_id;
+
+	if ((_rule_id = ntohl(nla_get_be32(attrs[KZNL_ATTR_N_DIMENSION_RULE_ID]))) == 0) {
+		kz_err("invalid rule id; id='%u'\n", _rule_id);
+		return -EINVAL;
+	}
+
+	*rule_id = _rule_id;
+
+	return 0;
+}
+
+static int
+kznl_parse_dispatcher_n_dimension_rule(struct nlattr *attrs[],
 				       struct kz_rule *rule)
 {
-	struct kza_n_dimension_rule_params *a = nla_data(attr);
+	int res;
+	u_int64_t count;
 
-	rule->id = ntohl(a->id);
-	if (rule->id == 0) {
-		kz_err("invalid rule id; id='%u'\n", rule->id);
-		return -EINVAL;
+	if ((res = kznl_parse_rule_id(attrs, &rule->id)) < 0)
+		return res;
+
+	if (attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM]) {
+		if (kznl_parse_count(attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM], &count) < 0) {
+			kz_err("failed to parse rule acoouting counter\n");
+			return -EINVAL;
+		}
+		atomic64_set(&rule->count, count);
 	}
 
 	return 0;
 }
 
 static int
-kznl_parse_dispatcher_n_dimension_rule_entry(const struct nlattr *attr,
+kznl_parse_dispatcher_n_dimension_rule_entry(struct nlattr *attrs[],
 					     struct kz_rule_entry_params *rule_entry)
 {
-	struct kz_rule_entry_params *a = nla_data(attr);
-	rule_entry->rule_id = ntohl(a->rule_id);
+	int res;
+
+	if ((res = kznl_parse_rule_id(attrs, &rule_entry->rule_id)) < 0)
+		return res;
+
 	return 0;
 }
 
@@ -830,6 +855,18 @@ kznl_dump_name(struct sk_buff *skb, unsigned int attr, const char *name)
 		memcpy(&msg.name, name, len);
 		NLA_PUT(skb, attr, sizeof(struct kza_name) + len, &msg);
 	}
+
+	return 0;
+
+nla_put_failure:
+	return -1;
+}
+
+static int
+kznl_dump_count(struct sk_buff *skb, unsigned int attr, u_int64_t count)
+{
+	if (nla_put_u64(skb, attr, cpu_to_be64(count)))
+		goto nla_put_failure;
 
 	return 0;
 
@@ -1516,6 +1553,7 @@ static int
 kznl_parse_add_zone_params(struct nlattr * const * const attrs, struct kz_zone **_zone, char **parent_name)
 {
 	int res = 0;
+	u_int64_t count;
 	struct kz_zone *zone;
 
 	/* parse attributes */
@@ -1540,6 +1578,15 @@ kznl_parse_add_zone_params(struct nlattr * const * const attrs, struct kz_zone *
 	}
 
 	/* fill fields */
+	if (attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM]) {
+		res = kznl_parse_count(attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM], &count);
+		if (res < 0) {
+			kz_err("failed to parse service acoouting counter\n");
+			goto error_put_zone;
+		}
+		atomic64_set(&zone->count, count);
+	}
+
 	res = kznl_parse_name_alloc(attrs[KZNL_ATTR_ZONE_NAME], &zone->name);
 	if (res < 0) {
 		kz_err("failed to parse zone name\n");
@@ -1846,6 +1893,9 @@ kznl_build_zone_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, int 
 			goto nla_put_failure;
 	}
 
+	if (kznl_dump_count(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, atomic64_read(&zone->count)))
+		goto nla_put_failure;
+
 	return genlmsg_end(skb, hdr);
 
 nla_put_failure:
@@ -2089,10 +2139,10 @@ kznl_recv_add_service(struct sk_buff *skb, struct genl_info *info)
 		goto error_put_svc;
 	}
 
-	if (info->attrs[KZNL_ATTR_SERVICE_SESSION_CNT]) {
-		res = kznl_parse_service_session_cnt(info->attrs[KZNL_ATTR_SERVICE_SESSION_CNT], &count);
+	if (info->attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM]) {
+		res = kznl_parse_count(info->attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM], &count);
 		if (res < 0) {
-			kz_err("failed to parse session counter\n");
+			kz_err("failed to parse service acoouting counter\n");
 			goto error_put_svc;
 		}
 		atomic64_set(&svc->count, count);
@@ -2333,7 +2383,6 @@ kznl_build_service_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, i
 {
 	void *hdr;
 	struct kza_service_params params;
-	struct kza_service_session_cnt cnt;
 
 	hdr = genlmsg_put(skb, pid, seq, &kznl_family, flags, msg);
 	if (!hdr)
@@ -2379,8 +2428,7 @@ kznl_build_service_add(struct sk_buff *skb, netlink_port_t pid, u_int32_t seq, i
 		break;
 	}
 
-	cnt.count = cpu_to_be64(atomic64_read(&svc->count));
-	if (nla_put(skb, KZNL_ATTR_SERVICE_SESSION_CNT, sizeof(cnt), &cnt))
+	if (kznl_dump_count(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, atomic64_read(&svc->count)))
 		goto nla_put_failure;
 
 	return genlmsg_end(skb, hdr);
@@ -2684,9 +2732,8 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 	/* parse attributes */
 	memset(&rule, 0, sizeof(struct kz_rule));
 
-	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule);
+	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs, &rule);
 	if (res < 0) {
-		kz_err("failed to parse rule id\n");
 		goto error_free_svc_name;
 	}
 
@@ -2707,6 +2754,7 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 		case KZNL_ATTR_DISPATCHER_NAME:
 		case KZNL_ATTR_N_DIMENSION_RULE_ID:
 		case KZNL_ATTR_N_DIMENSION_RULE_SERVICE:
+		case KZNL_ATTR_ACCOUNTING_COUNTER_NUM:
 			/* Skip attribute types handled above. */
 			break;
 		case KZNL_ATTR_INVALID:
@@ -2749,7 +2797,6 @@ kznl_recv_add_n_dimension_rule(struct sk_buff *skb, struct genl_info *info)
 		case KZNL_ATTR_ZONE_SUBNET:
 		case KZNL_ATTR_ZONE_SUBNET_NUM:
 		case KZNL_ATTR_ZONE_IP:
-		case KZNL_ATTR_ACCOUNTING_COUNTER_NUM:
 		case KZNL_ATTR_TYPE_COUNT:
 			kz_err("invalid attribute type; attr_type='%d'", attr_type);
 			res = -EINVAL;
@@ -2845,11 +2892,8 @@ kznl_recv_add_n_dimension_rule_entry(struct sk_buff *skb, struct genl_info *info
 
 	memset(&rule_entry, 0, sizeof(rule_entry));
 
-	res = kznl_parse_dispatcher_n_dimension_rule_entry(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule_entry);
-	if (res < 0) {
-		kz_err("failed to parse rule id\n");
+	if ((res = kznl_parse_dispatcher_n_dimension_rule_entry(info->attrs, &rule_entry)) < 0)
 		goto error_free_names;
-	}
 
 	for (attr_type = KZNL_ATTR_INVALID; attr_type < KZNL_ATTR_TYPE_COUNT; attr_type++) {
 		if (!info->attrs[attr_type])
@@ -3486,6 +3530,9 @@ kznl_build_dispatcher_add_rule(struct sk_buff *skb, u_int32_t pid, u_int32_t seq
 	if (kznl_dump_name(skb, KZNL_ATTR_N_DIMENSION_RULE_SERVICE, rule->service->name) < 0)
 		goto nla_put_failure;
 
+	if (kznl_dump_count(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, atomic64_read(&rule->count)))
+		goto nla_put_failure;
+
 #define KZNL_BUILD_DISPATCHER_RULE_DIMENSION(DIM_NAME, NL_ATTR_NAME, ...)	\
 	if (rule->num_##DIM_NAME > 0)	\
 		if (nla_put_be32(skb, KZNL_ATTR_N_DIMENSION_##NL_ATTR_NAME, htonl(rule->num_##DIM_NAME))) \
@@ -4051,344 +4098,6 @@ error_unlock_zone:
 
 error:
 	return res;
-}
-
-static int
-kznl_build_rule_count(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
-		      const struct kz_rule *rule)
-{
-	unsigned char *msg_start, *msg_rollback;
-	void *hdr;
-	u_int64_t count = 0;
-
-	msg_start = skb_tail_pointer(skb);
-	msg_rollback = msg_start;
-
-	kz_debug("rule_id=%d", rule->id);
-
-	hdr = genlmsg_put(skb, pid, seq, &kznl_family, flags, KZNL_MSG_GET_RULE_COUNTER_REPLY);
-	if (!hdr)
-		goto nla_put_failure;
-
-        if (nla_put_be32(skb, KZNL_ATTR_N_DIMENSION_RULE_ID, htonl(rule->id)))
-		goto nla_put_failure;
-
-	count = atomic64_read(&rule->count);
-
-	NLA_PUT_U64(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, count);
-
-	if (genlmsg_end(skb, hdr) < 0)
-		goto nlmsg_failure;
-
-	return skb_tail_pointer(skb) - msg_start;
-
-nla_put_failure:
-	genlmsg_cancel(skb, hdr);
-
-nlmsg_failure:
-	skb_trim(skb, msg_rollback - skb->data);
-	return -1;
-}
-
-static int
-kznl_recv_get_rule_counter(struct sk_buff *skb, struct genl_info *info)
-{
-	int res = 0;
-	struct kz_rule rule;
-	struct kz_rule *found_rule = NULL;
-	struct sk_buff *nskb = NULL;
-	const struct kz_config * cfg;
-	const struct kz_dispatcher *dispatcher;
-	unsigned int i;
-
-	/* parse attributes */
-	if (!info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID]) {
-		kz_err("required rule id missing\n");
-		res = -EINVAL;
-		goto error;
-	}
-
-	/* parse attributes */
-	memset(&rule, 0, sizeof(struct kz_rule));
-
-	res = kznl_parse_dispatcher_n_dimension_rule(info->attrs[KZNL_ATTR_N_DIMENSION_RULE_ID], &rule);
-	if (res < 0) {
-		kz_err("failed to parse rule id\n");
-		goto error;
-	}
-
-	rcu_read_lock();
-
-	cfg = rcu_dereference(kz_config_rcu);
-
-	dispatcher = list_first_entry(&cfg->dispatchers.head, struct kz_dispatcher, list);
-        for (i = 0; i < dispatcher->num_rule; i++) {
-		if (dispatcher->rule[i].id == rule.id) {
-			found_rule = &dispatcher->rule[i];
-			break;
-		}
-	}
-
-	if (found_rule == NULL) {
-		kz_debug("no such rule found\n");
-		res = -ENOENT;
-		goto error_unlock_rule_counter;
-	}
-
-	/* create skb and dump */
-	nskb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-	if (!nskb) {
-		kz_err("failed to allocate reply message\n");
-		res = -ENOMEM;
-		goto error_unlock_rule_counter;
-	}
-
-	if (kznl_build_rule_count(nskb, get_genetlink_sender(info),
-				  info->snd_seq, 0, found_rule) < 0) {
-		kz_err("failed to create rule counter messages\n");
-		res = -ENOMEM;
-		goto error_free_skb;
-	}
-
-	rcu_read_unlock();
-
-	return genlmsg_reply(nskb, info);
-
-error_free_skb:
-	nlmsg_free(nskb);
-
-error_unlock_rule_counter:
-	rcu_read_unlock();
-
-error:
-	return res;
-}
-
-enum {
-	RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER,
-	RULE_COUNTERS_DUMP_ARG_CURRENT_RULE,
-	RULE_COUNTERS_DUMP_ARG_STATE,
-	RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION,
-};
-
-enum {
-	RULE_COUNTERS_DUMP_STATE_FIRST_CALL,
-	RULE_COUNTERS_DUMP_STATE_HAVE_CONFIG,
-	RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK,
-};
-
-static int
-kznl_dump_rule_counters(struct sk_buff *skb, struct netlink_callback *cb)
-{
-	const struct kz_config * cfg;
-	unsigned int rule_num;
-	const struct kz_dispatcher *dispatcher = NULL;
-	struct kz_rule *rule;
-
-	/* check if we've finished the dump */
-	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] == RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK)
-		return skb->len;
-
-	rcu_read_lock();
-	cfg = rcu_dereference(kz_config_rcu);
-	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] == RULE_COUNTERS_DUMP_STATE_FIRST_CALL ||
-	    !kz_generation_valid(cfg, cb->args[RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION])) {
-		cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER] = 0;
-		cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE] = 0;
-		cb->args[RULE_COUNTERS_DUMP_ARG_STATE] = RULE_COUNTERS_DUMP_STATE_HAVE_CONFIG;
-		cb->args[RULE_COUNTERS_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
-	}
-
-	if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] != RULE_COUNTERS_DUMP_STATE_FIRST_CALL)
-		list_find(dispatcher, &cfg->dispatchers.head, list, (struct kz_dispatcher *) cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER]);
-
-	list_prepare_entry(dispatcher, &cfg->dispatchers.head, list);
-	list_for_each_entry_continue(dispatcher, &cfg->dispatchers.head, list) {
-		if (cb->args[RULE_COUNTERS_DUMP_ARG_STATE] != RULE_COUNTERS_DUMP_STATE_FIRST_CALL &&
-		    dispatcher == (const struct kz_dispatcher *) cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_DISPATCHER])
-			rule_num = cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE];
-		else
-			rule_num = 0;
-
-		for (; rule_num < dispatcher->num_rule; rule_num++) {
-			rule = &dispatcher->rule[rule_num];
-			if (kznl_build_rule_count(skb, get_skb_portid(NETLINK_CB(cb->skb)),
-					  cb->nlh->nlmsg_seq, 0, rule) < 0) {
-				/* rule counter dump failed, try to continue from here next time */
-				cb->args[RULE_COUNTERS_DUMP_ARG_CURRENT_RULE] = rule_num;
-				goto out;
-			}
-		}
-	}
-
-	/* done */
-	cb->args[RULE_COUNTERS_DUMP_ARG_STATE] = RULE_COUNTERS_DUMP_STATE_NO_MORE_WORK;
-
-out:
-	rcu_read_unlock();
-
-	return skb->len;
-}
-
-static int
-kznl_build_zone_counter(struct sk_buff *skb, u_int32_t pid, u_int32_t seq, int flags,
-			const struct kz_zone *zone)
-{
-	unsigned char *msg_start, *msg_rollback;
-	void *hdr;
-	u_int64_t count = 0;
-
-	msg_start = skb_tail_pointer(skb);
-	msg_rollback = msg_start;
-
-	hdr = genlmsg_put(skb, pid, seq, &kznl_family, flags, KZNL_MSG_GET_ZONE_COUNTER_REPLY);
-	if (!hdr)
-		goto nla_put_failure;
-
-	if (kznl_dump_name(skb, KZNL_ATTR_ZONE_NAME, zone->name) < 0)
-		goto nla_put_failure;
-
-	count = atomic64_read(&zone->count);
-
-	NLA_PUT_U64(skb, KZNL_ATTR_ACCOUNTING_COUNTER_NUM, count);
-
-	if (genlmsg_end(skb, hdr) < 0)
-		goto nlmsg_failure;
-
-	return skb_tail_pointer(skb) - msg_start;
-
-nla_put_failure:
-	genlmsg_cancel(skb, hdr);
-
-nlmsg_failure:
-	skb_trim(skb, msg_rollback - skb->data);
-	return -1;
-}
-
-static int
-kznl_recv_get_zone_counter(struct sk_buff *skb, struct genl_info *info)
-{
-	int res = 0;
-	char *zone_name = NULL;
-	struct kz_zone *zone;
-	struct sk_buff *nskb = NULL;
-	const struct kz_config * cfg;
-
-	/* parse attributes */
-	if (!info->attrs[KZNL_ATTR_ZONE_UNAME]) {
-		kz_err("required name attribute missing\n");
-		res = -EINVAL;
-		goto error;
-	}
-
-	res = kznl_parse_name_alloc(info->attrs[KZNL_ATTR_ZONE_UNAME], &zone_name);
-	if (res < 0) {
-		kz_err("failed to parse zone name\n");
-		goto error;
-	}
-
-	rcu_read_lock();
-	cfg = rcu_dereference(kz_config_rcu);
-
-	zone = kz_zone_lookup_name(cfg, zone_name);
-	if (zone == NULL) {
-		kz_debug("no such zone found\n");
-		res = -ENOENT;
-		goto error_unlock_zone;
-	}
-
-	/* create skb and dump */
-	nskb = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-	if (!nskb) {
-		kz_err("failed to allocate reply message\n");
-		res = -ENOMEM;
-		goto error_unlock_zone;
-	}
-
-	if (kznl_build_zone_counter(nskb, get_genetlink_sender(info),
-				    info->snd_seq, 0, zone) < 0) {
-		/* data did not fit in a single entry -- for now no support of continuation
-		   we could loop and multicast; we chose not to send the partial info */
-		kz_err("failed to create zone counter messages\n");
-		res = -ENOMEM;
-		goto error_free_skb;
-	}
-
-	rcu_read_unlock();
-
-	return genlmsg_reply(nskb, info);
-
-error_free_skb:
-	nlmsg_free(nskb);
-
-error_unlock_zone:
-	rcu_read_unlock();;
-
-	if (zone_name != NULL)
-		kfree(zone_name);
-error:
-	return res;
-}
-
-enum {
-	ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE,
-	ZONE_COUNTERS_DUMP_ARG_STATE,
-	ZONE_COUNTERS_DUMP_ARG_CONFIG_GENERATION,
-};
-
-enum {
-	ZONE_COUNTERS_DUMP_STATE_FIRST_CALL,
-	ZONE_COUNTERS_DUMP_STATE_HAVE_CONFIG,
-	ZONE_COUNTERS_DUMP_STATE_NO_MORE_WORK,
-};
-
-static int
-kznl_dump_zone_counters(struct sk_buff *skb, struct netlink_callback *cb)
-{
-	const struct kz_zone *i = NULL;
-	const struct kz_config * cfg;
-
-	/*
-	 * race condition recovery: restart dump
-	 * (if this turns to be a problem, cfg shall be refcounted!)
-	 *
-	 * on first entry cb->args is all-0
-	 */
-
-	/* check if we've finished the dump */
-	if (cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] == ZONE_COUNTERS_DUMP_STATE_NO_MORE_WORK)
-		return skb->len;
-
-	rcu_read_lock();
-	cfg = rcu_dereference(kz_config_rcu);
-	if (cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] == ZONE_COUNTERS_DUMP_STATE_FIRST_CALL ||
-	    !kz_generation_valid(cfg, cb->args[ZONE_COUNTERS_DUMP_ARG_CONFIG_GENERATION])) {
-		cb->args[ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE] = 0;
-		cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] = ZONE_COUNTERS_DUMP_STATE_HAVE_CONFIG;
-		cb->args[ZONE_COUNTERS_DUMP_ARG_CONFIG_GENERATION] = kz_generation_get(cfg);
-	}
-
-	if (cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] != ZONE_COUNTERS_DUMP_STATE_FIRST_CALL)
-		list_find(i, &cfg->zones.head, list, (struct kz_zone *) cb->args[ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE]);
-
-	list_prepare_entry(i, &cfg->zones.head, list);
-	list_for_each_entry_continue(i, &cfg->zones.head, list) {
-		kz_debug("zone name: '%s'", i->name);
-		if (kznl_build_zone_counter(skb, get_skb_portid(NETLINK_CB(cb->skb)),
-					    cb->nlh->nlmsg_seq, 0, i) < 0) {
-			/* zone dump failed, try to continue from here next time */
-			cb->args[ZONE_COUNTERS_DUMP_ARG_CURRENT_ZONE] = (long) i;
-			goto out;
-		}
-	}
-
-	/* done */
-	cb->args[ZONE_COUNTERS_DUMP_ARG_STATE] = ZONE_COUNTERS_DUMP_STATE_NO_MORE_WORK;
-
-out:
-	rcu_read_unlock();
-
-	return skb->len;
 }
 
 /***********************************************************

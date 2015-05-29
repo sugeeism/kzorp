@@ -98,48 +98,13 @@ class DumpVersion(DumpBase):
     def _fill_replies(self):
         self.replies = [self.handle.exchange(self.msg), ]
 
-class DumpZoneCounters(DumpBase):
-    def __init__(self, quiet):
-        DumpBase.__init__(self, True, kzorp.messages.KZorpGetZoneCounterMessage())
-
-    def dump(self):
-        DumpBase.dump(self)
-        counters={}
-        for reply in self.replies:
-            counters[reply.name] = reply.count
-
-        return counters
-
 class DumpZones(DumpBase):
     def __init__(self, quiet):
-        DumpBase.__init__(self, True, kzorp.messages.KZorpGetZoneMessage())
-        self.__real_quiet = quiet
-
-    def dump(self):
-        DumpBase.dump(self)
-        counters = DumpZoneCounters(self.__real_quiet).dump()
-        if not self.__real_quiet:
-            for reply in self.replies:
-                if reply.command == kzorp.messages.KZorpAddZoneMessage.command:
-                    print "%s, count='%d'" % (reply, counters[reply.name])
-                else:
-                    print reply
+        DumpBase.__init__(self, quiet, kzorp.messages.KZorpGetZoneMessage())
 
 class DumpServices(DumpBase):
     def __init__(self, quiet):
         DumpBase.__init__(self, quiet, kzorp.messages.KZorpGetServiceMessage())
-
-class DumpRuleCounters(DumpBase):
-    def __init__(self, quiet):
-        DumpBase.__init__(self, True, kzorp.messages.KZorpGetRuleCounterMessage())
-
-    def dump(self):
-        DumpBase.dump(self)
-        counters={}
-        for reply in self.replies:
-            counters[reply.rule_id] = reply.count
-
-        return counters
 
 class DumpDispatchers(DumpBase):
     def __init__(self, quiet):
@@ -185,7 +150,6 @@ class DumpDispatchers(DumpBase):
 
     def dump(self):
         DumpBase.dump(self)
-        counters = DumpRuleCounters(self.__real_quiet).dump()
         if not self.__real_quiet:
             rule_entries = {}
             for reply in self.replies:
@@ -194,7 +158,7 @@ class DumpDispatchers(DumpBase):
                 elif reply.command == kzorp.messages.KZorpAddRuleMessage.command:
                     print DumpDispatchers.__rule_entries_to_str(rule_entries)
                     rule_entries = {}
-                    print "%s, count='%d'" % (reply, counters[reply.rule_id])
+                    print reply
                 else:
                     print reply
 
