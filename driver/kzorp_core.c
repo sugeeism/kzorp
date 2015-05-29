@@ -1274,28 +1274,38 @@ error:
 }
 
 static int
-kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr, const struct list_head * zonelist)
+kz_rule_arr_relink_zones(u_int32_t * size, struct kz_zone **arr, u_int32_t rule_id, const struct list_head * zonelist)
 {
-	u_int32_t i;
+	u_int32_t i, put;
 	
 	if (*size == 0)
 		return 0;
 
-	for (i = 0; i < *size; ++i)
+	for (i = 0, put = 0; i < *size; ++i)
 	{
 		struct kz_zone * const in = arr[i];
 		struct kz_zone * out = __kz_zone_lookup_name(zonelist, in->name);
 
+                /**
+		 * After rename/delete of a zone kZorp daemon is reloaded and the new zone
+		 * hierarchy is downloaded, but the rules are unaffected while the Zorp is
+		 * not reloaded. Therefore after kZorp daemon reloads rules may contain
+		 * references to non-existing zones. After Zorp reload configuration will
+		 * consistent again.
+		 */
 		if (out == NULL) {
-			kz_err("Zone can not be deleted while it has references on it");
-			return -EINVAL;
+			kz_err("Zone referred by rule cannot be found, therefore removed; rule_id='%d', zone_name='%s'",
+			       rule_id, in->name);
+                        kz_zone_put(in);
+			continue;
 		}
 		if (in != out) {
 			kz_zone_get(out);
 			kz_zone_put(in);
 		}
-		arr[i] = out;
+		arr[put++] = out;
 	}
+        *size = put;
 	return 0;
 }
 
@@ -1303,10 +1313,10 @@ static int
 kz_rule_relink_zones(struct kz_rule *r, const struct list_head * zonelist)
 {
 	int error = 0;
-	error = kz_rule_arr_relink_zones(&r->num_src_zone, r->src_zone, zonelist);
+	error = kz_rule_arr_relink_zones(&r->num_src_zone, r->src_zone, r->id, zonelist);
 	if (error != 0)
 		return error;
-	return kz_rule_arr_relink_zones(&r->num_dst_zone, r->dst_zone, zonelist);
+	return kz_rule_arr_relink_zones(&r->num_dst_zone, r->dst_zone, r->id, zonelist);
 }
 
 int

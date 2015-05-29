@@ -340,14 +340,12 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
     def test_flush_zone_used_by_rules(self):
         self.start_transaction()
         self.send_message(messages.KZorpFlushZonesMessage())
-        res = self.end_transaction(assert_on_error=False)
-        self.assertEqual(res, -errno.EINVAL)
+        res = self.end_transaction()
 
     def test_delete_zone_used_by_rule(self):
         self.start_transaction()
         self.send_message(messages.KZorpDeleteZoneMessage('AAA'))
-        res = self.end_transaction(assert_on_error=False)
-        self.assertEqual(res, -errno.EINVAL)
+        res = self.end_transaction()
 
     def test_delete_and_add_zone_used_by_rule(self):
         self.start_transaction()
