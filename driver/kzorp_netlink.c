@@ -1211,7 +1211,7 @@ kznl_zone_apply_delete_operation(struct kz_zone *deletable_zone, const struct li
 		if (operation->type == KZNL_OP_DELETE_ZONE) {
 			const struct kz_zone const * updater_zone = (const struct kz_zone const *) operation->data;
 			if (strcmp(updater_zone->name, deletable_zone->name) == 0) {
-				list_del(&operation->list);
+				kz_operation_remove(operation);
 				return true;
 			}
 		}
