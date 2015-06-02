@@ -168,6 +168,17 @@ transaction_destroy_bind(void *data)
 	kz_bind_destroy((struct kz_bind *)data);
 }
 
+static inline void
+kz_operation_remove(struct kz_operation *operation)
+{
+	list_del(&operation->list);
+
+	if (operation->data && operation->data_destroy)
+		operation->data_destroy(operation->data);
+
+	kfree(operation);
+}
+
 /* caller must mutex the passed transaction! */
 static void
 transaction_cleanup_op(struct kz_transaction *tr)
@@ -175,12 +186,7 @@ transaction_cleanup_op(struct kz_transaction *tr)
 	struct kz_operation *o, *p;
 
 	list_for_each_entry_safe(o, p, &tr->op, list) {
-		list_del(&o->list);
-
-		if (o->data && o->data_destroy)
-			o->data_destroy(o->data);
-
-		kfree(o);
+		kz_operation_remove(o);
 	}
 }
 
