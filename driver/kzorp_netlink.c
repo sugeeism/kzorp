@@ -1765,6 +1765,8 @@ error_unlock_tr:
 	if (parent_name != NULL)
 		kfree(parent_name);
 
+	kz_zone_put(zone);
+
 	return res;
 }
 
