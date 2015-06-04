@@ -342,6 +342,7 @@ xt_socket_get_sock_v6(struct net *net, const u8 protocol,
 static bool
 socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
 {
+	const struct net_device *dev = (par->hooknum == NF_INET_LOCAL_OUT) ? par->out : par->in;
 	struct ipv6hdr *iph = ipv6_hdr(skb);
 	struct udphdr _hdr, *hp = NULL;
 	struct sock *sk = skb->sk;
@@ -380,9 +381,9 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
 	}
 
 	if (!sk)
-		sk = xt_socket_get_sock_v6(dev_net(skb->dev), tproto,
+		sk = xt_socket_get_sock_v6(dev_net(dev), tproto,
 					   saddr, daddr, sport, dport,
-					   par->in);
+					   dev);
 	if (sk) {
 		bool wildcard;
 		bool transparent = true;
