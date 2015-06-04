@@ -1850,6 +1850,8 @@ error_unlock_op:
 error_unlock_tr:
 	UNLOCK_TRANSACTIONS();
 
+	kz_zone_put(zone);
+
 	return res;
 }
 
