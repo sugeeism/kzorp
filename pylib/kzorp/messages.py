@@ -204,6 +204,15 @@ def parse_name_attr(attr):
     (name,) = struct.unpack(str(len) + 's', attr.get_data()[2 : 2 + len])
     return name
 
+def create_count_attr(count):
+    return NetlinkAttribute.create_be64(KZNL_ATTR_ACCOUNTING_COUNTER_NUM, count)
+
+def parse_count_attr(attrs):
+    if attrs.has_key(KZNL_ATTR_ACCOUNTING_COUNTER_NUM):
+        return attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].parse_be64()
+
+    return 0
+
 def create_inet_subnet_attr(attr_type, family, address, mask):
     """Create an netlink attribute which stores an IP subnet.
 
@@ -373,7 +382,7 @@ def parse_rule_attrs(attr):
             value = struct.unpack('>I', data[:4])[0]
             rule_entry_nums[dim_type] = value
 
-    count = attr[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].parse_be64()
+    count = parse_count_attr(attr)
 
     return (dpt_name, rule_id, service, rule_entry_nums, count)
 
@@ -494,7 +503,7 @@ class KZorpAddServiceMessage(GenericNetlinkMessage):
     def _build_payload(self):
         self.append_attribute(create_service_params_attr(KZNL_ATTR_SVC_PARAMS, self.service_type, self.flags))
         self.append_attribute(create_name_attr(KZNL_ATTR_SVC_NAME, self.name))
-        self.append_attribute(NetlinkAttribute.create_be64(KZNL_ATTR_ACCOUNTING_COUNTER_NUM, self.count))
+        self.append_attribute(create_count_attr(self.count))
 
     @staticmethod
     def get_kz_attr(attrs, key_type, parser):
@@ -527,7 +536,7 @@ class KZorpAddServiceMessage(GenericNetlinkMessage):
 
         name = cls.get_kz_attr(attrs, KZNL_ATTR_SVC_NAME, parse_name_attr)
         flags, service_type = cls.get_kz_attr(attrs, KZNL_ATTR_SVC_PARAMS, parse_service_params_attr)
-        count = attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].parse_be64()
+        count = parse_count_attr(attrs)
 
         return (name, service_type, flags, count)
 
@@ -783,7 +792,7 @@ class KZorpAddZoneMessage(GenericNetlinkMessage):
         if self.pname != None:
             self.append_attribute(create_name_attr(KZNL_ATTR_ZONE_PNAME, self.pname))
         self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_ZONE_SUBNET_NUM, self.subnet_num))
-        self.append_attribute(NetlinkAttribute.create_be64(KZNL_ATTR_ACCOUNTING_COUNTER_NUM, self.count))
+        self.append_attribute(create_count_attr(self.count))
 
     @staticmethod
     def parse(version, data):
@@ -799,7 +808,7 @@ class KZorpAddZoneMessage(GenericNetlinkMessage):
             kw['pname'] = parse_name_attr(attrs[KZNL_ATTR_ZONE_PNAME])
 
         kw['subnet_num'] = attrs[KZNL_ATTR_ZONE_SUBNET_NUM].parse_be32()
-        kw['count'] = attrs[KZNL_ATTR_ACCOUNTING_COUNTER_NUM].parse_be64()
+        kw['count'] = parse_count_attr(attrs)
 
         return KZorpAddZoneMessage(name, **kw)
 
@@ -938,7 +947,10 @@ class KZorpAddRuleMessage(GenericNetlinkMessage):
         self.append_attribute(create_name_attr(KZNL_ATTR_DPT_NAME, self.dpt_name))
         self.append_attribute(NetlinkAttribute.create_be32(KZNL_ATTR_N_DIMENSION_RULE_ID, self.rule_id))
         self.append_attribute(create_name_attr(KZNL_ATTR_N_DIMENSION_RULE_SERVICE, self.service))
-        self.append_attribute(NetlinkAttribute.create_be64(KZNL_ATTR_ACCOUNTING_COUNTER_NUM, self.count))
+
+        # Needs only for backward compatibility. Remove after release 6.0.5.
+        if self.count > 0:
+            self.append_attribute(create_count_attr(self.count))
 
         for dim_type in N_DIMENSION_ATTRS:
             if self.entry_nums and self.entry_nums.has_key(dim_type):
