@@ -39,11 +39,12 @@ PackageInstallCommandDeb="DEBIAN_FRONTEND=noninteractive apt-get install -y --fo
 
 APTSourceURL="http://hapci.balabit/zbs2"
 OS="ubuntu-trusty"
-ReleaseName="zorp-6.0dbg"
+ReleaseName="zorp-6.0"
+Branch="6.0"
 
 while (( $# )); do
   case $1 in
-    "-r" | "--release") ReleaseName="$2"; shift 2;;
+    "-r" | "--release") Branch="$2"; ReleaseName="zorp-6.0dbg-$2"; shift 2;;
     "-o" | "--os") OS="$2"; shift 2;;
     "-a" | "--arch") Architecture="$2"; shift 2;;
     "-u" | "--apt-url") APTSourceURL="$2"; shift 2;;
@@ -86,7 +87,7 @@ fi
 
 ## Create a file with some user-data in it
 mkdir -p $TestRoot
-touch $TestRoot/kzorp_test_result_communication.xml
+touch $TestRoot/result.xml
 
 cat > $TestSeedConf <<EOF
 #cloud-config
@@ -96,7 +97,7 @@ chpasswd: { expire: False }
 ssh_pwauth: True
 apt_sources:
  - source: '${ZorpPackageSourceDeb}'
-   filename: zorp.list
+   filename: zbs.list
  - source: '${OSPackageSourcesDeb}'
    filename: os.list
 package_upgrade: true
@@ -104,16 +105,27 @@ system_info:
  apt_get_command: ['apt-get', '-y', '--force-yes']
  apt_get_upgrade_subcommand: install
 packages:
- - python-kzorp
+ - git
  - kzorp-dkms
+ - python-zorp-base
+ - python-kzorp
+ - autoconf
+ - build-essential
+ - libtool
+ - python-nose
 runcmd:
  - mkdir -p $TestRoot
  - sudo mount -t 9p -o trans=virtio,version=9p2000.L hostshare $TestRoot
- - sudo $PackageInstallCommandDeb ${KernelHeaderPackageNameDeb} ${ZorpPackageNamesDeb} ${TestPackageNamesDeb}
- - sudo modprobe kzorp
- - sudo nosetests --with-xunit ${TestRoot}/communication/testall.py --xunit-file=$TestRoot/kzorp_test_result_communication.xml
- - sudo cp /var/log/kern.log ${TestRoot}
- - sudo cat /var/log/kern.log
+ - cd
+ - git clone git://git.balabit/var/scm/git/zorp-6.0-deps/kzorp.git
+ - cd kzorp
+ - git checkout $Branch
+ - autoreconf -i
+ - bash configure
+ - cd driver
+ - make
+ - find tests/ -name KZorpTestCase\*.py | xargs sudo nosetests --with-xunit
+ - cp nosetests.xml ${TestRoot}/result.xml
  - sudo poweroff
 EOF
 
@@ -134,3 +146,5 @@ qemu-img create -f qcow2 -b ${OSImagePathOrig} ${OSImagePathQemu}
 #qemu-system-x86_64 --enable-kvm -curses -net nic -net user -hda ${OSImagePathQemu} -hdb ${OSImagePathSeed} -m 2048 -fsdev local,security_model=passthrough,id=fsdev0,path=$TestRoot -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare
 #Jenkins runs this without terminal
 ${Qemu} -nographic -net nic -net user -hda ${OSImagePathQemu} -hdb ${OSImagePathSeed} -m 2048 -fsdev local,security_model=passthrough,id=fsdev0,path=$TestRoot -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare
+
+cp ${TestRoot}/result.xml result.xml
