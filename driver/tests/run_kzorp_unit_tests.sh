@@ -11,13 +11,17 @@ function print_help(){
 "Usage of $0:\n" \
 "   $0 [options]\n" \
 "Options:\n" \
-"   -r | --release RELEASE - Release name of the package to be installed\n" \
+"   -r | --repository REPO - GIT repository of kZorp \n" \
+"   -b | --branch BRANCH - branch name of the repository where kZorp is compiled from \n" \
 "   -o | --os OS - OS name of the package to be installed\n" \
 "   -a | --arch ARCHITECTURE - Architecture name of the package to be installed\n" \
 "   -u | --apt-url URL - URL of the deb package source\n"
 "   -p | --path PATH - Path of the tests directory\n"
 "   -h | --help - Display this information \n"
 }
+
+Repository="https://github.com/balabit/kzorp.git"
+Branch="master"
 
 Root="/tmp/kzorp_test_run"
 
@@ -29,8 +33,6 @@ OSName="ubuntu"
 OSVersion="14.04"
 
 KernelHeaderPackageNameDeb="linux-headers-generic"
-ZorpPackageNamesDeb="kzorp-dkms python-kzorp python-zorp-base"
-TestPackageNamesDeb="python-junitxml python-nose"
 
 OSPackageSourcesDeb="deb http://mirror.balabit/ubuntu/ trusty main"
 OSPackageSourcesDeb="deb http://hu.archive.ubuntu.com/ubuntu/ trusty main"
@@ -39,12 +41,12 @@ PackageInstallCommandDeb="DEBIAN_FRONTEND=noninteractive apt-get install -y --fo
 
 APTSourceURL="http://hapci.balabit/zbs2"
 OS="ubuntu-trusty"
-ReleaseName="zorp-6.0"
 Branch="6.0"
 
 while (( $# )); do
   case $1 in
-    "-r" | "--release") Branch="$2"; ReleaseName="zorp-6.0dbg-$2"; shift 2;;
+    "-r" | "--Repository") Repository="$2"; shift 2;;
+    "-b" | "--branch") Branch="$2"; shift 2;;
     "-o" | "--os") OS="$2"; shift 2;;
     "-a" | "--arch") Architecture="$2"; shift 2;;
     "-u" | "--apt-url") APTSourceURL="$2"; shift 2;;
@@ -72,8 +74,6 @@ OSImagePathSeed="${OSImageDir}/${OSImageName}.seed"
 ImageURL="http://cloud-images.ubuntu.com/server/releases/${OSVersion}/release"
 ImageURL="${ImageURL}/ubuntu-${OSVersion}-server-cloudimg-${Architecture}-disk1.img"
 
-ZorpPackageSourceDeb="deb [arch=$Architecture] $APTSourceURL $OS/$ReleaseName main zorp"
-
 if [ ! -d ${OSImageDir} ]; then
   mkdir -p ${OSImageDir}
 fi
@@ -95,8 +95,6 @@ password: zorp
 chpasswd: { expire: False }
 ssh_pwauth: True
 apt_sources:
- - source: '${ZorpPackageSourceDeb}'
-   filename: zbs.list
  - source: '${OSPackageSourcesDeb}'
    filename: os.list
 package_upgrade: true
@@ -105,27 +103,25 @@ system_info:
  apt_get_upgrade_subcommand: install
 packages:
  - git
- - kzorp-dkms
- - python-zorp-base
- - python-kzorp
- - autoconf
  - build-essential
+ - linux-headers-generic
+ - autoconf
  - libtool
+ - python-prctl
  - python-nose
 runcmd:
  - set -x
  - mkdir -p $TestRoot
  - sudo mount -t 9p -o trans=virtio,version=9p2000.L hostshare $TestRoot
  - cd
- - git clone git://git.balabit/var/scm/git/zorp-6.0-deps/kzorp.git
+ - git clone $Repository
  - cd kzorp
  - git checkout $Branch
  - autoreconf -i
- - bash configure
- - cd driver
- - make
- - TEST_PYTHONPATH=\$PWD/tests/base
- - TEST_FILES=\`find tests/ -name KZorpTestCase\*.py -printf "%p "\`
+ - ./configure
+ - sudo make install-driver
+ - TEST_PYTHONPATH=\$PWD/pylib:\$PWD/driver/tests/base
+ - TEST_FILES=\`find driver/tests/ -name KZorpTestCase\*.py -printf "%p "\`
  - sudo bash -c "PYTHONPATH=\$PYTHONPATH:\$TEST_PYTHONPATH nosetests --with-xunit \$TEST_FILES"
  - cp nosetests.xml ${TestRoot}/result.xml
  - sudo poweroff
