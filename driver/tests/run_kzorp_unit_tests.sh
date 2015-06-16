@@ -72,7 +72,6 @@ OSImagePathSeed="${OSImageDir}/${OSImageName}.seed"
 ImageURL="http://cloud-images.ubuntu.com/server/releases/${OSVersion}/release"
 ImageURL="${ImageURL}/ubuntu-${OSVersion}-server-cloudimg-${Architecture}-disk1.img"
 
-set -ex
 ZorpPackageSourceDeb="deb [arch=$Architecture] $APTSourceURL $OS/$ReleaseName main zorp"
 
 if [ ! -d ${OSImageDir} ]; then
@@ -114,6 +113,7 @@ packages:
  - libtool
  - python-nose
 runcmd:
+ - set -x
  - mkdir -p $TestRoot
  - sudo mount -t 9p -o trans=virtio,version=9p2000.L hostshare $TestRoot
  - cd
@@ -124,7 +124,9 @@ runcmd:
  - bash configure
  - cd driver
  - make
- - find tests/ -name KZorpTestCase\*.py | xargs sudo nosetests --with-xunit
+ - TEST_PYTHONPATH=\$PWD/tests/base
+ - TEST_FILES=\`find tests/ -name KZorpTestCase\*.py -printf "%p "\`
+ - sudo bash -c "PYTHONPATH=\$PYTHONPATH:\$TEST_PYTHONPATH nosetests --with-xunit \$TEST_FILES"
  - cp nosetests.xml ${TestRoot}/result.xml
  - sudo poweroff
 EOF
