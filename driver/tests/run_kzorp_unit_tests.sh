@@ -13,9 +13,7 @@ function print_help(){
 "Options:\n" \
 "   -r | --repository REPO - GIT repository of kZorp \n" \
 "   -b | --branch BRANCH - branch name of the repository where kZorp is compiled from \n" \
-"   -o | --os OS - OS name of the package to be installed\n" \
 "   -a | --arch ARCHITECTURE - Architecture name of the package to be installed\n" \
-"   -u | --apt-url URL - URL of the deb package source\n"
 "   -p | --path PATH - Path of the tests directory\n"
 "   -h | --help - Display this information \n"
 }
@@ -29,27 +27,13 @@ TestSeedConf="run_test.conf"
 
 Architecture="amd64"
 
-OSName="ubuntu"
 OSVersion="14.04"
-
-KernelHeaderPackageNameDeb="linux-headers-generic"
-
-OSPackageSourcesDeb="deb http://mirror.balabit/ubuntu/ trusty main"
-OSPackageSourcesDeb="deb http://hu.archive.ubuntu.com/ubuntu/ trusty main"
-
-PackageInstallCommandDeb="DEBIAN_FRONTEND=noninteractive apt-get install -y --force-yes"
-
-APTSourceURL="http://hapci.balabit/zbs2"
-OS="ubuntu-trusty"
-Branch="6.0"
 
 while (( $# )); do
   case $1 in
     "-r" | "--Repository") Repository="$2"; shift 2;;
     "-b" | "--branch") Branch="$2"; shift 2;;
-    "-o" | "--os") OS="$2"; shift 2;;
     "-a" | "--arch") Architecture="$2"; shift 2;;
-    "-u" | "--apt-url") APTSourceURL="$2"; shift 2;;
     "-p" | "--path") Root="$2"; shift 2;;
     "-h" | "--help") print_help; exit 0;;
     *) echo "Invalid option $1" >&2; print_help; exit 1;;
@@ -65,7 +49,7 @@ esac
 
 TestRoot="${Root}/tests"
 OSImageDir="${Root}/disk_images"
-OSImageName="disk.img.dist_${OSName}_${OSVersion}_${Architecture}"
+OSImageName="disk.img.dist_${OSVersion}_${Architecture}"
 OSImagePath="${OSImageDir}/${OSImageName}"
 OSImagePathOrig="${OSImageDir}/${OSImageName}.orig"
 OSImagePathQemu="${OSImageDir}/${OSImageName}.qemu"
@@ -90,17 +74,9 @@ touch $TestRoot/result.xml
 
 cat > $TestSeedConf <<EOF
 #cloud-config
-userid: zorp
 password: zorp
 chpasswd: { expire: False }
 ssh_pwauth: True
-apt_sources:
- - source: '${OSPackageSourcesDeb}'
-   filename: os.list
-package_upgrade: true
-system_info:
- apt_get_command: ['apt-get', '-y', '--force-yes']
- apt_get_upgrade_subcommand: install
 packages:
  - git
  - build-essential
