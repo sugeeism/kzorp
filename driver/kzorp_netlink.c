@@ -440,7 +440,7 @@ kznl_parse_in6_addr(const struct nlattr *attr, struct in6_addr *addr)
 
 	ipv6_addr_copy(addr, &a->addr);
 
-	kz_debug("parsed IPv6 address='%pI6'\n", addr);
+	kz_debug("parsed IPv6 address='%pI6c'\n", addr);
 
 	return 0;
 }
@@ -520,7 +520,7 @@ kznl_parse_in6_subnet(const struct nlattr *attr, struct in6_addr *addr, struct i
 	ipv6_addr_copy(addr, &a->addr);
 	ipv6_addr_copy(mask, &a->mask);
 
-	kz_debug("address='%pI6', mask='%pI6'\n", addr, mask);
+	kz_debug("address='%pI6c', mask='%pI6c'\n", addr, mask);
 
 	ipv6_addr_set(&pfx, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff);
 	prefixlen = ipv6_addr_diff(mask, &pfx);
@@ -963,7 +963,7 @@ kznl_dump_inet_subnet(struct sk_buff *skb, unsigned int attr,
 			goto nla_put_failure;
 	}
 	else if (family == AF_INET6) {
-		kz_debug("dump inet subnet; address='%pI6', mask='%pI6'\n", &addr->in6, &mask->in6);
+		kz_debug("dump inet subnet; address='%pI6c', mask='%pI6c'\n", &addr->in6, &mask->in6);
 		res = kznl_dump_in6_subnet(skb, KZNL_ATTR_INET6_SUBNET, &addr->in6, &mask->in6);
 		if (res < 0)
 			goto nla_put_failure;
@@ -996,7 +996,7 @@ kznl_dump_inet_addr(struct sk_buff *skb, unsigned int attr,
 			goto nla_put_failure;
 	}
 	else if (family == AF_INET6) {
-		kz_debug("dump inet addr; address='%pI6'\n", &addr->in6);
+		kz_debug("dump inet addr; address='%pI6c'\n", &addr->in6);
 		res = nla_put(skb, KZNL_ATTR_INET6_ADDR, sizeof(struct in6_addr), &addr->in6);
 		if (res < 0)
 			goto nla_put_failure;

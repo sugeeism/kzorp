@@ -677,7 +677,7 @@ extern void kz_nfnetlink_cleanup(void);
 		kz_debug("%s; address='%pI4', port='%d', proto='%d' pid='%d'\n", msg, &bind->addr.in, bind->port, bind->proto, bind->peer_pid); \
 		break; \
 	case NFPROTO_IPV6: \
-		kz_debug("%s; address='%pI6', port='%d', proto='%d' pid='%d'\n", msg, &bind->addr.in6, bind->port, bind->proto, bind->peer_pid); \
+		kz_debug("%s; address='%pI6c', port='%d', proto='%d' pid='%d'\n", msg, &bind->addr.in6, bind->port, bind->proto, bind->peer_pid); \
 		break; \
 	default: \
 		BUG(); \

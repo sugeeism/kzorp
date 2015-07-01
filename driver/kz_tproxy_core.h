@@ -210,7 +210,7 @@ nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
                 sk = NULL;
         }
 
-        pr_debug("tproxy socket lookup: proto %u %pI6:%u -> %pI6:%u, lookup type: %d, sock %p\n",
+        pr_debug("tproxy socket lookup: proto %u %pI6c:%u -> %pI6c:%u, lookup type: %d, sock %p\n",
                  protocol, saddr, ntohs(sport), daddr, ntohs(dport), lookup_type, sk);
 
         return sk;

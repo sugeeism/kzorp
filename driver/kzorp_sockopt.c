@@ -57,7 +57,7 @@ kzorp_getsockopt_results(u8 family, struct sock *sk, int optval, void __user *us
 			 &inet_sk(sk)->inet_rcv_saddr, ntohs(inet_sk(sk)->inet_sport), &inet_sk(sk)->inet_daddr, ntohs(inet_sk(sk)->inet_dport));
 		break;
 	case PF_INET6:
-		kz_debug("getting results; proto='%u', src='%pI6:%hu', dst='%pI6:%hu'\n", sk->sk_protocol,
+		kz_debug("getting results; proto='%u', src='%pI6c:%hu', dst='%pI6c:%hu'\n", sk->sk_protocol,
 			 &inet6_sk(sk)->saddr, ntohs(inet_sk(sk)->inet_sport), inet6_sk(sk)->daddr_cache, ntohs(inet_sk(sk)->inet_dport));
 		break;
 	default:

@@ -269,7 +269,7 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 	thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
 #endif
 	if (unlikely(thoff < 0)) {
-		kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6', dst='%pI6'\n",
+		kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6c', dst='%pI6c'\n",
 			 &iph->saddr, &iph->daddr);
 		return false;
 	}
@@ -319,11 +319,11 @@ redirect_v6(struct sk_buff *skb, u8 l4proto,
 		skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
 
 		if (proxy_addr) {
-			pr_debug("redirecting: proto %hhu %pI6:%hu -> %pI6:%hu, mark: %x\n",
+			pr_debug("redirecting: proto %hhu %pI6c:%hu -> %pI6c:%hu, mark: %x\n",
 				 tproto, &iph->daddr, ntohs(hp->dest),
 				 proxy_addr, ntohs(proxy_port), skb->mark);
 		} else {
-			pr_debug("redirecting: proto %hhu %pI6:%hu -> %pI6:%hu, mark: %x\n",
+			pr_debug("redirecting: proto %hhu %pI6c:%hu -> %pI6c:%hu, mark: %x\n",
 				 tproto, &iph->daddr, ntohs(hp->dest),
 				 &inet6_sk(sk)->saddr, inet_sk(sk)->inet_num, skb->mark);
 		}
@@ -553,8 +553,8 @@ kz_session_log(const char *msg,
 		const struct ipv6hdr *iph = ipv6_hdr(skb);
 		printk(KERN_INFO "kzorp (svc/%s): %s; service='%s', "
 				 "client_zone='%s', server_zone='%s', "
-				 "client_address='%pI6:%u', "
-				 "server_address='%pI6:%u', protocol='%s'\n",
+				 "client_address='%pI6c:%u', "
+				 "server_address='%pI6c:%u', protocol='%s'\n",
 				 service_name, msg, service_name,
 				 client_zone_name,
 				 server_zone_name,
@@ -1222,7 +1222,7 @@ kzorp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 		thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
 #endif
 		if (unlikely(thoff < 0)) {
-			kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6', dst='%pI6'\n",
+			kz_debug("unable to find transport header in IPv6 packet, dropped; src='%pI6c', dst='%pI6c'\n",
 			         &iph->saddr, &iph->daddr);
 			return NF_DROP;
 		}
@@ -1233,13 +1233,13 @@ kzorp_tg(struct sk_buff *skb, const struct xt_action_param *par)
 			/* get info from transport header */
 			ports = skb_header_pointer(skb, thoff, sizeof(_ports), &_ports);
 			if (unlikely(ports == NULL)) {
-				kz_debug("failed to get ports, dropped packet; src='%pI6', dst='%pI6'\n",
+				kz_debug("failed to get ports, dropped packet; src='%pI6c', dst='%pI6c'\n",
 					 &iph->saddr, &iph->daddr);
 				return NF_DROP;
 			}
 		}
 
-		kz_debug("kzorp hook processing packet: hook='%u', protocol='%u', src='%pI6:%u', dst='%pI6:%u'\n",
+		kz_debug("kzorp hook processing packet: hook='%u', protocol='%u', src='%pI6c:%u', dst='%pI6c:%u'\n",
 			 par->hooknum, l4proto, &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
 	}
 		break;

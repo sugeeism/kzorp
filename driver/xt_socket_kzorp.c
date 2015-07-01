@@ -422,8 +422,8 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
 			sk = NULL;
 	}
 
-	pr_debug("proto %hhd %pI6:%hu -> %pI6:%hu "
-		 "(orig %pI6:%hu) sock %p\n",
+	pr_debug("proto %hhd %pI6c:%hu -> %pI6c:%hu "
+		 "(orig %pI6c:%hu) sock %p\n",
 		 tproto, saddr, ntohs(sport),
 		 daddr, ntohs(dport),
 		 &iph->daddr, hp ? ntohs(hp->dest) : 0, sk);

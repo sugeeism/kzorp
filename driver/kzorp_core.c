@@ -425,7 +425,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 			ports = skb_header_pointer(skb, thoff, sizeof(_ports), &_ports);
 			if (unlikely(ports == NULL))
 				goto done;
-			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6:%u', dst='%pI6:%u'\n", l4proto,
+			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6c:%u', dst='%pI6c:%u'\n", l4proto,
 				 &iph->saddr, ntohs(ports->src), &iph->daddr, ntohs(ports->dst));
 		}
 		else if (l4proto == IPPROTO_ICMPV6) {
@@ -437,7 +437,7 @@ void nfct_kzorp_lookup_rcu(struct nf_conntrack_kzorp * kzorp,
 
 			proto_type = icmp->icmp6_type;
 			proto_subtype = icmp->icmp6_code;
-			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6', dst='%pI6', type='%d', code='%d'\n", l4proto,
+			kz_debug("kzorp lookup for packet: protocol='%u', src='%pI6c', dst='%pI6c', type='%d', code='%d'\n", l4proto,
 				 &iph->saddr, &iph->daddr, icmp->icmp6_type, icmp->icmp6_code);
 		}
 
@@ -541,7 +541,7 @@ kz_extension_add(struct nf_conn *ct,
 		case NFPROTO_IPV6:
 		{
 			const struct ipv6hdr * const iph = ipv6_hdr(skb);
-			kz_debug("can't add kzorp to ct for packet: src='%pI6', dst='%pI6'\n",
+			kz_debug("can't add kzorp to ct for packet: src='%pI6c', dst='%pI6c'\n",
 				 &iph->saddr, &iph->daddr);
 		}
 			break;
@@ -1882,7 +1882,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 
 	l3proto = nf_ct_l3num(ct);
 	if (verdict == KZ_VERDICT_ACCEPTED) {
-		const char *format = l3proto == NFPROTO_IPV4 ? "%pI4" : "%pI6";
+		const char *format = l3proto == NFPROTO_IPV4 ? "%pI4" : "%pI6c";
 		snprintf(server_str, sizeof(server_str), format, &ct_reply_tuple->src.u3.all);
 		snprintf(server_local_str, sizeof(server_local_str), format, &ct_reply_tuple->dst.u3.all);
 	} else {
@@ -1936,14 +1936,14 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "rule_id='%u', "
 				 "session_start='%llu', session_end='%llu', "
 				 "client_proto='%s', "
-				 "client_address='%pI6', "
+				 "client_address='%pI6c', "
 				 "client_port='%u', "
 				 "client_zone='%s', "
 				 "server_proto='%s', "
 				 "server_address='%s', "
 				 "server_port='%u', "
 				 "server_zone='%s', "
-				 "client_local='%pI6', "
+				 "client_local='%pI6c', "
 				 "client_local_port='%u', "
 				 "server_local='%s', "
 				 "server_local_port='%u', "
