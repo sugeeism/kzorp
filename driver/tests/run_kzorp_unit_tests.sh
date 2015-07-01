@@ -53,8 +53,6 @@ TestRoot="${Root}/tests"
 OSImageDir="${Root}/disk_images"
 OSImageName="disk.img.dist_${OSVersion}_${Architecture}"
 OSImagePath="${OSImageDir}/${OSImageName}"
-OSImagePathOrig="${OSImageDir}/${OSImageName}.orig"
-OSImagePathQemu="${OSImageDir}/${OSImageName}.qemu"
 OSImagePathSeed="${OSImageDir}/${OSImageName}.seed"
 
 ImageURL="http://cloud-images.ubuntu.com/server/releases/${OSVersion}/release"
@@ -105,22 +103,13 @@ runcmd:
  - sudo poweroff
 EOF
 
-
-if [ ! -f ${OSImagePathOrig} ]; then
-  ## Convert the compressed qcow file downloaded to a uncompressed qcow2
-  qemu-img convert -O qcow2 ${OSImagePath} ${OSImagePathOrig}
-fi
-
 ## create the disk with NoCloud data on it.
 cloud-localds ${OSImagePathSeed} $TestSeedConf
 
-## Create a delta disk to keep our .orig file pristine
-qemu-img create -f qcow2 -b ${OSImagePathOrig} ${OSImagePathQemu}
+## Boot a kvm, using the downloaded image as a snapshot and leaving it intact
+# In a terminal you can login to the machine through the curses interface
+#qemu-system-x86_64 --enable-kvm -curses -net nic -net user -hda ${OSImagePath} -hdb ${OSImagePathSeed} -m 2048 -fsdev local,security_model=passthrough,id=fsdev0,path=$TestRoot -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare -snapshot
 
-## Boot a kvm
-#In a terminal you can login to the machine through the curses interface
-#qemu-system-x86_64 --enable-kvm -curses -net nic -net user -hda ${OSImagePathQemu} -hdb ${OSImagePathSeed} -m 2048 -fsdev local,security_model=passthrough,id=fsdev0,path=$TestRoot -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare
-#Jenkins runs this without terminal
-${Qemu} -nographic -net nic -net user -hda ${OSImagePathQemu} -hdb ${OSImagePathSeed} -m 2048 -fsdev local,security_model=passthrough,id=fsdev0,path=$TestRoot -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare
-
+# Jenkins runs this without terminal
+${Qemu} -nographic -net nic -net user -hda ${OSImagePath} -hdb ${OSImagePathSeed} -m 2048 -fsdev local,security_model=passthrough,id=fsdev0,path=$TestRoot -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare -snapshot
 cp ${TestRoot}/result.xml result.xml
