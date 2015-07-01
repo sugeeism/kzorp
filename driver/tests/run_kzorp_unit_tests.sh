@@ -62,16 +62,17 @@ if [ ! -d ${OSImageDir} ]; then
   mkdir -p ${OSImageDir}
 fi
 
-## download the image (only once)
+## Download the image (only once)
 if [ ! -f ${OSImagePath} ]; then
   echo "Image not found under ${OSImagePath}"
   wget $ImageURL -O ${OSImagePath}
 fi
 
-## Create a file with some user-data in it
+## Create the result file so the VM will be able to write it
 mkdir -p $TestRoot
 touch $TestRoot/result.xml
 
+## Create the user-data file for cloud-init
 cat > $TestSeedConf <<EOF
 #cloud-config
 password: zorp
@@ -112,4 +113,6 @@ cloud-localds ${OSImagePathSeed} $TestSeedConf
 
 # Jenkins runs this without terminal
 ${Qemu} -nographic -net nic -net user -hda ${OSImagePath} -hdb ${OSImagePathSeed} -m 2048 -fsdev local,security_model=passthrough,id=fsdev0,path=$TestRoot -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare -snapshot
+
+## Copy the test result to the CWD, so Jenkins can access it
 cp ${TestRoot}/result.xml result.xml
