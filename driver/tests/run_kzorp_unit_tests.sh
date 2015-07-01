@@ -14,6 +14,7 @@ function print_help(){
 "   -r | --repository REPO - GIT repository of kZorp \n" \
 "   -b | --branch BRANCH - branch name of the repository where kZorp is compiled from \n" \
 "   -a | --arch ARCHITECTURE - Architecture name of the package to be installed\n" \
+"   -v | --version VERSION - Ubuntu version to run the test with\n" \
 "   -p | --path PATH - Path of the tests directory\n"
 "   -h | --help - Display this information \n"
 }
@@ -34,6 +35,7 @@ while (( $# )); do
     "-r" | "--Repository") Repository="$2"; shift 2;;
     "-b" | "--branch") Branch="$2"; shift 2;;
     "-a" | "--arch") Architecture="$2"; shift 2;;
+    "-v" | "--version") OSVersion="$2"; shift 2;;
     "-p" | "--path") Root="$2"; shift 2;;
     "-h" | "--help") print_help; exit 0;;
     *) echo "Invalid option $1" >&2; print_help; exit 1;;
