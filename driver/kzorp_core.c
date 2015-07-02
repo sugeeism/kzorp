@@ -1851,6 +1851,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 	u_int16_t l3proto;
 	u_int16_t l4proto;
 	char _buf[L4PROTOCOL_STRING_SIZE];
+	char server_str[IP_MAX_LENGTH + 1];
 	char server_local_str[IP_MAX_LENGTH + 1];
 	const char *verdict_str;
 	const char *l4proto_str;
@@ -1882,9 +1883,12 @@ kz_log_session_verdict(enum kz_verdict verdict,
 	l3proto = nf_ct_l3num(ct);
 	if (verdict == KZ_VERDICT_ACCEPTED) {
 		const char *format = l3proto == NFPROTO_IPV4 ? "%pI4" : "%pI6";
+		snprintf(server_str, sizeof(server_str), format, &ct_reply_tuple->src.u3.all);
 		snprintf(server_local_str, sizeof(server_local_str), format, &ct_reply_tuple->dst.u3.all);
 	} else {
+		server_port = 0;
 		server_local_port = 0;
+		snprintf(server_str, sizeof(server_str), "%s", kz_log_null);
 		snprintf(server_local_str, sizeof(server_local_str), "%s", kz_log_null);
 	}
 
@@ -1902,7 +1906,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "client_port='%u', "
 				 "client_zone='%s', "
 				 "server_proto='%s', "
-				 "server_address='%pI4', "
+				 "server_address='%s', "
 				 "server_port='%u', "
 				 "server_zone='%s', "
 				 "client_local='%pI4', "
@@ -1918,7 +1922,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 &ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
 				 l4proto_str,
-				 &ct_reply_tuple->src.u3.all, server_port,
+				 server_str, server_port,
 				 server_zone_name,
 				 &ct_orig_tuple->dst.u3.all, client_local_port,
 				 server_local_str, server_local_port,
@@ -1935,7 +1939,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 "client_port='%u', "
 				 "client_zone='%s', "
 				 "server_proto='%s', "
-				 "server_address='%pI6', "
+				 "server_address='%s', "
 				 "server_port='%u', "
 				 "server_zone='%s', "
 				 "client_local='%pI6', "
@@ -1951,7 +1955,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
 				 l4proto_str,
-				 ct_reply_tuple->src.u3.all, server_port,
+				 server_str, server_port,
 				 server_zone_name,
 				 ct_orig_tuple->dst.u3.all, client_local_port,
 				 server_local_str, server_local_port,
