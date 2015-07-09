@@ -1890,6 +1890,7 @@ kz_log_session_verdict(enum kz_verdict verdict,
 		server_local_port = 0;
 		snprintf(server_str, sizeof(server_str), "%s", kz_log_null);
 		snprintf(server_local_str, sizeof(server_local_str), "%s", kz_log_null);
+		server_zone_name = kz_log_null;
 	}
 
 	getnstimeofday(&now);
