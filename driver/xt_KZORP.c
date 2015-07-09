@@ -1068,6 +1068,11 @@ kz_input_newconn_verdict(struct sk_buff *skb,
 	struct kz_service *svc = kzorp->svc;
 
 	if (svc != NULL && svc->type == KZ_SERVICE_DENY) {
+		if (kzorp->sid == 0) {
+			if (!service_assign_session_id(ct, kzorp))
+				return NF_DROP;
+		}
+
 		/* Only deny services are processed on INPUT */
 		verdict = process_denied_session(NF_INET_PRE_ROUTING, skb, in, l3proto, l4proto, sport, dport, ct, kzorp);
 	}
