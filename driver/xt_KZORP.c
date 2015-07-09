@@ -467,7 +467,7 @@ process_forwarded_session(unsigned int hooknum, struct sk_buff *skb,
 
 			if (hooknum == NF_INET_PRE_ROUTING) {
 				/* XXX: Assumed: map->min_ip == map->max_ip */
-				fzone = kz_zone_lookup(cfg, ntohl(*kz_nat_range_get_min_ip(map)));
+				fzone = kz_zone_lookup(cfg, *kz_nat_range_get_min_ip(map));
 
 				kz_debug("re-lookup zone after NAT; old_zone='%s', new_zone='%s'\n",
 					 *szone ? (*szone)->name : kz_log_null,
