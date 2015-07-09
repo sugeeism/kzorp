@@ -1870,8 +1870,8 @@ kz_log_session_verdict(enum kz_verdict verdict,
 	l4proto = nf_ct_protonum(ct);
 	if (l4proto == IPPROTO_TCP || l4proto == IPPROTO_UDP) {
 		client_port = ntohs(ct_orig_tuple->src.u.all);
-		server_port = ntohs(ct_orig_tuple->dst.u.all);
-		client_local_port = ntohs(ct_reply_tuple->src.u.all);
+		server_port = ntohs(ct_reply_tuple->src.u.all);
+		client_local_port = ntohs(ct_orig_tuple->dst.u.all);
 		server_local_port = ntohs(ct_reply_tuple->dst.u.all);
 
 	} else {
@@ -1918,9 +1918,9 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 &ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
 				 l4proto_str,
-				 &ct_orig_tuple->dst.u3.all, server_port,
+				 &ct_reply_tuple->src.u3.all, server_port,
 				 server_zone_name,
-				 &ct_reply_tuple->src.u3.all, client_local_port,
+				 &ct_orig_tuple->dst.u3.all, client_local_port,
 				 server_local_str, server_local_port,
 				 verdict_str,
 				 info);
@@ -1951,9 +1951,9 @@ kz_log_session_verdict(enum kz_verdict verdict,
 				 ct_orig_tuple->src.u3.all, client_port,
 				 client_zone_name,
 				 l4proto_str,
-				 ct_orig_tuple->dst.u3.all, server_port,
+				 ct_reply_tuple->src.u3.all, server_port,
 				 server_zone_name,
-				 ct_reply_tuple->src.u3.all, client_local_port,
+				 ct_orig_tuple->dst.u3.all, client_local_port,
 				 server_local_str, server_local_port,
 				 verdict_str,
 				 info);
