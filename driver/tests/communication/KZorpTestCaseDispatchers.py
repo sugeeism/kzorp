@@ -21,6 +21,7 @@ import kzorp.messages as messages
 import errno
 import socket
 import testutil
+import unittest
 
 class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZones):
     _dispatchers = [
@@ -353,6 +354,7 @@ class KZorpTestCaseDispatchers(KZorpBaseTestCaseDispatchers, KZorpBaseTestCaseZo
         self.send_message(messages.KZorpAddZoneMessage('AAA', 'AA', 0))
         self.end_transaction()
 
+    @unittest.skip("should be tested when DeleteService message will be implemented")
     def test_delete_service_used_by_rule(self):
         self.start_transaction()
         self.send_message(messages.KZorpDeleteServiceMessage('A_A'))

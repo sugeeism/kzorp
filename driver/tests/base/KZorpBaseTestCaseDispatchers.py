@@ -121,7 +121,7 @@ class KZorpBaseTestCaseDispatchers(KZorpComm):
     def _check_add_rule_params(self, add_dispatcher_message, rule_data):
 
         attrs = add_dispatcher_message.get_attributes()
-        dpt_name, rule_id, service, rules = messages.parse_rule_attrs(attrs)
+        dpt_name, rule_id, service, rules, count = messages.parse_rule_attrs(attrs)
 
         self.assertEqual(rule_data['rule_id'], rule_id)
         self.assertEqual(rule_data['service'], service)

@@ -1,5 +1,5 @@
 check_SCRIPTS = KZorpTestCaseDispatchers.py KZorpTestCaseServices.py KZorpTestCaseTransaction.py KZorpTestCaseVersion.py KZorpTestCaseZones.py
-AM_TESTS_ENVIRONMENT = export PYTHONPATH=$(top_srcdir)/pylib;
+AM_TESTS_ENVIRONMENT = export PYTHONPATH=$(top_srcdir)/driver/tests/base:$(top_srcdir)/pylib;
 
 TEST_EXTENSIONS = .py
 PY_LOG_COMPILER = $(PYTHON)
