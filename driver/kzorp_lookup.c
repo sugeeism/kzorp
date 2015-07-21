@@ -815,7 +815,7 @@ kz_ndim_eval_rule_subnet(const u_int32_t n_subnets, const struct kz_in_subnet *c
 		break;
 	case NFPROTO_IPV6:
 		for (i = 0; i < n_subnets6; i++) {
-			kz_debug("comparing subnet; ip='%pI6', network='%pI6', mask='%pI6'\n",
+			kz_debug("comparing subnet; ip='%pI6c', network='%pI6c', mask='%pI6c'\n",
 				 &addr->in6, &r_subnets6[i].addr, &r_subnets6[i].mask);
 
 			if (!ipv6_masked_addr_cmp(&addr->in6, &r_subnets6[i].mask, &r_subnets6[i].addr))
@@ -1666,7 +1666,7 @@ zone_lookup_tree_add(struct kz_zone_lookup *zone_lookup, struct kz_zone * zone, 
 		break;
 	case NFPROTO_IPV6:
 		prefix_len = mask_to_size_v6(&subnet->mask.in6);
-		kz_debug("adding zone to radix tree; name='%s', address='%pI6', mask='%pI6', prefix_len='%u'\n",
+		kz_debug("adding zone to radix tree; name='%s', address='%pI6c', mask='%pI6c', prefix_len='%u'\n",
 			 zone->name, &subnet->addr.in6, &subnet->mask.in6, prefix_len);
 		root = zone_lookup->ipv6_root_node;
 		addr_prefix_equal = ipv6_addr_prefix_equal;
@@ -1704,7 +1704,7 @@ kz_head_zone_lookup(const struct kz_head_z *h, const union nf_inet_addr * addr, 
 		root = h->zone_lookup.ipv4_root_node;
 		break;
 	case NFPROTO_IPV6:
-		kz_debug("lookup zone in radix tree; addr='%pI6'\n", &addr->in6);
+		kz_debug("lookup zone in radix tree; addr='%pI6c'\n", &addr->in6);
 		root = h->zone_lookup.ipv6_root_node;
 		break;
 	default:
@@ -2029,7 +2029,7 @@ kz_instance_bind_lookup_v6(const struct kz_instance const *instance, u8 l4proto,
 	enum kz_bind_l4proto bind_l4proto = bind_lookup_get_l4proto(l4proto);
 	const struct kz_bind const *bind;
 
-	kz_debug("lookup bind; l4proto='%d', saddr='%pI6', sport='%d', daddr='%pI6', dport='%d'\n", l4proto, saddr, htons(sport), daddr, htons(dport));
+	kz_debug("lookup bind; l4proto='%d', saddr='%pI6c', sport='%d', daddr='%pI6c', dport='%d'\n", l4proto, saddr, htons(sport), daddr, htons(dport));
 
 	bind_num = instance->bind_lookup->bind_nums[KZ_BIND_L3PROTO_IPV6][bind_l4proto];
 	if (bind_num == 0) {
@@ -2136,7 +2136,7 @@ kz_lookup_session(const struct kz_config *cfg,
 			 traffic_props->iface ? traffic_props->iface->name : "(NULL)", traffic_props->l3proto, traffic_props->proto, &traffic_props->src_addr->in, traffic_props->src_port, &traffic_props->dst_addr->in, traffic_props->dst_port);
 		break;
 	case NFPROTO_IPV6:
-		kz_debug("in='%s', l3proto='%u', l4proto='%u', src='%pI6:%u', dst='%pI6:%u'\n",
+		kz_debug("in='%s', l3proto='%u', l4proto='%u', src='%pI6c:%u', dst='%pI6c:%u'\n",
 			 traffic_props->iface ? traffic_props->iface->name : "(NULL)", traffic_props->l3proto, traffic_props->proto, &traffic_props->src_addr->in6, traffic_props->src_port, &traffic_props->dst_addr->in6, traffic_props->dst_port);
 		break;
 	default:

@@ -23,6 +23,7 @@
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_conntrack_extend.h>
 #include "kzorp_netlink.h"
+#include <net/ip_vs.h>
 #include <net/xfrm.h>
 #include <linux/if.h>
 #include <linux/netdevice.h>
@@ -676,14 +677,14 @@ extern void kz_nfnetlink_cleanup(void);
 		kz_debug("%s; address='%pI4', port='%d', proto='%d' pid='%d'\n", msg, &bind->addr.in, bind->port, bind->proto, bind->peer_pid); \
 		break; \
 	case NFPROTO_IPV6: \
-		kz_debug("%s; address='%pI6', port='%d', proto='%d' pid='%d'\n", msg, &bind->addr.in6, bind->port, bind->proto, bind->peer_pid); \
+		kz_debug("%s; address='%pI6c', port='%d', proto='%d' pid='%d'\n", msg, &bind->addr.in6, bind->port, bind->proto, bind->peer_pid); \
 		break; \
 	default: \
 		BUG(); \
 	} \
 }
 
-#define L4PROTOCOL_STRING_SIZE 4 /* "100" plus trailing zero */
+#define L4PROTOCOL_STRING_SIZE 20 /* same as ip_vs_proto_name buffer size */
 
 /**
  * l4proto_as_string() - return name of protocol from number
@@ -697,20 +698,10 @@ extern void kz_nfnetlink_cleanup(void);
 static inline const char *
 l4proto_as_string(u8 protocol, char buf[L4PROTOCOL_STRING_SIZE])
 {
-	switch (protocol) {
-	case IPPROTO_TCP:
-		return "TCP";
-		break;
-	case IPPROTO_UDP:
-		return "UDP";
-		break;
-	case IPPROTO_ICMP:
-		return "ICMP";
-		break;
-	default:
-		snprintf(buf, L4PROTOCOL_STRING_SIZE, "%hhu", protocol);
-		return buf;
-	}
+	strncpy(buf, ip_vs_proto_name(protocol), L4PROTOCOL_STRING_SIZE);
+	buf[L4PROTOCOL_STRING_SIZE - 1] = '\0';
+
+	return buf;
 }
 
 enum kz_verdict {
