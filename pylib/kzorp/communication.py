@@ -100,6 +100,7 @@ class Adapter(object):
 
             commitTransaction(self.kzorp_handle)
         except netlink.NetlinkException as e:
+            import Zorp.Common
             Zorp.Common.log(None, Zorp.Common.CORE_ERROR, 6,
                        "Error occured while downloading zones to kernel; error='%s'" % (e.detail))
             raise e
