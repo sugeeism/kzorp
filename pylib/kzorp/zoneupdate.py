@@ -1,5 +1,6 @@
 import socket
 from netlink import *
+from messages import *
 import pprint
 from Zorp.Zone import Zone
 from Zorp.Subnet import Subnet
