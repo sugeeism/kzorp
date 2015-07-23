@@ -836,6 +836,11 @@ process_denied_session(unsigned int hooknum, struct sk_buff *skb,
 	struct kz_service *svc = kzorp->svc;
 	struct net *net = dev_net(in);
 
+	kz_session_log("Session denied",
+			kzorp->svc, l3proto, l4proto,
+			kzorp->czone, kzorp->szone, skb,
+			sport, dport);
+
 	kz_log_session_verdict(KZ_VERDICT_DENIED_BY_POLICY, "Rejecting session", ct, kzorp);
 
 	switch (l3proto) {
