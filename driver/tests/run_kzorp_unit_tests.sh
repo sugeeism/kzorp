@@ -115,8 +115,8 @@ runcmd:
  - echo clear | sudo tee /sys/kernel/debug/kmemleak
  - sudo bash -c "PYTHONPATH=\$PYTHONPATH:\$TEST_PYTHONPATH nosetests --with-xunit \$TEST_FILES"
  - sleep 5
- - echo scan | sudo tee /sys/kernel/debug/kmemleak
- - echo scan | sudo tee /sys/kernel/debug/kmemleak
+ - echo scan | sudo tee /sys/kernel/debug/kmemleak  # kmemleak is more reliable when scanning twice:
+ - echo scan | sudo tee /sys/kernel/debug/kmemleak  # http://stackoverflow.com/questions/12943906/debug-kernel-module-memory-corruption
  - sudo cp /sys/kernel/debug/kmemleak ${TestRoot}/kmemleak
  - cp nosetests.xml ${TestRoot}/result.xml
  - sudo poweroff
