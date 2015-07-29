@@ -1961,6 +1961,7 @@ kz_instance_remove_bind(struct kz_instance *instance, const netlink_port_t pid_t
 			if (io->type == KZNL_OP_ADD_BIND) {
 				new_bind = (struct kz_bind *) (io->data);
 				list_del(&io->list);
+				kfree(io);
 				list_add(&new_bind->list, &bind_lookup->list_bind);
 				kz_bind_debug(new_bind, "bind from transaction added");
 			}

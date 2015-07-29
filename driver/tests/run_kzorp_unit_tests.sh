@@ -11,6 +11,7 @@ function print_help(){
 "Usage of $0:\n" \
 "   $0 [options]\n" \
 "Options:\n" \
+"   -k | --kmemleak IMAGE - Base cloud image with a kmemleak-enabled kernel to download, ignores ARCHITECTURE and VERSION\n" \
 "   -r | --repository REPO - GIT repository of kZorp \n" \
 "   -b | --branch BRANCH - branch name of the repository where kZorp is compiled from \n" \
 "   -a | --arch ARCHITECTURE - Architecture name of the package to be installed\n" \
@@ -32,6 +33,7 @@ OSVersion="14.04"
 
 while (( $# )); do
   case $1 in
+    "-k" | "--kmemleak") KMemLeakURL="$2"; shift 2;;
     "-r" | "--Repository") Repository="$2"; shift 2;;
     "-b" | "--branch") Branch="$2"; shift 2;;
     "-a" | "--arch") Architecture="$2"; shift 2;;
@@ -55,8 +57,12 @@ OSImageName="disk.img.dist_${OSVersion}_${Architecture}"
 OSImagePath="${OSImageDir}/${OSImageName}"
 OSImagePathSeed="${OSImageDir}/${OSImageName}.seed"
 
-ImageURL="http://cloud-images.ubuntu.com/server/releases/${OSVersion}/release"
-ImageURL="${ImageURL}/ubuntu-${OSVersion}-server-cloudimg-${Architecture}-disk1.img"
+if [ -z ${KMemLeakURL} ]; then
+  ImageURL="http://cloud-images.ubuntu.com/server/releases/${OSVersion}/release"
+  ImageURL="${ImageURL}/ubuntu-${OSVersion}-server-cloudimg-${Architecture}-disk1.img"
+else
+  ImageURL=${KMemLeakURL}
+fi
 
 if [ ! -d ${OSImageDir} ]; then
   mkdir -p ${OSImageDir}
@@ -71,6 +77,20 @@ fi
 ## Create the result file so the VM will be able to write it
 mkdir -p $TestRoot
 touch $TestRoot/result.xml
+touch $TestRoot/kmemleak
+
+## Packages to install
+Packages="
+ - git
+ - build-essential
+ - autoconf
+ - libtool
+ - python-prctl
+ - python-nose"
+if [ -z ${KMemLeakURL} ]; then
+  Packages="$Packages
+ - linux-headers-generic"
+fi
 
 ## Create the user-data file for cloud-init
 cat > $TestSeedConf <<EOF
@@ -78,14 +98,7 @@ cat > $TestSeedConf <<EOF
 password: zorp
 chpasswd: { expire: False }
 ssh_pwauth: True
-packages:
- - git
- - build-essential
- - linux-headers-generic
- - autoconf
- - libtool
- - python-prctl
- - python-nose
+packages: $Packages
 runcmd:
  - set -x
  - mkdir -p $TestRoot
@@ -99,7 +112,12 @@ runcmd:
  - sudo make install-driver
  - TEST_PYTHONPATH=\$PWD/pylib:\$PWD/driver/tests/base
  - TEST_FILES=\`find driver/tests/ -name KZorpTestCase\*.py -printf "%p "\`
+ - echo clear | sudo tee /sys/kernel/debug/kmemleak
  - sudo bash -c "PYTHONPATH=\$PYTHONPATH:\$TEST_PYTHONPATH nosetests --with-xunit \$TEST_FILES"
+ - sleep 5
+ - echo scan | sudo tee /sys/kernel/debug/kmemleak  # kmemleak is more reliable when scanning twice:
+ - echo scan | sudo tee /sys/kernel/debug/kmemleak  # http://stackoverflow.com/questions/12943906/debug-kernel-module-memory-corruption
+ - sudo cp /sys/kernel/debug/kmemleak ${TestRoot}/kmemleak
  - cp nosetests.xml ${TestRoot}/result.xml
  - sudo poweroff
 EOF
@@ -116,3 +134,7 @@ ${Qemu} -nographic -net nic -net user -hda ${OSImagePath} -hdb ${OSImagePathSeed
 
 ## Copy the test result to the CWD, so Jenkins can access it
 cp ${TestRoot}/result.xml result.xml
+if [ ! -z $KMemLeakURL ]; then
+  cp ${TestRoot}/kmemleak kmemleak
+  ./driver/tests/kmemleak2junit.py
+fi

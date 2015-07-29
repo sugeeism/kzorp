@@ -168,6 +168,17 @@ transaction_destroy_bind(void *data)
 	kz_bind_destroy((struct kz_bind *)data);
 }
 
+static inline void
+kz_operation_remove(struct kz_operation *operation)
+{
+	list_del(&operation->list);
+
+	if (operation->data && operation->data_destroy)
+		operation->data_destroy(operation->data);
+
+	kfree(operation);
+}
+
 /* caller must mutex the passed transaction! */
 static void
 transaction_cleanup_op(struct kz_transaction *tr)
@@ -175,12 +186,7 @@ transaction_cleanup_op(struct kz_transaction *tr)
 	struct kz_operation *o, *p;
 
 	list_for_each_entry_safe(o, p, &tr->op, list) {
-		list_del(&o->list);
-
-		if (o->data && o->data_destroy)
-			o->data_destroy(o->data);
-
-		kfree(o);
+		kz_operation_remove(o);
 	}
 }
 
@@ -1205,7 +1211,7 @@ kznl_zone_apply_delete_operation(struct kz_zone *deletable_zone, const struct li
 		if (operation->type == KZNL_OP_DELETE_ZONE) {
 			const struct kz_zone const * updater_zone = (const struct kz_zone const *) operation->data;
 			if (strcmp(updater_zone->name, deletable_zone->name) == 0) {
-				list_del(&operation->list);
+				kz_operation_remove(operation);
 				return true;
 			}
 		}
@@ -1759,6 +1765,8 @@ error_unlock_tr:
 	if (parent_name != NULL)
 		kfree(parent_name);
 
+	kz_zone_put(zone);
+
 	return res;
 }
 
@@ -1841,6 +1849,8 @@ kznl_recv_delete_zone(struct sk_buff *skb, struct genl_info *info)
 error_unlock_op:
 error_unlock_tr:
 	UNLOCK_TRANSACTIONS();
+
+	kz_zone_put(zone);
 
 	return res;
 }

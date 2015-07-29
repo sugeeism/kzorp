@@ -667,6 +667,9 @@ kz_zone_destroy(struct kz_zone *zone)
 	       kz_zone_put(zone->admin_parent);
        if (zone->name)
 	       kfree(zone->name);
+       if (zone->subnet)
+	       kfree(zone->subnet);
+
        kfree(zone);
 }
 EXPORT_SYMBOL_GPL(kz_zone_destroy);
