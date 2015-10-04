@@ -22,7 +22,10 @@ import sys
 sys.dont_write_bytecode = True
 
 import daemon
-from lockfile.pidlockfile import PIDLockFile
+try:
+    from daemon.pidlockfile import PIDLockFile
+except ImportError:
+    from lockfile.pidlockfile import PIDLockFile
 import itertools
 
 import os
