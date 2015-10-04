@@ -1,0 +1,12 @@
+[Unit]
+Description=Kzorp dynamic hostnames
+
+[Service]
+Type=simple
+PIDFile=/var/run/zorp/kzorpd.pid
+ExecStart=/usr/sbin/kzorpd --user root --group root --no-caps
+ExecStop=/usr/bin/kill $MAINPID
+ExecReload=/usr/bin/kill -s SIGHUP $MAINPID
+
+[Install]
+WantedBy=default.target
